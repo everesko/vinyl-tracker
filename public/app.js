@@ -3409,13 +3409,13 @@ const App = {
               <div class="search-result-left">
                 <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
                 <div class="search-meta" style="min-width:0;">
-                  <div class="search-artist" style="font-size:11.5px;">${this.escapeHtml(item.artist || item.rawTitle)}</div>
-                  <div class="search-title" style="font-size:12px; font-weight:600;">
-                    <a href="javascript:void(0)" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})">${this.escapeHtml(item.title || '')}</a>
+                  <div class="search-artist" style="font-size:11.5px; color:#cbd5e1; font-weight:600;">${this.escapeHtml(item.artist || item.rawTitle)}</div>
+                  <div class="search-title" style="font-size:12.5px; font-weight:700;">
+                    <a href="javascript:void(0)" class="dual-album-link" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="color:#ffffff; text-decoration:none;">${this.escapeHtml(item.title || '')}</a>
                   </div>
-                  <div class="search-tags" style="font-size:10.5px;">
-                    ${item.year ? `<span>${this.escapeHtml(item.year)}</span> • ` : ''}
-                    <span>${this.formatVinylVersions(item.versionsCount || 1)}</span>
+                  <div class="search-tags" style="font-size:10.5px; color:#94a3b8;">
+                    ${item.year ? `<span style="color:#cbd5e1;">${this.escapeHtml(item.year)}</span> • ` : ''}
+                    <span style="color:#38bdf8;">${this.formatVinylVersions(item.versionsCount || 1)}</span>
                   </div>
                 </div>
               </div>
@@ -3437,9 +3437,9 @@ const App = {
               <div class="search-result-left">
                 <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
                 <div class="search-meta" style="min-width:0;">
-                  <div class="search-artist" style="font-size:11.5px; color:#1ed760;">${this.escapeHtml(item.artist)}</div>
-                  <div class="search-title" style="font-size:12px; font-weight:600;">${this.escapeHtml(item.title)}</div>
-                  <div style="font-size:10.5px; color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">💽 Альбом: ${this.escapeHtml(item.album || item.title)}</div>
+                  <div class="search-artist" style="font-size:11.5px; color:#4ade80; font-weight:700;">${this.escapeHtml(item.artist)}</div>
+                  <div class="search-title" style="font-size:12.5px; font-weight:700; color:#ffffff;">${this.escapeHtml(item.title)}</div>
+                  <div class="dual-sp-parent-alb" style="font-size:11px; color:#cbd5e1; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">💽 Альбом: <b style="color:#f8fafc;">${this.escapeHtml(item.album || item.title)}</b></div>
                 </div>
               </div>
               <div class="search-result-right" style="gap:4px;">
@@ -3552,7 +3552,7 @@ const App = {
 
       this.lastSearchResults = results;
       // Pre-warm tracklist cache for top results immediately
-      results.slice(0, 2).forEach(it => this.prefetchAlbumTracklist(it));
+      results.slice(0, 5).forEach(it => this.prefetchAlbumTracklist(it));
 
       if (isSpotify) {
         // SPOTIFY TRACK SEARCH RESULTS (Shows song, its parent album, and one-click transfer to Discogs vinyl search)
@@ -3853,7 +3853,7 @@ const App = {
 
       this.lastSearchResults = results;
       // Pre-warm tracklist cache for top results
-      results.slice(0, 2).forEach(it => this.prefetchAlbumTracklist(it));
+      results.slice(0, 5).forEach(it => this.prefetchAlbumTracklist(it));
 
       const headerHtml = `
         <div class="artist-discography-header">
@@ -4472,6 +4472,42 @@ const App = {
     this.switchTracklistMedia('video');
   },
 
+  getTracklistFromCache(key) {
+    if (!key) return null;
+    const k = String(key);
+    if (this.tracklistCache.has(k)) return this.tracklistCache.get(k);
+    try {
+      const raw = localStorage.getItem(`vh_tl_${k}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.tracklist && parsed.tracklist.length > 0) {
+          this.tracklistCache.set(k, parsed);
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return null;
+  },
+
+  saveTracklistToCache(key, data) {
+    if (!key || !data || !data.tracklist || data.tracklist.length === 0) return;
+    const k = String(key);
+    this.tracklistCache.set(k, data);
+    try {
+      localStorage.setItem(`vh_tl_${k}`, JSON.stringify(data));
+    } catch (e) {
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const lk = localStorage.key(i);
+          if (lk && lk.startsWith('vh_tl_')) {
+            localStorage.removeItem(lk);
+          }
+        }
+        localStorage.setItem(`vh_tl_${k}`, JSON.stringify(data));
+      } catch (err) {}
+    }
+  },
+
   prefetchAlbumTracklist(item) {
     if (!item || (!item.id && !item.masterId && !item.discogsId && !item.spotifyId)) return;
     const cacheKey = item.masterId || item.discogsId || item.id;
@@ -4479,7 +4515,7 @@ const App = {
       ? `${String(item.artist).toLowerCase().trim()}:::${String(item.album || item.title).toLowerCase().trim()}`
       : null;
 
-    if (this.tracklistCache.has(String(cacheKey)) || (nameKey && this.tracklistCache.has(nameKey))) {
+    if (this.getTracklistFromCache(cacheKey) || (nameKey && this.getTracklistFromCache(nameKey))) {
       return;
     }
 
@@ -4501,29 +4537,14 @@ const App = {
           }
         }
 
-        let data = null;
-        const rawSpId = item.spotifyId || (strId.startsWith('sp-') ? strId.replace('sp-', '') : '');
-        if (rawSpId || (!queryId && (item.artist && (item.album || item.title)))) {
-          try {
-            const spRes = await fetch(`/api/spotify/album/tracks?id=${encodeURIComponent(rawSpId || '')}&artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`);
-            if (spRes.ok) {
-              const spData = await spRes.json();
-              if (spData && spData.found && spData.tracklist && spData.tracklist.length > 0) {
-                data = spData;
-              }
-            }
-          } catch (e) {}
-        }
-
-        if (!data && queryId) {
-          const res = await fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId)}&type=${queryType}`);
-          if (res.ok) data = await res.json();
-        }
-
-        if (data && data.tracklist && data.tracklist.length > 0) {
-          if (cacheKey) this.tracklistCache.set(String(cacheKey), data);
-          if (nameKey) this.tracklistCache.set(nameKey, data);
-          if (item.masterId) this.tracklistCache.set(String(item.masterId), data);
+        const res = await fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.tracklist && data.tracklist.length > 0) {
+            if (cacheKey) this.saveTracklistToCache(cacheKey, data);
+            if (nameKey) this.saveTracklistToCache(nameKey, data);
+            if (item.masterId) this.saveTracklistToCache(item.masterId, data);
+          }
         }
       } catch (e) {}
     })();
@@ -4694,18 +4715,14 @@ const App = {
     modal.classList.add('open');
     modal.classList.add('active');
 
-    // Instant display from in-memory cache if available! (0 ms response)
+    // Instant display from persistent/memory cache if available! (0 ms response)
     const cacheKey = item.masterId || item.discogsId || item.id;
     const nameKey = (item.artist && (item.album || item.title))
       ? `${String(item.artist).toLowerCase().trim()}:::${String(item.album || item.title).toLowerCase().trim()}`
       : null;
 
-    let cached = null;
-    if (this.tracklistCache.has(String(cacheKey))) {
-      cached = this.tracklistCache.get(String(cacheKey));
-    } else if (nameKey && this.tracklistCache.has(nameKey)) {
-      cached = this.tracklistCache.get(nameKey);
-    } else if (Array.isArray(item.tracklist) && item.tracklist.length > 0) {
+    let cached = this.getTracklistFromCache(cacheKey) || (nameKey ? this.getTracklistFromCache(nameKey) : null);
+    if (!cached && Array.isArray(item.tracklist) && item.tracklist.length > 0) {
       cached = {
         id: item.id,
         title: item.album || item.title,
@@ -4714,6 +4731,8 @@ const App = {
         cover: item.coverImage || item.thumb,
         tracklist: item.tracklist
       };
+      this.saveTracklistToCache(cacheKey, cached);
+      if (nameKey) this.saveTracklistToCache(nameKey, cached);
     }
 
     if (cached && cached.tracklist && cached.tracklist.length > 0) {
@@ -4723,7 +4742,7 @@ const App = {
 
     if (loadingEl) {
       loadingEl.style.display = 'block';
-      loadingEl.textContent = '⏳ Загрузка официального треклиста и аудио-превью...';
+      loadingEl.textContent = '⏳ Моментальная загрузка треклиста...';
     }
     if (listEl) {
       listEl.style.display = 'none';
@@ -4748,58 +4767,61 @@ const App = {
         }
       }
 
-      let data = null;
-      // If it's a Spotify album/track search result, query Spotify/Deezer album tracks directly
       const rawSpId = item.spotifyId || (strId.startsWith('sp-') ? strId.replace('sp-', '') : '');
-      if (rawSpId || (!queryId && (item.artist && (item.album || item.title)))) {
-        try {
-          const spRes = await fetch(`/api/spotify/album/tracks?id=${encodeURIComponent(rawSpId || '')}&artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`);
-          if (spRes.ok) {
-            const spData = await spRes.json();
-            if (spData && spData.found && spData.tracklist && spData.tracklist.length > 0) {
-              data = spData;
-            }
-          }
-        } catch (spE) {}
+      const reqs = [];
+
+      // Concurrent fetch: 1. Discogs tracklist (server falls back to Spotify/Deezer automatically)
+      if (queryId || (item.artist && (item.album || item.title))) {
+        reqs.push(
+          fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        );
       }
 
-      if (!data && queryId) {
-        let res = await fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId)}&type=${queryType}`);
-        if (res.ok) data = await res.json();
+      // Concurrent fetch: 2. Spotify album tracks directly
+      if (rawSpId || (item.artist && (item.album || item.title))) {
+        reqs.push(
+          fetch(`/api/spotify/album/tracks?id=${encodeURIComponent(rawSpId || '')}&artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        );
       }
 
-      // If tracklist is not found yet, search Discogs by artist + album/title
-      if ((!data || !data.tracklist || data.tracklist.length === 0) && (item.artist || item.title || item.album)) {
-        const searchTerm = item.artist 
-          ? `${item.artist} ${item.album || item.title}` 
-          : (item.album || item.title);
-        const sRes = await fetch(`/api/discogs/search?q=${encodeURIComponent(searchTerm)}&type=release&per_page=1`);
-        if (sRes.ok) {
-          const sData = await sRes.json();
-          if (sData.results && sData.results[0] && sData.results[0].id) {
-            const relRes = await fetch(`/api/discogs/tracklist?id=${sData.results[0].id}&type=release`);
-            if (relRes.ok) data = await relRes.json();
-          }
-        }
-      }
-
-      // Final fallback: try /api/spotify/album/tracks with artist + album
-      if (!data || !data.tracklist || data.tracklist.length === 0) {
-        try {
-          const spRes2 = await fetch(`/api/spotify/album/tracks?artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`);
-          if (spRes2.ok) {
-            const spData2 = await spRes2.json();
-            if (spData2 && spData2.found && spData2.tracklist && spData2.tracklist.length > 0) {
-              data = spData2;
-            }
-          }
-        } catch (e2) {}
+      // Settle as soon as the first request with valid tracks arrives
+      let data = null;
+      if (reqs.length > 0) {
+        data = await new Promise(resolve => {
+          let pending = reqs.length;
+          let settled = false;
+          reqs.forEach(p => {
+            p.then(res => {
+              if (settled) return;
+              if (res && res.tracklist && res.tracklist.length > 0) {
+                settled = true;
+                resolve(res);
+              } else {
+                pending--;
+                if (pending <= 0) {
+                  settled = true;
+                  resolve(res || null);
+                }
+              }
+            }).catch(() => {
+              pending--;
+              if (pending <= 0 && !settled) {
+                settled = true;
+                resolve(null);
+              }
+            });
+          });
+        });
       }
 
       if (data && data.tracklist && data.tracklist.length > 0) {
-        if (cacheKey) this.tracklistCache.set(String(cacheKey), data);
-        if (nameKey) this.tracklistCache.set(nameKey, data);
-        if (item.masterId) this.tracklistCache.set(String(item.masterId), data);
+        if (cacheKey) this.saveTracklistToCache(cacheKey, data);
+        if (nameKey) this.saveTracklistToCache(nameKey, data);
+        if (item.masterId) this.saveTracklistToCache(item.masterId, data);
       }
 
       this.renderTracklistData(data, item);

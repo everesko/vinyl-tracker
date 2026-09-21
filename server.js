@@ -158,15 +158,17 @@ class SmartPriorityDiscogsQueue {
     this.highQueue = [];
     this.lowQueue = [];
     this.activeCount = 0;
-    this.maxConcurrent = 3;
+    this.maxConcurrent = 5;
     this.remainingLimit = 60;
     this.pauseUntil = 0;
   }
 
-  enqueue(taskFn, isPriority = true) {
+  enqueue(taskFn, isPriority = true, isUrgent = false) {
     return new Promise((resolve, reject) => {
-      const task = { fn: taskFn, resolve, reject, isPriority, createdAt: Date.now() };
-      if (isPriority) {
+      const task = { fn: taskFn, resolve, reject, isPriority, isUrgent, createdAt: Date.now() };
+      if (isUrgent) {
+        this.highQueue.unshift(task); // Instant top-priority execution for user clicks!
+      } else if (isPriority) {
         this.highQueue.push(task);
       } else {
         this.lowQueue.push(task);
@@ -221,7 +223,7 @@ class SmartPriorityDiscogsQueue {
 
 const discogsQueue = new SmartPriorityDiscogsQueue();
 
-function executeDiscogsHttp(apiPath, method = 'GET', postData = null, authHeader = null, userToken = null, isPriority = true) {
+function executeDiscogsHttp(apiPath, method = 'GET', postData = null, authHeader = null, userToken = null, isPriority = true, isUrgent = false) {
   return discogsQueue.enqueue(() => {
     return new Promise((resolve, reject) => {
       const headers = {
@@ -287,13 +289,13 @@ function executeDiscogsHttp(apiPath, method = 'GET', postData = null, authHeader
       }
       req.end();
     });
-  }, isPriority);
+  }, isPriority, isUrgent);
 }
 
-async function discogsRequest(apiPath, method = 'GET', postData = null, authHeader = null, userToken = null, retries = 2, isPriority = true) {
+async function discogsRequest(apiPath, method = 'GET', postData = null, authHeader = null, userToken = null, retries = 2, isPriority = true, isUrgent = false) {
   let response;
   try {
-    response = await executeDiscogsHttp(apiPath, method, postData, authHeader, userToken, isPriority);
+    response = await executeDiscogsHttp(apiPath, method, postData, authHeader, userToken, isPriority, isUrgent);
   } catch (err) {
     console.warn(`[Discogs request error on ${apiPath}]:`, err.message);
     return { statusCode: 503, headers: {}, data: { error: err.message } };
@@ -305,7 +307,7 @@ async function discogsRequest(apiPath, method = 'GET', postData = null, authHead
     discogsQueue.pause(waitMs);
     if (retries > 0) {
       await sleep(waitMs);
-      return discogsRequest(apiPath, method, postData, authHeader, userToken, retries - 1, isPriority);
+      return discogsRequest(apiPath, method, postData, authHeader, userToken, retries - 1, isPriority, isUrgent);
     } else {
       console.warn(`[Discogs 429 limit reached on ${apiPath}]. Returning safe fallback.`);
       return {
@@ -969,60 +971,86 @@ const server = http.createServer(async (req, res) => {
 
   // Release or Master Tracklist for Album Tracklist Modal
   if (pathname === '/api/discogs/tracklist' && req.method === 'GET') {
-    const id = query.id;
+    const id = (query.id || '').trim();
     const type = query.type || 'release'; // 'release' or 'master'
-    if (!id) {
+    const qArtist = (query.artist || '').trim();
+    const qAlbum = (query.album || query.title || '').trim();
+
+    if (!id && !qAlbum) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'id parameter is required' }));
+      res.end(JSON.stringify({ error: 'id or album parameter is required' }));
       return;
     }
 
-    const cacheKey = `tracklist:${type}:${id}`;
-    const cached = getCached(cacheKey);
-    if (cached) {
+    const cacheKey = `tracklist:${type}:${id}:${qArtist}:${qAlbum}`;
+    const cached = getCached(cacheKey) || (id ? getCached(`tracklist:${type}:${id}`) : null);
+    if (cached && Array.isArray(cached.tracklist) && cached.tracklist.length > 0) {
       res.writeHead(200, { 'Content-Type': 'application/json', 'X-Cache': 'HIT' });
       res.end(JSON.stringify(cached));
       return;
     }
 
     try {
-      const apiPath = type === 'master' ? `/masters/${id}` : `/releases/${id}`;
-      const resp = await discogsRequest(apiPath, 'GET', null, null, userToken);
-      const data = resp.data || {};
-      const tracklist = (data.tracklist || []).map((t, idx) => ({
-        position: t.position || `${idx + 1}`,
-        title: t.title || 'Без названия',
-        duration: t.duration || '',
-        type_: t.type_ || 'track'
-      })).filter(t => t.type_ === 'track' || !t.type_);
+      let data = null;
+      let resp = null;
 
-      const artistName = (data.artists && data.artists[0] && data.artists[0].name) || (data.artists_sort) || '';
-      const coverUrl = (data.images && data.images[0] && data.images[0].resource_url) || data.thumb || '';
+      if (id) {
+        const apiPath = type === 'master' ? `/masters/${id}` : `/releases/${id}`;
+        resp = await discogsRequest(apiPath, 'GET', null, null, userToken, 1, true, true);
+        if (resp && resp.statusCode === 200 && resp.data) {
+          data = resp.data;
+        }
 
-      // If Discogs tracklist is empty, automatically fallback to Spotify album tracks
+        // Fast auto-fallback if master returned 404/not found: try release, and vice versa!
+        if (!data) {
+          const altPath = type === 'master' ? `/releases/${id}` : `/masters/${id}`;
+          const altResp = await discogsRequest(altPath, 'GET', null, null, userToken, 1, true, true);
+          if (altResp && altResp.statusCode === 200 && altResp.data) {
+            data = altResp.data;
+          }
+        }
+      }
+
+      let tracklist = [];
+      if (data && Array.isArray(data.tracklist)) {
+        tracklist = data.tracklist.map((t, idx) => ({
+          position: t.position || `${idx + 1}`,
+          title: t.title || 'Без названия',
+          duration: t.duration || '',
+          type_: t.type_ || 'track'
+        })).filter(t => t.type_ === 'track' || !t.type_);
+      }
+
+      let artistName = (data && data.artists && data.artists[0] && data.artists[0].name) || (data && data.artists_sort) || qArtist || '';
+      let albumTitle = (data && data.title) || qAlbum || '';
+      let coverUrl = (data && data.images && data.images[0] && data.images[0].resource_url) || (data && data.thumb) || '';
+      let albumYear = (data && data.year) || '';
+
+      // If Discogs tracklist is empty, immediately fallback to Spotify / Deezer album tracks!
       let tracklistSource = 'Discogs';
       let discogsNotFound = false;
 
-      if (tracklist.length === 0 && (artistName || data.title)) {
+      if (tracklist.length === 0 && (artistName || albumTitle)) {
         try {
           const spToken = await getSpotifyClientCredentialsToken();
           if (spToken) {
-            const spQuery = artistName ? `album:${data.title || ''} artist:${artistName}` : (data.title || '');
+            const cleanArt = artistName.replace(/\s*\(\d+\)$/, '').trim();
+            const spQuery = cleanArt ? `album:${albumTitle} artist:${cleanArt}` : albumTitle;
             const spSearchResp = await executeSpotifyHttp(`/v1/search?q=${encodeURIComponent(spQuery)}&type=album&limit=1`, 'GET', null, spToken);
             const spAlbum = spSearchResp.statusCode === 200 && spSearchResp.data?.albums?.items?.[0];
             if (spAlbum && spAlbum.id) {
+              if (!coverUrl && spAlbum.images && spAlbum.images[0]) coverUrl = spAlbum.images[0].url;
+              if (!albumYear && spAlbum.release_date) albumYear = spAlbum.release_date.substring(0, 4);
               const spTracksResp = await executeSpotifyHttp(`/v1/albums/${spAlbum.id}/tracks?limit=50`, 'GET', null, spToken);
               if (spTracksResp.statusCode === 200 && Array.isArray(spTracksResp.data?.items)) {
-                for (let idx = 0; idx < spTracksResp.data.items.length; idx++) {
-                  const t = spTracksResp.data.items[idx];
-                  tracklist.push({
-                    position: `${idx + 1}`,
-                    title: t.name || 'Без названия',
-                    duration: t.duration_ms ? `${Math.floor(t.duration_ms / 60000)}:${String(Math.floor((t.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
-                    previewUrl: t.preview_url || null,
-                    type_: 'track'
-                  });
-                }
+                tracklist = spTracksResp.data.items.map((t, idx) => ({
+                  position: `${t.track_number || idx + 1}`,
+                  title: t.name || 'Без названия',
+                  duration: t.duration_ms ? `${Math.floor(t.duration_ms / 60000)}:${String(Math.floor((t.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
+                  previewUrl: t.preview_url || null,
+                  artist: t.artists ? t.artists.map(a => a.name).join(', ') : cleanArt,
+                  type_: 'track'
+                }));
                 if (tracklist.length > 0) {
                   tracklistSource = 'Spotify';
                   discogsNotFound = true;
@@ -1030,25 +1058,64 @@ const server = http.createServer(async (req, res) => {
               }
             }
           }
-        } catch (spErr) {
-          console.warn('Spotify tracklist fallback error:', spErr.message);
+        } catch (spErr) {}
+
+        // Deezer fallback if Spotify didn't find album tracks
+        if (tracklist.length === 0) {
+          try {
+            const cleanArt = artistName.replace(/\s*\(\d+\)$/, '').trim();
+            const dzQuery = cleanArt ? `${cleanArt} ${albumTitle}` : albumTitle;
+            const dzSearch = await new Promise(resolve => {
+              https.get(`https://api.deezer.com/search/album?q=${encodeURIComponent(dzQuery)}&limit=1`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+                let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+              }).on('error', () => resolve(null));
+            });
+            if (dzSearch && dzSearch.data && dzSearch.data[0] && dzSearch.data[0].id) {
+              const foundDzId = dzSearch.data[0].id;
+              const dzDetail = await new Promise(resolve => {
+                https.get(`https://api.deezer.com/album/${foundDzId}`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+                  let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+                }).on('error', () => resolve(null));
+              });
+              if (dzDetail && dzDetail.tracks && Array.isArray(dzDetail.tracks.data)) {
+                if (!coverUrl) coverUrl = dzDetail.cover_xl || dzDetail.cover_medium || '';
+                if (!albumYear && dzDetail.release_date) albumYear = dzDetail.release_date.substring(0, 4);
+                tracklist = dzDetail.tracks.data.map((t, idx) => ({
+                  position: `${t.track_position || idx + 1}`,
+                  title: t.title || 'Без названия',
+                  duration: `${Math.floor((t.duration || 0) / 60)}:${String((t.duration || 0) % 60).padStart(2, '0')}`,
+                  previewUrl: t.preview || null,
+                  artist: t.artist ? t.artist.name : cleanArt,
+                  type_: 'track'
+                }));
+                if (tracklist.length > 0) {
+                  tracklistSource = 'Deezer';
+                  discogsNotFound = true;
+                }
+              }
+            }
+          } catch (dzErr) {}
         }
       }
 
       const result = {
-        id,
+        id: id || (data && data.id),
         type,
-        title: data.title || '',
+        title: albumTitle,
         artist: artistName.replace(/\s*\(\d+\)$/, ''),
-        year: data.year || '',
+        year: albumYear,
         cover: coverUrl,
         tracklist,
         source: tracklistSource,
         discogsNotFound,
-        notice: discogsNotFound ? 'В Discogs треклист не найден — загружен официальный треклист Spotify' : null
+        notice: discogsNotFound ? 'В Discogs треклист не найден — загружен оригинальный треклист Spotify/Deezer' : null
       };
 
-      setCached(cacheKey, result, 7 * 24 * 60 * 60 * 1000); // 7 days cache (tracklists are static)
+      if (tracklist.length > 0) {
+        setCached(cacheKey, result, 30 * 24 * 60 * 60 * 1000); // 30 days cache for static tracklists
+        if (id) setCached(`tracklist:${type}:${id}`, result, 30 * 24 * 60 * 60 * 1000);
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
