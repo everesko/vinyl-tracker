@@ -7036,6 +7036,11 @@ const App = {
     const list = document.getElementById('dockCoversList');
     if (!list) return;
 
+    const header = document.querySelector('.site-header');
+    if (header) {
+      document.documentElement.style.setProperty('--header-height', `${header.offsetHeight}px`);
+    }
+
     // Collect artist frequencies across all collections to determine top 4 popular artists
     const allItems = [...this.records, ...this.albums, ...this.spotifyTracks].filter(it => it && (it.coverImage || it.thumb));
     const artistCounts = {};
