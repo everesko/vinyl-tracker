@@ -156,6 +156,7 @@ const App = {
     await this.loadSpotifyTracks();
 
     this.render();
+    this.initTurntableDragging();
   },
 
   handleOAuthCallback() {
@@ -7385,7 +7386,14 @@ const App = {
     isPacked: true,
     isPlaying: false,
     crackleEnabled: true,
-    currentTrack: null
+    currentTrack: null,
+    isLifted: false,
+    wasPlayingBeforeLift: false,
+    isDragging: false,
+    currentAngle: -16,
+    restAngle: -16,
+    leadInAngle: 14,
+    leadOutAngle: 38
   },
 
   openTurntableWidget(trackInfo = null) {
@@ -7408,6 +7416,63 @@ const App = {
     this.stopVinylCrackle();
   },
 
+  applyTonearmAngle(angle, withTransition = true) {
+    this.turntableState.currentAngle = angle;
+    const tonearm = document.getElementById('ttTonearm');
+    if (!tonearm) return;
+    if (!withTransition) {
+      tonearm.style.transition = 'none';
+    } else {
+      tonearm.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
+    }
+    const liftedScale = this.turntableState.isLifted ? ' scale(1.05)' : '';
+    tonearm.style.transform = `rotate(${angle}deg)${liftedScale}`;
+  },
+
+  playNeedleDropEffect() {
+    try {
+      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+      const now = this.audioCtx.currentTime;
+
+      // 1. Stylus impact low thump (exponential pitch envelope 110Hz -> 36Hz)
+      const osc = this.audioCtx.createOscillator();
+      const oscGain = this.audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(110, now);
+      osc.frequency.exponentialRampToValueAtTime(36, now + 0.045);
+      oscGain.gain.setValueAtTime(0.38, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.connect(oscGain);
+      oscGain.connect(this.audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.055);
+
+      // 2. Vinyl micro-friction click (filtered noise burst)
+      const bufferSize = Math.floor(this.audioCtx.sampleRate * 0.035);
+      const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      }
+      const noise = this.audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = this.audioCtx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1500, now);
+      filter.Q.setValueAtTime(1.2, now);
+      const noiseGain = this.audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.22, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.audioCtx.destination);
+      noise.start(now);
+    } catch (e) {
+      console.warn('Needle sound effect error:', e);
+    }
+  },
+
   loadTurntableTrack(item) {
     if (!item) return;
     this.turntableState.currentTrack = item;
@@ -7416,8 +7481,11 @@ const App = {
     const artistEl = document.getElementById('ttArtistName');
     const jacketCover = document.getElementById('ttJacketCover');
     const labelImg = document.getElementById('ttLabelImg');
+    const disc = document.getElementById('ttVinylDisc');
     const stage = document.getElementById('ttStage');
     const btnPack = document.getElementById('ttBtnPack');
+    const tonearm = document.getElementById('ttTonearm');
+    const platter = document.getElementById('ttPlatter');
 
     const title = item.title || item.album || 'Без названия';
     const artist = item.artist || 'Неизвестный исполнитель';
@@ -7430,11 +7498,30 @@ const App = {
     }
     if (labelImg) labelImg.src = cover || '';
 
+    // Physical vinyl tint based on format or color
+    if (disc) {
+      const fmt = `${item.format || ''} ${item.color || ''} ${item.vinylColor || ''} ${item.notes || ''}`.toLowerCase();
+      if (fmt.includes('gold') || fmt.includes('золот')) {
+        disc.style.background = 'radial-gradient(circle, #fbbf24 15%, #d97706 65%, #78350f 100%)';
+      } else if (fmt.includes('red') || fmt.includes('красн')) {
+        disc.style.background = 'radial-gradient(circle, #ef4444 15%, #b91c1c 65%, #450a0a 100%)';
+      } else if (fmt.includes('blue') || fmt.includes('син') || fmt.includes('голуб')) {
+        disc.style.background = 'radial-gradient(circle, #38bdf8 15%, #1d4ed8 65%, #0f172a 100%)';
+      } else if (fmt.includes('white') || fmt.includes('бел')) {
+        disc.style.background = 'radial-gradient(circle, #f8fafc 15%, #cbd5e1 65%, #64748b 100%)';
+      } else if (fmt.includes('green') || fmt.includes('зелен')) {
+        disc.style.background = 'radial-gradient(circle, #22c55e 15%, #15803d 65%, #052e16 100%)';
+      } else {
+        disc.style.background = 'radial-gradient(circle, #1c1917 18%, #0f0f11 65%, #050507 100%)';
+      }
+    }
+
     // Smooth sleeve extraction animation
     if (stage) {
       stage.classList.remove('state-extracted');
       stage.classList.add('state-packed');
       this.turntableState.isPacked = true;
+      this.applyTonearmAngle(this.turntableState.restAngle, true);
       if (btnPack) btnPack.textContent = '📦';
 
       setTimeout(() => {
@@ -7443,13 +7530,153 @@ const App = {
         this.turntableState.isPacked = false;
         if (btnPack) btnPack.textContent = '💿';
         if (this.playingAudio && !this.playingAudio.paused) {
-          const platter = document.getElementById('ttPlatter');
-          const tonearm = document.getElementById('ttTonearm');
           if (platter) platter.classList.add('is-spinning');
-          if (tonearm) tonearm.classList.add('arm-on-record');
+          this.applyTonearmAngle(this.turntableState.leadInAngle, true);
+          this.playNeedleDropEffect();
         }
-      }, 150);
+      }, 250);
     }
+  },
+
+  initTurntableDragging() {
+    const tonearm = document.getElementById('ttTonearm');
+    const deck = document.getElementById('ttDeck');
+    if (!tonearm || !deck) return;
+
+    let isPointerDown = false;
+    let startPivotX = 0;
+    let startPivotY = 0;
+
+    const onPointerDown = (e) => {
+      if (this.turntableState.isPacked) {
+        this.showToastNotification('Сначала достаньте пластинку из конверта');
+        return;
+      }
+      e.preventDefault();
+      isPointerDown = true;
+      this.turntableState.isDragging = true;
+      tonearm.classList.add('is-dragging');
+
+      const pivotEl = tonearm.querySelector('.tt-arm-pivot') || tonearm;
+      const r = pivotEl.getBoundingClientRect();
+      startPivotX = r.left + r.width / 2;
+      startPivotY = r.top + r.height / 2;
+
+      window.addEventListener('pointermove', onPointerMove, { passive: false });
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    };
+
+    const onPointerMove = (e) => {
+      if (!isPointerDown) return;
+      e.preventDefault();
+
+      const dx = e.clientX - startPivotX;
+      const dy = e.clientY - startPivotY;
+
+      // Clockwise angle from downward vector: positive swings into platter center
+      const angle = Math.atan2(-dx, dy) * (180 / Math.PI);
+      const clampedAngle = Math.max(-20, Math.min(42, angle));
+
+      this.applyTonearmAngle(clampedAngle, false);
+
+      // Scrubber visual feedback during live dragging
+      if (clampedAngle >= this.turntableState.leadInAngle && clampedAngle <= this.turntableState.leadOutAngle) {
+        const pct = (clampedAngle - this.turntableState.leadInAngle) / (this.turntableState.leadOutAngle - this.turntableState.leadInAngle);
+        const fill = document.getElementById('ttScrubberFill');
+        const curTime = document.getElementById('ttTimeCurrent');
+        const dur = (this.playingAudio && this.playingAudio.duration) || 30;
+        if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct * 100))}%`;
+        if (curTime) curTime.textContent = this.formatAudioTime(pct * dur);
+      }
+    };
+
+    const onPointerUp = () => {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      this.turntableState.isDragging = false;
+      tonearm.classList.remove('is-dragging');
+
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+
+      const curAngle = this.turntableState.currentAngle;
+
+      if (curAngle < 6) {
+        // Returned to rest cradle
+        this.applyTonearmAngle(this.turntableState.restAngle, true);
+        if (this.playingAudio && !this.playingAudio.paused) {
+          this.playingAudio.pause();
+        }
+        const platter = document.getElementById('ttPlatter');
+        if (platter) platter.classList.remove('is-spinning');
+        this.stopVinylCrackle();
+        this.showToastNotification('🛑 Тонарм на стойке (воспроизведение остановлено)');
+      } else {
+        // Dropped onto vinyl grooves
+        const finalAngle = Math.max(this.turntableState.leadInAngle, Math.min(this.turntableState.leadOutAngle, curAngle));
+        this.applyTonearmAngle(finalAngle, true);
+        this.playNeedleDropEffect();
+
+        const pct = (finalAngle - this.turntableState.leadInAngle) / (this.turntableState.leadOutAngle - this.turntableState.leadInAngle);
+        if (this.playingAudio) {
+          const dur = this.playingAudio.duration && !isNaN(this.playingAudio.duration) ? this.playingAudio.duration : 30;
+          this.playingAudio.currentTime = pct * dur;
+          if (this.playingAudio.paused && !this.turntableState.isLifted) {
+            this.playingAudio.play().catch(() => {});
+          }
+          const platter = document.getElementById('ttPlatter');
+          if (platter) platter.classList.add('is-spinning');
+          if (this.turntableState.crackleEnabled) {
+            this.startVinylCrackle();
+          }
+        }
+        this.showToastNotification(`🎯 Игла на дорожке (${Math.round(pct * 100)}%)`);
+      }
+    };
+
+    tonearm.addEventListener('pointerdown', onPointerDown);
+  },
+
+  onTurntableDiscClick(event) {
+    if (this.turntableState.isPacked) {
+      this.showToastNotification('Сначала достаньте пластинку из конверта');
+      return;
+    }
+    const disc = document.getElementById('ttVinylDisc');
+    if (!disc) return;
+    const rect = disc.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = event.clientX - centerX;
+    const dy = event.clientY - centerY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const radius = rect.width / 2;
+    const labelRadius = 23;
+
+    if (dist < labelRadius || dist > radius + 8) return;
+
+    // Outer edge (pct = 0) -> inner edge (pct = 1)
+    const pct = Math.max(0, Math.min(1, (radius - dist) / (radius - labelRadius)));
+    const targetAngle = this.turntableState.leadInAngle + pct * (this.turntableState.leadOutAngle - this.turntableState.leadInAngle);
+
+    this.applyTonearmAngle(targetAngle, true);
+    this.playNeedleDropEffect();
+
+    if (this.playingAudio) {
+      const dur = this.playingAudio.duration && !isNaN(this.playingAudio.duration) ? this.playingAudio.duration : 30;
+      this.playingAudio.currentTime = pct * dur;
+      if (this.playingAudio.paused && !this.turntableState.isLifted) {
+        this.playingAudio.play().catch(() => {});
+      }
+      const platter = document.getElementById('ttPlatter');
+      if (platter) platter.classList.add('is-spinning');
+      if (this.turntableState.crackleEnabled) {
+        this.startVinylCrackle();
+      }
+    }
+    this.showToastNotification(`🎯 Игла перемещена на дорожку (${Math.round(pct * 100)}%)`);
   },
 
   toggleTurntablePack() {
@@ -7460,20 +7687,36 @@ const App = {
     if (!stage) return;
 
     if (!this.turntableState.isPacked) {
-      // Packaging process: lift tonearm, stop spinning, slide vinyl disc back inside jacket sleeve
-      if (tonearm) tonearm.classList.remove('arm-on-record');
-      if (platter) platter.classList.remove('is-spinning');
-      stage.classList.remove('state-extracted');
-      stage.classList.add('state-packed');
-      this.turntableState.isPacked = true;
-      this.stopVinylCrackle();
-      if (btnPack) {
-        btnPack.textContent = '📦';
-        btnPack.title = 'Достать пластинку из конверта';
+      // Physical packaging sequence:
+      // 1. Lift tonearm first if it's currently on the record
+      if (tonearm) tonearm.classList.add('arm-lifted');
+      if (this.playingAudio && !this.playingAudio.paused) {
+        this.playingAudio.pause();
       }
-      this.showToastNotification('📦 Пластинка аккуратно запакована в конверт');
+      this.stopVinylCrackle();
+      if (platter) platter.classList.remove('is-spinning');
+
+      // 2. Return tonearm safely to rest cradle
+      this.applyTonearmAngle(this.turntableState.restAngle, true);
+
+      // 3. Lower tonearm into cradle and slide disc into jacket sleeve
+      setTimeout(() => {
+        if (tonearm) tonearm.classList.remove('arm-lifted');
+        if (stage) {
+          stage.classList.remove('state-extracted');
+          stage.classList.add('state-packed');
+        }
+        this.turntableState.isPacked = true;
+        if (btnPack) {
+          btnPack.textContent = '📦';
+          btnPack.title = 'Достать пластинку из конверта';
+        }
+        this.showToastNotification('📦 Игла снята на стойку, пластинка бережно запакована в конверт');
+      }, 350);
+
     } else {
-      // Extraction process: slide vinyl disc out onto platter
+      // Unpack sequence:
+      // 1. Slide disc out onto platter
       stage.classList.remove('state-packed');
       stage.classList.add('state-extracted');
       this.turntableState.isPacked = false;
@@ -7481,13 +7724,113 @@ const App = {
         btnPack.textContent = '💿';
         btnPack.title = 'Запаковать пластинку в конверт';
       }
-      if (this.playingAudio && !this.playingAudio.paused) {
-        if (tonearm) tonearm.classList.add('arm-on-record');
+
+      // 2. Spin platter, lift needle, swing to lead-in groove, and drop
+      setTimeout(() => {
         if (platter) platter.classList.add('is-spinning');
-        this.startVinylCrackle();
-      }
-      this.showToastNotification('💿 Пластинка извлечена и установлена на проигрыватель');
+        if (tonearm) tonearm.classList.add('arm-lifted');
+        this.applyTonearmAngle(this.turntableState.leadInAngle, true);
+
+        setTimeout(() => {
+          if (tonearm) tonearm.classList.remove('arm-lifted');
+          this.playNeedleDropEffect();
+          if (this.playingAudio) {
+            this.playingAudio.play().catch(() => {});
+          }
+          if (this.turntableState.crackleEnabled) {
+            this.startVinylCrackle();
+          }
+          this.showToastNotification('💿 Пластинка извлечена и установлена на стол, игла на дорожке');
+        }, 400);
+      }, 500);
     }
+  },
+
+  toggleTurntableCueLift() {
+    if (this.turntableState.isPacked) {
+      this.showToastNotification('Сначала достаньте пластинку из конверта');
+      return;
+    }
+    const tonearm = document.getElementById('ttTonearm');
+    const btnLift = document.getElementById('ttBtnLift');
+    this.turntableState.isLifted = !this.turntableState.isLifted;
+
+    if (btnLift) btnLift.classList.toggle('active', this.turntableState.isLifted);
+    if (tonearm) tonearm.classList.toggle('arm-lifted', this.turntableState.isLifted);
+    this.applyTonearmAngle(this.turntableState.currentAngle, true);
+
+    if (this.turntableState.isLifted) {
+      if (this.playingAudio && !this.playingAudio.paused) {
+        this.turntableState.wasPlayingBeforeLift = true;
+        this.playingAudio.pause();
+      }
+      this.stopVinylCrackle();
+      this.showToastNotification('🎚️ Микролифт: игла поднята над пластинкой');
+    } else {
+      this.playNeedleDropEffect();
+      if (this.turntableState.wasPlayingBeforeLift && this.playingAudio) {
+        this.playingAudio.play().catch(() => {});
+        this.turntableState.wasPlayingBeforeLift = false;
+      }
+      this.showToastNotification('🎚️ Микролифт: игла плавно опущена на дорожку');
+    }
+  },
+
+  async turntableNextTrack() {
+    await this.navigateTurntableTrack(1);
+  },
+
+  async turntablePrevTrack() {
+    await this.navigateTurntableTrack(-1);
+  },
+
+  async navigateTurntableTrack(direction = 1) {
+    if (this.turntableState.isPacked) {
+      this.showToastNotification('Сначала достаньте пластинку из конверта');
+      return;
+    }
+
+    const tonearm = document.getElementById('ttTonearm');
+    if (tonearm) tonearm.classList.add('arm-lifted');
+    this.applyTonearmAngle(this.turntableState.leadInAngle, true);
+
+    // If modal tracklist is loaded
+    if (this.currentTracklistData && Array.isArray(this.currentTracklistData.tracklist) && this.currentTracklistData.tracklist.length > 0) {
+      const list = this.currentTracklistData.tracklist;
+      const curIdx = this.currentTracklistIndex >= 0 ? this.currentTracklistIndex : 0;
+      const nextIdx = (curIdx + direction + list.length) % list.length;
+      setTimeout(async () => {
+        if (tonearm) tonearm.classList.remove('arm-lifted');
+        this.playNeedleDropEffect();
+        await this.playTrackByIndex(nextIdx);
+      }, 350);
+      return;
+    }
+
+    // Otherwise navigate across albums/releases
+    const collection = (this.appMode === 'albums' ? this.albums : this.records) || [];
+    if (collection.length > 0) {
+      const curId = this.turntableState.currentTrack ? this.turntableState.currentTrack.id : null;
+      let curIdx = collection.findIndex(it => String(it.id) === String(curId));
+      if (curIdx === -1) curIdx = 0;
+      const nextIdx = (curIdx + direction + collection.length) % collection.length;
+      const nextItem = collection[nextIdx];
+
+      setTimeout(async () => {
+        if (tonearm) tonearm.classList.remove('arm-lifted');
+        this.playNeedleDropEffect();
+        await this.openAlbumTracklistModal(nextItem.id, nextItem);
+        if (this.currentTracklistData && this.currentTracklistData.tracklist && this.currentTracklistData.tracklist.length > 0) {
+          await this.playTrackByIndex(0);
+        }
+      }, 350);
+      return;
+    }
+
+    setTimeout(() => {
+      if (tonearm) tonearm.classList.remove('arm-lifted');
+      this.playNeedleDropEffect();
+    }, 350);
   },
 
   toggleTurntablePlayPause() {
@@ -7511,6 +7854,7 @@ const App = {
     const pct = Math.max(0, Math.min(1, clickX / rect.width));
     const dur = this.playingAudio.duration && !isNaN(this.playingAudio.duration) ? this.playingAudio.duration : 30;
     this.playingAudio.currentTime = pct * dur;
+    this.playNeedleDropEffect();
   },
 
   toggleVinylCrackle() {
@@ -7624,30 +7968,30 @@ const App = {
   onTurntableAudioPlay() {
     if (!this.turntableState.isOpen) return;
     const platter = document.getElementById('ttPlatter');
-    const tonearm = document.getElementById('ttTonearm');
     const led = document.getElementById('ttLedIndicator');
     const playIcon = document.getElementById('ttPlayIcon');
     const stage = document.getElementById('ttStage');
 
     if (stage && !this.turntableState.isPacked) {
       if (platter) platter.classList.add('is-spinning');
-      if (tonearm) tonearm.classList.add('arm-on-record');
+      if (this.turntableState.currentAngle < 5) {
+        this.applyTonearmAngle(this.turntableState.leadInAngle, true);
+        this.playNeedleDropEffect();
+      }
     }
     if (led) led.classList.add('active');
     if (playIcon) playIcon.textContent = '⏸';
-    if (!this.turntableState.isPacked && this.experiments.turntableAsmr) {
+    if (!this.turntableState.isPacked && this.experiments.turntableAsmr && this.turntableState.crackleEnabled) {
       this.startVinylCrackle();
     }
   },
 
   onTurntableAudioPause() {
     const platter = document.getElementById('ttPlatter');
-    const tonearm = document.getElementById('ttTonearm');
     const led = document.getElementById('ttLedIndicator');
     const playIcon = document.getElementById('ttPlayIcon');
 
     if (platter) platter.classList.remove('is-spinning');
-    if (tonearm) tonearm.classList.remove('arm-on-record');
     if (led) led.classList.remove('active');
     if (playIcon) playIcon.textContent = '▶';
     this.stopVinylCrackle();
@@ -7659,12 +8003,27 @@ const App = {
     const curTime = document.getElementById('ttTimeCurrent');
     if (fill) fill.style.width = '0%';
     if (curTime) curTime.textContent = '0:00';
+
+    const tonearm = document.getElementById('ttTonearm');
+    if (tonearm && !this.turntableState.isPacked) {
+      this.applyTonearmAngle(this.turntableState.leadOutAngle, true);
+      setTimeout(() => {
+        if (tonearm) tonearm.classList.add('arm-lifted');
+        setTimeout(() => {
+          this.applyTonearmAngle(this.turntableState.restAngle, true);
+          setTimeout(() => {
+            if (tonearm) tonearm.classList.remove('arm-lifted');
+          }, 350);
+        }, 300);
+      }, 500);
+    }
   },
 
   updateTurntableProgress(currentTime, duration) {
     const fill = document.getElementById('ttScrubberFill');
     const curTime = document.getElementById('ttTimeCurrent');
     const durTime = document.getElementById('ttTimeDuration');
+    const tonearm = document.getElementById('ttTonearm');
     const cur = currentTime || 0;
     const dur = duration && !isNaN(duration) ? duration : 30;
 
@@ -7672,6 +8031,17 @@ const App = {
     if (durTime) durTime.textContent = this.formatAudioTime(dur);
     if (fill && dur > 0) {
       fill.style.width = `${Math.min(100, (cur / dur) * 100)}%`;
+    }
+
+    // Physical needle movement across vinyl grooves if playing & not dragging & not packed & not lifted
+    if (!this.turntableState.isDragging && !this.turntableState.isPacked && !this.turntableState.isLifted && tonearm) {
+      if (this.playingAudio && !this.playingAudio.paused) {
+        const progress = Math.min(1, Math.max(0, cur / dur));
+        const leadIn = this.turntableState.leadInAngle; // 14 deg
+        const leadOut = this.turntableState.leadOutAngle; // 38 deg
+        const targetAngle = leadIn + progress * (leadOut - leadIn);
+        this.applyTonearmAngle(targetAngle, true);
+      }
     }
   },
 

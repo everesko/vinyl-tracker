@@ -1499,19 +1499,23 @@
 
     <!-- Mechanical Stage with Sleeve + Platter + Tonearm -->
     <div class="tt-stage" id="ttStage">
-      <!-- Album Sleeve / Jacket (Конверт) -->
-      <div class="tt-jacket" id="ttAlbumJacket" title="Конверт альбома">
+      <!-- Album Sleeve / Jacket (Конверт, кликабельный) -->
+      <div class="tt-jacket" id="ttAlbumJacket" onclick="App.toggleTurntablePack()" title="Нажмите, чтобы запаковать/достать пластинку">
         <img id="ttJacketCover" src="" alt="Album Sleeve" class="tt-jacket-img">
         <div class="tt-jacket-sheen"></div>
+        <div class="tt-jacket-badge" id="ttJacketBadge">КОНВЕРТ</div>
       </div>
 
       <!-- Platter Deck (Стол проигрывателя) -->
       <div class="tt-deck" id="ttDeck">
-        <div class="tt-platter-rim"></div>
+        <div class="tt-platter-rim">
+          <div class="tt-strobe-rim"></div>
+        </div>
         <div class="tt-platter" id="ttPlatter">
           <!-- The Vinyl Record that slides out of jacket onto platter -->
-          <div class="tt-vinyl-disc" id="ttVinylDisc">
+          <div class="tt-vinyl-disc" id="ttVinylDisc" onclick="App.onTurntableDiscClick(event)" title="Виниловая пластинка">
             <div class="tt-grooves"></div>
+            <div class="tt-runout-spiral"></div>
             <div class="tt-sheen"></div>
             <div class="tt-center-label" id="ttCenterLabel">
               <img id="ttLabelImg" src="" alt="Label">
@@ -1521,15 +1525,30 @@
         </div>
         <div class="tt-spindle-pin"></div>
 
-        <!-- Tonearm Assembly -->
-        <div class="tt-tonearm" id="ttTonearm">
+        <!-- Tonearm Rest / Cradle -->
+        <div class="tt-arm-cradle" id="ttArmCradle" title="Стойка тонарма"></div>
+
+        <!-- Mechanical Cueing Lift Bar -->
+        <div class="tt-cue-bar" id="ttCueBar"></div>
+
+        <!-- Realistic Interactive Tonearm Assembly -->
+        <div class="tt-tonearm" id="ttTonearm" title="Потяните иголку, чтобы переместить на любую дорожку!">
+          <!-- Pivot Gimbal & Counterweight -->
           <div class="tt-arm-pivot">
+            <div class="tt-pivot-screw"></div>
             <div class="tt-counterweight"></div>
           </div>
+          <!-- Curved Metallic Arm Tube -->
           <div class="tt-arm-tube"></div>
-          <div class="tt-headshell">
-            <div class="tt-cartridge"></div>
-            <div class="tt-needle"></div>
+          <!-- Headshell with Cartridge & Needle Tip -->
+          <div class="tt-headshell" id="ttHeadshell">
+            <div class="tt-cartridge-body">
+              <div class="tt-cartridge-logo"></div>
+            </div>
+            <div class="tt-finger-lift" title="Ручка микролифта"></div>
+            <div class="tt-needle" id="ttNeedleTip"></div>
+            <!-- Shadow cast onto vinyl -->
+            <div class="tt-needle-shadow"></div>
           </div>
         </div>
       </div>
@@ -1539,7 +1558,7 @@
     <div class="tt-controls">
       <div class="tt-scrubber-row">
         <span class="tt-time" id="ttTimeCurrent">0:00</span>
-        <div class="tt-scrubber-track" id="ttScrubberTrack" onclick="App.seekTurntableFromEvent(event)">
+        <div class="tt-scrubber-track" id="ttScrubberTrack" onclick="App.seekTurntableFromEvent(event)" title="Таймлайн трека (или переместите иголку)">
           <div class="tt-scrubber-fill" id="ttScrubberFill"></div>
           <div class="tt-scrubber-thumb" id="ttScrubberThumb"></div>
         </div>
@@ -1547,11 +1566,16 @@
       </div>
 
       <div class="tt-actions-row">
+        <button type="button" class="tt-action-btn" onclick="App.turntablePrevTrack()" title="Предыдущий трек альбома">⏮</button>
         <button type="button" class="tt-action-btn" onclick="App.skipTurntableAudio(-5)" title="Назад на 5 сек">⏪ 5с</button>
         <button type="button" class="tt-main-play-btn" id="ttBtnPlayPause" onclick="App.toggleTurntablePlayPause()" title="Воспроизведение / Пауза">
           <span id="ttPlayIcon">▶</span>
         </button>
         <button type="button" class="tt-action-btn" onclick="App.skipTurntableAudio(5)" title="Вперед на 5 сек">5с ⏩</button>
+        <button type="button" class="tt-action-btn" onclick="App.turntableNextTrack()" title="Следующий трек альбома">⏭</button>
+        <button type="button" class="tt-action-btn tt-lift-btn" id="ttBtnLift" onclick="App.toggleTurntableCueLift()" title="Микролифт тонарма (поднять / опустить иглу)">
+          🎚️ Лифт
+        </button>
         <button type="button" class="tt-action-btn tt-asmr-btn active" id="ttBtnAsmr" onclick="App.toggleVinylCrackle()" title="Переключить живой треск">
           🔊 ASMR
         </button>

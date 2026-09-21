@@ -4802,26 +4802,91 @@ body.has-left-dock .main-content {
   width: 136px;
   height: 136px;
 }
+.tt-jacket {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 130px;
+  height: 130px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 0, 0, 0.5);
+  transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 2;
+  cursor: pointer;
+}
+.tt-jacket:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.9), 0 0 16px rgba(56, 189, 248, 0.35);
+}
+.tt-jacket-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.tt-jacket-sheen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+}
+.tt-jacket-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(10, 15, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #94a3b8;
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* Platter Deck */
+.tt-deck {
+  position: absolute;
+  right: 18px;
+  top: 12px;
+  width: 140px;
+  height: 140px;
+}
 .tt-platter-rim {
   position: absolute;
-  width: 136px;
-  height: 136px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
-  background: #1e293b;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 4px 14px rgba(0,0,0,0.6);
-  border: 2px solid #334155;
-}
-.tt-platter {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  width: 126px;
-  height: 126px;
-  border-radius: 50%;
-  background: #0f172a;
+  background: #111827;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.9), 0 6px 18px rgba(0,0,0,0.7);
+  border: 2px solid #374151;
   overflow: hidden;
 }
-.tt-platter.spinning {
+.tt-strobe-rim {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, #9ca3af 0deg, #9ca3af 2deg, #111827 2deg, #111827 5deg);
+  opacity: 0.55;
+  transition: transform 0.2s ease;
+}
+.is-spinning .tt-strobe-rim, .spinning .tt-strobe-rim {
+  animation: ttPlatterSpin 1.8s linear infinite;
+}
+
+.tt-platter {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: #090e17;
+  overflow: hidden;
+}
+.tt-platter.is-spinning, .tt-platter.spinning {
   animation: ttPlatterSpin 1.8s linear infinite;
 }
 
@@ -4835,45 +4900,54 @@ body.has-left-dock .main-content {
   position: absolute;
   top: 0;
   left: 0;
-  width: 126px;
-  height: 126px;
+  width: 128px;
+  height: 128px;
   border-radius: 50%;
-  background: radial-gradient(circle, #18181c 20%, #0a0a0c 70%, #000000 100%);
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
+  background: radial-gradient(circle, #1c1917 18%, #0f0f11 65%, #050507 100%);
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.95);
   transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease;
   z-index: 3;
+  cursor: pointer;
 }
+.tt-vinyl-disc:hover {
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.35));
+}
+.is-spinning .tt-vinyl-disc {
+  animation: ttPlatterSpin 1.8s linear infinite;
+}
+
 .tt-grooves {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   border-radius: 50%;
-  background: repeating-radial-gradient(circle at center, transparent 0, transparent 2px, rgba(255,255,255,0.035) 3px, transparent 4px);
+  background: repeating-radial-gradient(circle at center, transparent 0, transparent 2px, rgba(255,255,255,0.045) 3px, transparent 4px);
+}
+.tt-runout-spiral {
+  position: absolute;
+  top: 24px; left: 24px; right: 24px; bottom: 24px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  pointer-events: none;
 }
 .tt-sheen {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   border-radius: 50%;
-  background: conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.12) 40deg, transparent 80deg, rgba(255,255,255,0.12) 220deg, transparent 260deg);
+  background: conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.14) 35deg, transparent 75deg, rgba(255,255,255,0.14) 215deg, transparent 255deg);
   pointer-events: none;
 }
 .tt-center-label {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid #111;
-  background: #222;
-  box-shadow: 0 0 6px rgba(0,0,0,0.8);
+  border: 2px solid #000;
+  background: #18181b;
+  box-shadow: 0 0 8px rgba(0,0,0,0.85);
 }
 .tt-center-label img {
   width: 100%;
@@ -4882,92 +4956,180 @@ body.has-left-dock .main-content {
 }
 .tt-spindle-hole {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 6px;
-  height: 6px;
+  top: 50%; left: 50%;
+  width: 6px; height: 6px;
   border-radius: 50%;
-  background: #000;
+  background: #000000;
   transform: translate(-50%, -50%);
 }
 .tt-spindle-pin {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 6px;
-  height: 6px;
+  top: 50%; left: 50%;
+  width: 6px; height: 6px;
   border-radius: 50%;
-  background: #e2e8f0;
+  background: #f8fafc;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 3px rgba(255,255,255,0.8);
+  box-shadow: 0 0 5px rgba(255,255,255,0.9);
   z-index: 5;
   pointer-events: none;
 }
 
-/* Tonearm */
+/* Mechanical Arm Rest Cradle & Cue Bar */
+.tt-arm-cradle {
+  position: absolute;
+  top: 4px;
+  right: 18px;
+  width: 8px;
+  height: 10px;
+  background: #334155;
+  border-radius: 2px 2px 0 0;
+  border-top: 2px solid #64748b;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+  z-index: 6;
+}
+.tt-cue-bar {
+  position: absolute;
+  top: 22px;
+  right: 8px;
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: #475569;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  z-index: 6;
+}
+
+/* Realistic Interactive Tonearm */
 .tt-tonearm {
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 14px;
-  height: 90px;
-  transform-origin: 7px 7px;
-  transform: rotate(-18deg);
-  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  width: 18px;
+  height: 98px;
+  transform-origin: 9px 9px;
+  transform: rotate(-16deg);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.2s ease;
   z-index: 10;
-  pointer-events: none;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
-.tt-tonearm.playing {
-  transform: rotate(24deg);
+.tt-tonearm.is-dragging {
+  cursor: grabbing !important;
+  transition: none !important;
 }
+.tt-tonearm.arm-lifted {
+  filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.85)) brightness(1.08);
+}
+.tt-tonearm.arm-lifted .tt-needle-shadow {
+  transform: translate(5px, 5px) scale(1.4);
+  opacity: 0.35;
+}
+
+/* Pivot Gimbal */
 .tt-arm-pivot {
   position: absolute;
   top: 0;
   left: 0;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #94a3b8;
-  border: 2px solid #475569;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+  background: radial-gradient(circle at 35% 35%, #94a3b8, #475569 70%, #1e293b 100%);
+  border: 1.5px solid #64748b;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.7);
+}
+.tt-pivot-screw {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #1e293b;
+  transform: translate(-50%, -50%);
+  border: 1px solid #94a3b8;
 }
 .tt-counterweight {
   position: absolute;
-  top: -6px;
+  top: -8px;
   left: 1px;
-  width: 12px;
-  height: 8px;
-  border-radius: 2px;
-  background: #334155;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #1e293b, #475569, #1e293b);
+  border: 1px solid #64748b;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.8);
 }
+
+/* Curved Metallic Tonearm Tube */
 .tt-arm-tube {
   position: absolute;
-  top: 12px;
-  left: 6px;
-  width: 2.5px;
-  height: 70px;
-  background: linear-gradient(to right, #cbd5e1, #94a3b8);
-  border-radius: 1px;
+  top: 14px;
+  left: 8px;
+  width: 3px;
+  height: 74px;
+  background: linear-gradient(to right, #f1f5f9 20%, #94a3b8 70%, #475569 100%);
+  border-radius: 1.5px;
+  box-shadow: 1px 2px 5px rgba(0,0,0,0.5);
 }
+
+/* Headshell & Cartridge */
 .tt-headshell {
   position: absolute;
   bottom: 0;
   left: 2px;
-  width: 10px;
-  height: 14px;
-  background: #1e293b;
+  width: 14px;
+  height: 18px;
+  background: #0f172a;
+  border-radius: 3px;
+  border: 1px solid #475569;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.8);
+}
+.tt-cartridge-body {
+  position: absolute;
+  top: 4px;
+  left: 2px;
+  right: 2px;
+  height: 10px;
+  background: linear-gradient(135deg, #ef4444, #b91c1c); /* Audio-Technica / Ortofon Red style */
   border-radius: 2px;
-  border-top: 1px solid #64748b;
+}
+.tt-cartridge-logo {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: #facc15;
+}
+.tt-finger-lift {
+  position: absolute;
+  top: 2px;
+  right: -7px;
+  width: 8px;
+  height: 2px;
+  background: #94a3b8;
+  border-radius: 1px;
 }
 .tt-needle {
   position: absolute;
-  bottom: -2px;
-  left: 3px;
+  bottom: -3px;
+  left: 5px;
   width: 4px;
   height: 4px;
   border-radius: 50%;
   background: #38bdf8;
-  box-shadow: 0 0 4px #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+  transition: transform 0.15s ease;
+}
+.tt-needle-shadow {
+  position: absolute;
+  bottom: -5px;
+  left: 7px;
+  width: 4px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  filter: blur(1px);
+  pointer-events: none;
+  transition: all 0.2s ease;
 }
 
 /* Animation states for sleeve and record extraction & packaging */
@@ -4978,18 +5140,27 @@ body.has-left-dock .main-content {
 .tt-stage.state-packed .tt-vinyl-disc {
   transform: translate(-140px, 0) scale(0.9);
   opacity: 0;
+  pointer-events: none;
 }
 .tt-stage.state-packed .tt-tonearm {
-  transform: rotate(-18deg);
+  transform: rotate(-16deg) !important;
 }
 
 .tt-stage.state-extracted .tt-jacket {
   transform: scale(0.82) translate(-10px, 6px);
-  opacity: 0.85;
+  opacity: 0.88;
 }
 .tt-stage.state-extracted .tt-vinyl-disc {
   transform: translate(0, 0) scale(1);
   opacity: 1;
+}
+
+/* Cue Lift button active state */
+.tt-lift-btn.active {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8 !important;
+  color: #38bdf8;
+  font-weight: 700;
 }
 
 /* Controls */
