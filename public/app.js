@@ -2428,15 +2428,14 @@ const App = {
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${a.id}', this.checked)">
         </td>
         <td class="cell-cover">
-          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')" style="position:relative;">
+          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
             ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy">` : `<div class="cover-placeholder">ALBUM</div>`}
-            ${trackCount ? `<span class="cover-tracks-badge">🎵 ${trackCount}</span>` : ''}
           </div>
         </td>
         <td class="artist-album-col">
           <div class="record-artist">${this.escapeHtml(a.artist || 'Неизвестный исполнитель')}</div>
           <div class="record-title">
-            <a href="javascript:void(0)" onclick="App.openAlbumTracklistModal('${a.id}')" class="clickable-album-title" title="Нажмите, чтобы просмотреть треклист альбома">${this.escapeHtml(a.title || 'Без названия')}</a>
+            <a href="javascript:void(0)" onclick="App.openAlbumTracklistModal('${a.id}')" class="clickable-album-title" title="Нажмите, чтобы просмотреть треклист альбома">${this.escapeHtml(a.title || 'Без названия')}${trackCount ? `<span class="album-tracks-slash" title="Песен в альбоме: ${trackCount}"> / ${trackCount}</span>` : ''}</a>
             <a href="${discogsLink}" target="_blank" rel="noopener noreferrer" class="external-discogs-link" title="Открыть на Discogs">↗</a>
           </div>
         </td>
@@ -2515,15 +2514,14 @@ const App = {
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${r.id}', this.checked)">
         </td>
         <td class="cell-cover">
-          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')" style="position:relative;">
+          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
             ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy">` : `<div class="cover-placeholder">VINYL</div>`}
-            ${trackCount ? `<span class="cover-tracks-badge">🎵 ${trackCount}</span>` : ''}
           </div>
         </td>
         <td class="artist-album-col">
           <div class="record-artist">${this.escapeHtml(r.artist || 'Неизвестный исполнитель')}</div>
           <div class="record-title">
-            <a href="javascript:void(0)" onclick="App.openAlbumTracklistModal('${r.id}')" class="clickable-album-title" title="Нажмите, чтобы просмотреть треклист альбома">${this.escapeHtml(r.title || 'Без названия')}</a>
+            <a href="javascript:void(0)" onclick="App.openAlbumTracklistModal('${r.id}')" class="clickable-album-title" title="Нажмите, чтобы просмотреть треклист альбома">${this.escapeHtml(r.title || 'Без названия')}${trackCount ? `<span class="album-tracks-slash" title="Песен в альбоме: ${trackCount}"> / ${trackCount}</span>` : ''}</a>
             ${discogsLink ? `<a href="${discogsLink}" target="_blank" rel="noopener noreferrer" class="external-discogs-link" title="Открыть на Discogs">↗</a>` : ''}
           </div>
         </td>
@@ -3584,14 +3582,13 @@ const App = {
                 <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                   <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
                 </label>
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:38px; height:38px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:38px; height:38px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
-                  <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
                 </div>
                 <div class="search-meta" style="min-width:0;">
                   <div class="search-artist" style="font-size:11.5px; color:#cbd5e1; font-weight:600;">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                   <div class="search-title" style="font-size:12.5px; font-weight:700;">
-                    <a href="javascript:void(0)" class="dual-album-link" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="color:#ffffff; text-decoration:none;">${this.escapeHtml(item.title || '')}</a>
+                    <a href="javascript:void(0)" class="dual-album-link" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="color:#ffffff; text-decoration:none;">${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span></a>
                   </div>
                   <div class="search-tags" style="font-size:10.5px; color:#94a3b8;">
                     <span id="searchYear-${item.id}" style="${earliestYear ? '' : 'display:none;'} color:#cbd5e1;">Год: ${this.escapeHtml(earliestYear)} • </span>
@@ -3823,15 +3820,14 @@ const App = {
                 <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                   <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
                 </label>
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Album">
-                  <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
                 </div>
                 <div class="search-meta">
                   <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                   <div class="search-title">
                     <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Нажмите, чтобы открыть треклист и слушать">
-                      ${this.escapeHtml(item.title || '')}
+                      ${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span>
                     </a>
                   </div>
                   <div class="search-tags">
@@ -3920,15 +3916,14 @@ const App = {
                 <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                   <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
                 </label>
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Vinyl">
-                  <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
                 </div>
                 <div class="search-meta">
                   <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                   <div class="search-title">
                     <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Нажмите, чтобы открыть треклист и слушать">
-                      ${this.escapeHtml(item.title || '')}
+                      ${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span>
                     </a>
                   </div>
                   <div class="search-tags">
@@ -4096,15 +4091,14 @@ const App = {
               <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                 <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
               </label>
-              <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+              <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                 <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Album">
-                <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
               </div>
               <div class="search-meta">
                 <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                 <div class="search-title">
                   <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Нажмите, чтобы открыть треклист и слушать">
-                    ${this.escapeHtml(item.title || '')}
+                    ${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span>
                   </a>
                 </div>
                 <div class="search-tags">
@@ -4978,11 +4972,11 @@ const App = {
             if (nameKey) this.saveTracklistToCache(nameKey, data);
             if (item.masterId) this.saveTracklistToCache(item.masterId, data);
 
-            // Dynamically update DOM badge and earliest year in search cards immediately
-            const badge = document.getElementById(`coverTracksBadge-${item.id}`);
-            if (badge) {
-              badge.textContent = `🎵 ${data.tracklist.length}`;
-              badge.style.display = 'inline-flex';
+            // Dynamically update title tracks slash and earliest year in search cards immediately
+            const slashEl = document.getElementById(`titleTracksSlash-${item.id}`);
+            if (slashEl) {
+              slashEl.textContent = ` / ${data.tracklist.length}`;
+              slashEl.style.display = 'inline';
             }
             if (data.year) {
               const yearEl = document.getElementById(`searchYear-${item.id}`);
@@ -7076,11 +7070,10 @@ const App = {
         <div class="dock-card-wrap">
           <div class="dock-cover-item" onclick="App.openAlbumTracklistModal('${it.id}')" title="${artist} — ${title}">
             <img src="${cover}" alt="${title}" loading="lazy">
-            ${trackCount ? `<span class="cover-tracks-badge">🎵 ${trackCount}</span>` : ''}
           </div>
           <div class="dock-cover-info">
             <div class="dock-cover-artist" title="${artist}">${artist}</div>
-            <div class="dock-cover-title" title="${title}">${title}</div>
+            <div class="dock-cover-title" title="${title}${trackCount ? ` / ${trackCount}` : ''}">${title}${trackCount ? `<span class="album-tracks-slash"> / ${trackCount}</span>` : ''}</div>
           </div>
         </div>
       `;
