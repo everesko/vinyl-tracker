@@ -3760,3 +3760,627 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border: 1px solid rgba(0, 210, 255, 0.3);
 }
 
+/* ====================================================
+   VERSION BADGE & GOLDEN VINYL IN HEADER
+   ==================================================== */
+.app-version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-family: var(--font-mono, monospace);
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+.version-tag {
+  color: var(--accent-theme, #00d2ff);
+  font-weight: 700;
+}
+.version-dot {
+  color: rgba(255, 255, 255, 0.3);
+}
+.version-date {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.golden-vinyl-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid #facc15;
+  background: radial-gradient(circle, #854d0e 0%, #1c1917 80%);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.4), inset 0 0 6px rgba(250, 204, 21, 0.6);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  padding: 0;
+  overflow: hidden;
+}
+.golden-vinyl-btn:hover {
+  transform: scale(1.12) rotate(20deg);
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.75), inset 0 0 8px rgba(250, 204, 21, 0.8);
+}
+.golden-vinyl-glow {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(250, 204, 21, 0.2) 10%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ====================================================
+   COMPACT TABLE MODE (Experiment 1)
+   ==================================================== */
+.compact-table-mode .records-table th,
+.compact-table-mode .records-table td {
+  padding: 6px 8px !important;
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+}
+.compact-table-mode .album-cover-thumb,
+.compact-table-mode .cover-thumb-wrapper {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+}
+.compact-table-mode .user-table-card {
+  margin-bottom: 16px !important;
+}
+.compact-table-mode tr.record-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.compact-table-mode tr.record-row:hover {
+  background: rgba(0, 210, 255, 0.08) !important;
+}
+
+/* ====================================================
+   FIXED LEFT 4 COVERS DOCK (Experiment 1)
+   Stationary on scrolling!
+   ==================================================== */
+.fixed-left-covers-dock {
+  position: fixed;
+  left: 12px;
+  top: 130px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 6px;
+  background: rgba(10, 20, 32, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 210, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+.dock-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #00d2ff;
+  text-align: center;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.dock-covers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dock-cover-item {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.dock-cover-item:hover {
+  transform: scale(1.22) translateX(4px);
+  border-color: #00d2ff;
+  box-shadow: 0 0 14px rgba(0, 210, 255, 0.6);
+  z-index: 10;
+}
+.dock-cover-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.dock-cover-tooltip {
+  position: absolute;
+  left: 54px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #0f172a;
+  border: 1px solid #38bdf8;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #ffffff;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
+}
+.dock-cover-item:hover .dock-cover-tooltip {
+  opacity: 1;
+}
+
+/* ====================================================
+   SMART RECOMMENDATIONS & CRATE DIGGER BAR (Experiment 3)
+   ==================================================== */
+.smart-recommendations-bar {
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.95));
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+.recs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.recs-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.recs-icon {
+  font-size: 20px;
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+@keyframes pulseGlow {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px #00d2ff); }
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 10px #38bdf8); }
+}
+.recs-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.3px;
+}
+.recs-subtitle {
+  font-size: 11px;
+  color: #94a3b8;
+}
+.btn-lucky-dice {
+  background: linear-gradient(135deg, #eab308, #ca8a04);
+  color: #000000 !important;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-lucky-dice:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 0 18px rgba(234, 179, 8, 0.7);
+}
+
+.recs-cards-deck {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-behavior: smooth;
+}
+.recs-cards-deck::-webkit-scrollbar {
+  height: 5px;
+}
+.recs-cards-deck::-webkit-scrollbar-thumb {
+  background: rgba(0, 210, 255, 0.3);
+  border-radius: 3px;
+}
+.rec-album-card {
+  min-width: 170px;
+  max-width: 170px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.rec-album-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0, 210, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+}
+.rec-card-cover {
+  width: 100%;
+  height: 140px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #1e293b;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  cursor: pointer;
+}
+.rec-card-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+.rec-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-card-artist {
+  font-size: 11px;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+
+/* ====================================================
+   FILTER MODAL TRIGGER & BADGE
+   ==================================================== */
+.filter-modal-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.filter-count-badge {
+  background: #00d2ff;
+  color: #000000;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 10px;
+  padding: 1px 6px;
+  margin-left: 2px;
+}
+
+/* ====================================================
+   EXPERIMENTAL LAB MODAL & SWITCHES
+   ==================================================== */
+.exp-master-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.btn-gold-accent {
+  background: #facc15 !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.4);
+}
+.exp-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.exp-feature-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.exp-feature-card:hover {
+  border-color: rgba(234, 179, 8, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+.exp-card-info {
+  flex: 1;
+}
+.exp-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.exp-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #facc15;
+  color: #000000;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+.exp-card-desc {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+/* Modern iOS-style toggle switch */
+.exp-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.exp-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.exp-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255, 255, 255, 0.15);
+  transition: 0.25s;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.exp-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.25s;
+  border-radius: 50%;
+}
+.exp-toggle-switch input:checked + .exp-slider {
+  background-color: #facc15;
+  border-color: #eab308;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.6);
+}
+.exp-toggle-switch input:checked + .exp-slider:before {
+  transform: translateX(20px);
+  background-color: #0f172a;
+}
+
+/* ====================================================
+   SPOTIFY CLIPS MODAL (Experiment 2)
+   Vertical TikTok / Reels player layout
+   ==================================================== */
+.clips-modal-dialog {
+  max-width: 420px;
+  width: 95%;
+  background: #090e17;
+  border: 1px solid rgba(30, 215, 96, 0.4);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8), 0 0 24px rgba(30, 215, 96, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+.clips-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.clips-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: #1ed760;
+}
+.clips-stage {
+  position: relative;
+  height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 24px 20px;
+  overflow: hidden;
+}
+.clips-art-backdrop {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(0.35);
+  transform: scale(1.15);
+  z-index: 1;
+}
+.clips-center-disc {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -58%);
+  width: 210px;
+  height: 210px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(30, 215, 96, 0.4);
+  overflow: hidden;
+  z-index: 2;
+  animation: spinClips 18s linear infinite;
+}
+.clips-center-disc.paused {
+  animation-play-state: paused;
+}
+@keyframes spinClips {
+  0% { transform: translate(-50%, -58%) rotate(0deg); }
+  100% { transform: translate(-50%, -58%) rotate(360deg); }
+}
+.clips-center-disc img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.clips-disc-spindle {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #090e17;
+  border: 3px solid rgba(255, 255, 255, 0.8);
+}
+.clips-progress-bar {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.clips-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: #1ed760;
+  transition: width 0.1s linear;
+}
+.clips-meta {
+  position: relative;
+  z-index: 3;
+  max-width: 80%;
+}
+.clips-song-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 4px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+.clips-artist-name {
+  font-size: 13.5px;
+  color: #a7f3d0;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.clips-album-name {
+  font-size: 11.5px;
+  color: #cbd5e1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.clips-album-name:hover {
+  color: #38bdf8;
+  text-decoration: underline;
+}
+
+.clips-actions-sidebar {
+  position: absolute;
+  right: 14px;
+  bottom: 24px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.clips-action-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.clips-action-btn:hover {
+  transform: scale(1.12);
+  background: rgba(30, 215, 96, 0.3);
+  border-color: #1ed760;
+}
+.clips-action-btn small {
+  font-size: 8.5px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+/* ====================================================
+   EXPERIMENTS 4, 5, 6, 7, 8 BADGES & EXTRA STYLES
+   ==================================================== */
+.bargain-radar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+.turntable-asmr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  border-radius: 4px;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #facc15;
+  cursor: pointer;
+}
+.turntable-asmr-btn.active {
+  background: #facc15;
+  color: #000000;
+  font-weight: 700;
+}
+

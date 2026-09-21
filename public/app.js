@@ -40,6 +40,21 @@ const App = {
   lazyPriceQueue: [],
   isProcessingPriceQueue: false,
   tracklistCache: new Map(),
+  experiments: {
+    compactTable: false,
+    spotifyClips: false,
+    smartRecs: false,
+    bargainRadar: false,
+    turntableAsmr: false,
+    djMatcher: false,
+    pressingAtlas: false,
+    valuationTracker: false
+  },
+  audioCtx: null,
+  vinylCracklingNode: null,
+  clipsPlaylist: [],
+  currentClipIndex: 0,
+  clipsAudio: null,
 
   async init() {
     this.handleOAuthCallback();
@@ -83,7 +98,15 @@ const App = {
     this.updateDiscogsUIStatus();
     this.updateSpotifyUIStatus();
 
-    // Restore collapsible states
+    // Restore experiments
+    try {
+      const savedExp = localStorage.getItem('vh_experiments');
+      if (savedExp) {
+        this.experiments = { ...this.experiments, ...JSON.parse(savedExp) };
+      }
+    } catch (e) {}
+    this.applyExperimentEffects();
+    this.updateActiveFiltersBadge();
     if (localStorage.getItem('filters_collapsed') === '1') {
       const fCard = document.getElementById('advancedFiltersCard');
       if (fCard) fCard.classList.add('collapsed');
@@ -1899,7 +1922,44 @@ const App = {
     const hvCb = document.getElementById('filterHighValueOnly');
     this.filters.highValueOnly = hvCb ? hvCb.checked : false;
 
+    this.updateActiveFiltersBadge();
     this.renderTable();
+  },
+
+  openFiltersModal() {
+    const modal = document.getElementById('filtersModal');
+    if (modal) {
+      modal.classList.add('open');
+      modal.classList.add('active');
+    }
+  },
+
+  closeFiltersModal() {
+    const modal = document.getElementById('filtersModal');
+    if (modal) {
+      modal.classList.remove('open');
+      modal.classList.remove('active');
+    }
+    this.updateActiveFiltersBadge();
+  },
+
+  updateActiveFiltersBadge() {
+    const badge = document.getElementById('activeFiltersBadge');
+    if (!badge) return;
+    let count = 0;
+    if (this.filters.status && this.filters.status.size < 4) count++;
+    if (this.filters.ratings && this.filters.ratings.size < 5) count++;
+    if (this.filters.highValueOnly) count++;
+    if (this.filters.yearMin || this.filters.yearMax) count++;
+    if (this.filters.metricMin || this.filters.metricMax) count++;
+    if (this.filters.countries && this.filters.countries.size > 0) count++;
+
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
   },
 
   resetAllFilters() {
@@ -1941,6 +2001,7 @@ const App = {
 
     this.populateCountryFilterChips();
     this.updateRangeSliderBounds();
+    this.updateActiveFiltersBadge();
     this.renderTable();
   },
 
@@ -2053,6 +2114,13 @@ const App = {
     }).join('');
 
     this.updateSelectionToolbar();
+    if (this.experiments.compactTable) {
+      this.updateFixedLeftCoversDock();
+    }
+    if (this.experiments.smartRecs) {
+      this.renderSmartRecommendations();
+    }
+    this.updateActiveFiltersBadge();
   },
 
   getTableHeadHtml(tableId, isAllSelected) {
@@ -2278,7 +2346,7 @@ const App = {
       : '<span style="color:var(--text-muted); font-size:11px;">—</span>';
 
     return `
-      <tr id="record-row-${t.id}" class="${isSelected ? 'selected-row' : ''}">
+      <tr id="record-row-${t.id}" class="record-row ${isSelected ? 'selected-row' : ''}" onclick="App.onTableRowClick(event, '${t.id}')">
         <td class="cell-checkbox">
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${t.id}', this.checked)">
         </td>
@@ -2349,7 +2417,7 @@ const App = {
       : 'Посмотреть издания';
 
     return `
-      <tr id="record-row-${a.id}" class="${isSelected ? 'selected-row' : ''}">
+      <tr id="record-row-${a.id}" class="record-row ${isSelected ? 'selected-row' : ''}" onclick="App.onTableRowClick(event, '${a.id}')">
         <td class="cell-checkbox">
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${a.id}', this.checked)">
         </td>
@@ -2430,10 +2498,11 @@ const App = {
       rangeSub = `<div class="price-range">в продаже: ${r.numForSale} шт.</div>`;
     }
 
-    const discogsLink = r.uri || (r.discogsId ? `https://www.discogs.com/release/${r.discogsId}` : null);
+    const isBargain = Boolean(this.experiments.bargainRadar && r.lowest_price && r.priceMedian && Number(r.lowest_price) < Number(r.priceMedian));
+    const bargainBadge = isBargain ? `<span class="bargain-radar-badge" title="Выгодная цена продажи ($${r.lowest_price}) ниже медианной ($${r.priceMedian})">🔥 ВЫГОДНО</span>` : '';
 
     return `
-      <tr id="record-row-${r.id}" class="${isSelected ? 'selected-row' : ''}">
+      <tr id="record-row-${r.id}" class="record-row ${isSelected ? 'selected-row' : ''}" onclick="App.onTableRowClick(event, '${r.id}')">
         <td class="cell-checkbox">
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${r.id}', this.checked)">
         </td>
@@ -2458,7 +2527,7 @@ const App = {
         </td>
         <td>
           <div class="price-box">
-            <div class="price-median">${medianStr}</div>
+            <div class="price-median">${medianStr} ${bargainBadge}</div>
             ${rangeSub}
           </div>
         </td>
@@ -2924,16 +2993,21 @@ const App = {
   searchProvider: 'discogs',
 
   setSearchProvider(provider, executeSearch = true) {
-    this.searchProvider = provider === 'spotify' ? 'spotify' : 'discogs';
+    this.searchProvider = (provider === 'spotify' || provider === 'youtube') ? provider : 'discogs';
     const tabDiscogs = document.getElementById('searchTabDiscogs');
     const tabSpotify = document.getElementById('searchTabSpotify');
+    const tabYouTube = document.getElementById('searchTabYouTube');
     const input = document.getElementById('discogsSearchInput');
     const titleEl = document.getElementById('discogsSearchModalTitle');
 
     if (tabDiscogs) tabDiscogs.classList.toggle('active', this.searchProvider === 'discogs');
     if (tabSpotify) tabSpotify.classList.toggle('active', this.searchProvider === 'spotify');
+    if (tabYouTube) tabYouTube.classList.toggle('active', this.searchProvider === 'youtube');
 
-    if (this.searchProvider === 'spotify') {
+    if (this.searchProvider === 'youtube') {
+      if (titleEl) titleEl.textContent = 'YouTube Режим: Быстрый чекер & видео';
+      if (input) input.placeholder = 'Введите название песни, исполнителя или видео YouTube...';
+    } else if (this.searchProvider === 'spotify') {
       if (titleEl) {
         titleEl.textContent = (this.appMode === 'albums' || this.appMode === 'releases')
           ? 'Поиск альбомов в Spotify'
@@ -3359,6 +3433,55 @@ const App = {
     const serviceName = isSpotify ? 'Spotify' : 'Discogs';
 
     try {
+      if (this.searchProvider === 'youtube') {
+        resultsContainer.innerHTML = `<div style="text-align:center; padding:24px; color:var(--accent-theme)">Проверка коллекции и поиск видео/треков...</div>`;
+        const qLower = q.toLowerCase();
+        const targetList = this.appMode === 'spotify' ? this.spotifyTracks : (this.appMode === 'albums' ? this.albums : this.records);
+        const localMatch = targetList.find(r => (r.artist || '').toLowerCase().includes(qLower) || (r.title || '').toLowerCase().includes(qLower));
+
+        let banner = '';
+        if (localMatch) {
+          banner = `
+            <div style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <span style="color:#4ade80; font-weight:700;">✓ Уже есть в коллекции:</span>
+                <strong style="color:#ffffff;">${this.escapeHtml(localMatch.artist)} — ${this.escapeHtml(localMatch.title)}</strong>
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="App.highlightRecord('${localMatch.id}')">Подсветить</button>
+            </div>
+          `;
+        }
+
+        const spData = await SpotifyClient.searchTracks(q, 15).catch(() => ({ results: [] }));
+        const tracks = spData.results || [];
+
+        if (tracks.length === 0) {
+          resultsContainer.innerHTML = banner + `<div style="text-align:center; padding:24px; color:var(--text-muted)">По запросу «${this.escapeHtml(q)}» ничего не найдено.</div>`;
+          return;
+        }
+
+        resultsContainer.innerHTML = banner + tracks.map(item => {
+          const safeItemJson = this.escapeHtml(JSON.stringify(item));
+          return `
+            <div class="search-card" style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid rgba(255,255,255,0.06);">
+              <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                ${item.coverImage ? `<img src="${this.escapeHtml(item.coverImage)}" style="width:44px; height:44px; border-radius:6px; object-fit:cover; flex-shrink:0;">` : ''}
+                <div style="min-width:0;">
+                  <div style="font-weight:700; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.escapeHtml(item.title)}</div>
+                  <div style="font-size:12px; color:#cbd5e1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.escapeHtml(item.artist)} · <span style="color:#94a3b8;">${this.escapeHtml(item.album || '')}</span></div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                ${item.previewUrl ? `<button class="btn btn-sm btn-secondary" onclick="App.playAudio('${this.escapeHtml(item.previewUrl)}', '${this.escapeHtml(item.title)}', '${this.escapeHtml(item.artist)}', '${this.escapeHtml(item.coverImage || '')}', this)">▶</button>` : ''}
+                <button class="btn btn-sm btn-primary" onclick="App.openAlbumTracklistModal('sp-${item.id}', ${safeItemJson})">🎵 Треклист</button>
+                <button class="btn btn-sm btn-secondary" onclick="App.transferSpotifyAlbumToSearch('${this.escapeHtml(item.artist).replace(/'/g, "\\'")}', '${this.escapeHtml(item.album || item.title).replace(/'/g, "\\'")}')">💽 Винил</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+        return;
+      }
+
       if (this.dualSearchActive) {
         resultsContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--accent-theme)">Объединенный поиск (Discogs 💽 + Spotify 🟢)...</div>`;
         const [artistRes, discogsData, spotifyData] = await Promise.all([
@@ -6430,6 +6553,450 @@ const App = {
     if (modal && img) {
       img.src = url;
       modal.classList.add('open');
+    }
+  },
+
+  // ----------------------------------------------------
+  // EXPERIMENTAL FEATURES & GOLDEN VINYL LAB
+  // ----------------------------------------------------
+  openExperimentalModal() {
+    const modal = document.getElementById('experimentalModal');
+    if (!modal) return;
+    const keys = ['compactTable', 'spotifyClips', 'smartRecs', 'bargainRadar', 'turntableAsmr', 'djMatcher', 'pressingAtlas', 'valuationTracker'];
+    keys.forEach(k => {
+      const toggleId = 'expToggle' + k.charAt(0).toUpperCase() + k.slice(1);
+      const input = document.getElementById(toggleId);
+      if (input) input.checked = Boolean(this.experiments[k]);
+    });
+    this.updateMasterToggleBtnState();
+    modal.classList.add('open');
+    modal.classList.add('active');
+  },
+
+  closeExperimentalModal() {
+    const modal = document.getElementById('experimentalModal');
+    if (modal) {
+      modal.classList.remove('open');
+      modal.classList.remove('active');
+    }
+  },
+
+  setExperimentState(key, val) {
+    this.experiments[key] = Boolean(val);
+    try {
+      localStorage.setItem('vh_experiments', JSON.stringify(this.experiments));
+    } catch (e) {}
+    this.updateMasterToggleBtnState();
+    this.applyExperimentEffects();
+  },
+
+  toggleAllExperimentsMaster() {
+    const anyActive = Object.values(this.experiments).some(Boolean);
+    const targetState = !anyActive;
+    Object.keys(this.experiments).forEach(k => {
+      this.experiments[k] = targetState;
+      const toggleId = 'expToggle' + k.charAt(0).toUpperCase() + k.slice(1);
+      const input = document.getElementById(toggleId);
+      if (input) input.checked = targetState;
+    });
+    try {
+      localStorage.setItem('vh_experiments', JSON.stringify(this.experiments));
+    } catch (e) {}
+    this.updateMasterToggleBtnState();
+    this.applyExperimentEffects();
+  },
+
+  updateMasterToggleBtnState() {
+    const btn = document.getElementById('btnToggleAllExp');
+    if (!btn) return;
+    const allActive = Object.values(this.experiments).every(Boolean);
+    btn.textContent = allActive ? 'Отключить все' : 'Включить все';
+  },
+
+  applyExperimentEffects() {
+    // 1. Compact table
+    document.body.classList.toggle('compact-table-mode', Boolean(this.experiments.compactTable));
+    const dock = document.getElementById('fixedLeftCoversDock');
+    if (dock) {
+      dock.style.display = this.experiments.compactTable ? 'flex' : 'none';
+      if (this.experiments.compactTable) this.updateFixedLeftCoversDock();
+    }
+
+    // 2. Spotify clips button
+    const clipsBtn = document.getElementById('btnOpenSpotifyClips');
+    if (clipsBtn) {
+      clipsBtn.style.display = this.experiments.spotifyClips ? 'inline-flex' : 'none';
+    }
+
+    // 3. Smart Recommendations
+    const recsBar = document.getElementById('smartRecommendationsBar');
+    if (recsBar) {
+      recsBar.style.display = this.experiments.smartRecs ? 'block' : 'none';
+      if (this.experiments.smartRecs) this.renderSmartRecommendations();
+    }
+
+    // 4. Bargain radar & valuation
+    if (this.experiments.valuationTracker) {
+      this.updateValuationStats();
+    }
+
+    this.renderTable();
+  },
+
+  updateFixedLeftCoversDock() {
+    const list = document.getElementById('dockCoversList');
+    if (!list) return;
+    const allItems = [...this.records, ...this.albums, ...this.spotifyTracks].filter(it => it && (it.coverImage || it.thumb));
+    const seen = new Set();
+    const unique4 = [];
+    for (let i = allItems.length - 1; i >= 0 && unique4.length < 4; i--) {
+      const it = allItems[i];
+      const art = (it.artist || '').toLowerCase().trim();
+      if (art && !seen.has(art)) {
+        seen.add(art);
+        unique4.push(it);
+      }
+    }
+    if (unique4.length === 0) {
+      list.innerHTML = '<div style="font-size:9.5px; color:var(--text-muted); text-align:center; padding:6px 2px;">Нет обложек</div>';
+      return;
+    }
+    list.innerHTML = unique4.map(it => {
+      const cover = it.coverImage || it.thumb || '';
+      const title = this.escapeHtml(it.title || it.album || 'Альбом');
+      const artist = this.escapeHtml(it.artist || 'Артист');
+      return `
+        <div class="dock-cover-item" onclick="App.openAlbumTracklistModal('${it.id}')" title="${artist} — ${title}">
+          <img src="${cover}" alt="${title}" loading="lazy">
+          <div class="dock-cover-tooltip">${artist} — ${title}</div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  onTableRowClick(event, itemId) {
+    if (!this.experiments.compactTable) return;
+    // Do not trigger if user interacted with a control or title link
+    if (event.target.closest('button, input, a, select, .cover-thumb-wrapper, .star-rating, .cell-checkbox, .editions-badge-btn, .icon-btn')) {
+      return;
+    }
+    const found = this.findTableAndItem(itemId, this.appMode, true);
+    if (!found || !found.item) return;
+    const item = found.item;
+
+    if (item.previewUrl) {
+      this.playAudio(item.previewUrl, item.title || item.album || 'Песня', item.artist || '', item.coverImage || item.thumb || '');
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/spotify/album/tracks?artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d && d.tracklist && d.tracklist[0] && d.tracklist[0].previewUrl) {
+            const tr = d.tracklist[0];
+            this.playAudio(tr.previewUrl, tr.title, tr.artist || item.artist, d.cover || item.coverImage || '');
+          }
+        }
+      } catch (e) {}
+    })();
+  },
+
+  // ----------------------------------------------------
+  // SPOTIFY CLIPS / REELS (Experiment 2)
+  // ----------------------------------------------------
+  openSpotifyClipsModal() {
+    const modal = document.getElementById('spotifyClipsModal');
+    if (!modal) return;
+    const list = [...this.spotifyTracks, ...this.albums, ...this.records].filter(it => it && (it.artist || it.title));
+    if (list.length === 0) {
+      alert('Добавьте хотя бы одну запись в таблицу, чтобы запустить Spotify Clips!');
+      return;
+    }
+    this.clipsPlaylist = list;
+    this.currentClipIndex = 0;
+    modal.classList.add('open');
+    modal.classList.add('active');
+    this.loadClip(0);
+  },
+
+  closeSpotifyClipsModal() {
+    const modal = document.getElementById('spotifyClipsModal');
+    if (modal) {
+      modal.classList.remove('open');
+      modal.classList.remove('active');
+    }
+    if (this.clipsAudio) {
+      this.clipsAudio.pause();
+      this.clipsAudio = null;
+    }
+  },
+
+  async loadClip(idx) {
+    if (idx < 0 || idx >= this.clipsPlaylist.length) return;
+    this.currentClipIndex = idx;
+    const item = this.clipsPlaylist[idx];
+    const songEl = document.getElementById('clipsSongTitle');
+    const artEl = document.getElementById('clipsArtistName');
+    const albEl = document.getElementById('clipsAlbumText');
+    const coverEl = document.getElementById('clipsCoverImg');
+    const backdrop = document.getElementById('clipsArtBackdrop');
+    const playIcon = document.getElementById('clipsPlayIcon');
+    const disc = document.getElementById('clipsCenterDisc');
+
+    const songTitle = item.title || item.album || 'Без названия';
+    const artistName = item.artist || 'Исполнитель';
+    const albumName = item.album || item.title || 'Альбом';
+    const cover = item.coverImage || item.thumb || '';
+
+    if (songEl) songEl.textContent = songTitle;
+    if (artEl) artEl.textContent = artistName;
+    if (albEl) albEl.textContent = albumName;
+    if (coverEl) coverEl.src = cover || '';
+    if (backdrop && cover) backdrop.style.backgroundImage = `url("${cover}")`;
+    if (disc) disc.classList.remove('paused');
+
+    if (this.clipsAudio) {
+      this.clipsAudio.pause();
+      this.clipsAudio = null;
+    }
+
+    let preview = item.previewUrl;
+    if (!preview) {
+      try {
+        const res = await fetch(`/api/spotify/album/tracks?artist=${encodeURIComponent(artistName)}&album=${encodeURIComponent(albumName)}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d && d.tracklist && d.tracklist[0] && d.tracklist[0].previewUrl) {
+            preview = d.tracklist[0].previewUrl;
+            if (!cover && d.cover) {
+              if (coverEl) coverEl.src = d.cover;
+              if (backdrop) backdrop.style.backgroundImage = `url("${d.cover}")`;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (preview) {
+      this.clipsAudio = new Audio(preview);
+      this.clipsAudio.play().catch(() => {});
+      if (playIcon) playIcon.textContent = '⏸';
+      const progressFill = document.getElementById('clipsProgressFill');
+      this.clipsAudio.ontimeupdate = () => {
+        if (this.clipsAudio && this.clipsAudio.duration) {
+          const pct = (this.clipsAudio.currentTime / this.clipsAudio.duration) * 100;
+          if (progressFill) progressFill.style.width = `${pct}%`;
+        }
+      };
+      this.clipsAudio.onended = () => {
+        this.nextClip();
+      };
+    } else {
+      if (playIcon) playIcon.textContent = '▶';
+    }
+  },
+
+  toggleClipsPlay() {
+    const playIcon = document.getElementById('clipsPlayIcon');
+    const disc = document.getElementById('clipsCenterDisc');
+    if (!this.clipsAudio) {
+      this.loadClip(this.currentClipIndex);
+      return;
+    }
+    if (this.clipsAudio.paused) {
+      this.clipsAudio.play();
+      if (playIcon) playIcon.textContent = '⏸';
+      if (disc) disc.classList.remove('paused');
+    } else {
+      this.clipsAudio.pause();
+      if (playIcon) playIcon.textContent = '▶';
+      if (disc) disc.classList.add('paused');
+    }
+  },
+
+  nextClip() {
+    if (this.currentClipIndex < this.clipsPlaylist.length - 1) {
+      this.loadClip(this.currentClipIndex + 1);
+    } else {
+      this.loadClip(0);
+    }
+  },
+
+  prevClip() {
+    if (this.currentClipIndex > 0) {
+      this.loadClip(this.currentClipIndex - 1);
+    } else {
+      this.loadClip(this.clipsPlaylist.length - 1);
+    }
+  },
+
+  searchClipsAlbumVinyl() {
+    const item = this.clipsPlaylist[this.currentClipIndex];
+    if (!item) return;
+    this.closeSpotifyClipsModal();
+    this.openDiscogsSearchModal();
+    this.setSearchProvider('discogs', false);
+    const q = `${item.artist || ''} ${item.album || item.title || ''}`.trim();
+    const input = document.getElementById('discogsSearchInput');
+    if (input) {
+      input.value = q;
+      this.performDiscogsSearch();
+    }
+  },
+
+  addCurrentClipToLibrary() {
+    const item = this.clipsPlaylist[this.currentClipIndex];
+    if (!item) return;
+    this.addRecordDirectly({
+      artist: item.artist || '',
+      title: item.title || item.album || '',
+      album: item.album || item.title || '',
+      coverImage: item.coverImage || item.thumb || '',
+      previewUrl: item.previewUrl || ''
+    });
+    this.showToastNotification(`✓ «${item.artist} — ${item.title || item.album}» добавлен в коллекцию!`);
+  },
+
+  // ----------------------------------------------------
+  // SMART RECOMMENDATIONS & "FEELING LUCKY" (Experiment 3)
+  // ----------------------------------------------------
+  iconicVinylGems: [
+    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: '1973', tag: 'Культовый шедевр' },
+    { artist: 'Miles Davis', title: 'Kind of Blue', year: '1959', tag: 'Легендарный джаз' },
+    { artist: 'Daft Punk', title: 'Random Access Memories', year: '2013', tag: 'Эталон электроники' },
+    { artist: 'Fleetwood Mac', title: 'Rumours', year: '1977', tag: 'Золотая классика' },
+    { artist: 'The Beatles', title: 'Abbey Road', year: '1969', tag: 'Пластинка эпохи' },
+    { artist: 'Radiohead', title: 'OK Computer', year: '1997', tag: 'Арт-рок икона' },
+    { artist: 'Michael Jackson', title: 'Thriller', year: '1982', tag: 'Самый продаваемый' },
+    { artist: 'John Coltrane', title: 'Blue Train', year: '1958', tag: 'Хард-боп раритет' },
+    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust', year: '1972', tag: 'Глэм-рок винил' },
+    { artist: 'Nirvana', title: 'Nevermind', year: '1991', tag: 'Гранж революция' },
+    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: '1971', tag: 'Хард-рок классика' },
+    { artist: 'Steely Dan', title: 'Aja', year: '1977', tag: 'Аудиофильский тест' }
+  ],
+
+  renderSmartRecommendations() {
+    const container = document.getElementById('recsCardsDeck');
+    if (!container) return;
+
+    const artistCounts = {};
+    [...this.records, ...this.albums, ...this.spotifyTracks].forEach(it => {
+      const a = (it.artist || '').trim();
+      if (a) artistCounts[a] = (artistCounts[a] || 0) + 1;
+    });
+
+    const sortedArtists = Object.keys(artistCounts).sort((a, b) => artistCounts[b] - artistCounts[a]);
+    const topArtist = sortedArtists[0] || null;
+
+    const recs = [];
+    if (topArtist) {
+      recs.push({
+        artist: topArtist,
+        title: `Дискография ${topArtist}`,
+        tag: `🔥 Топ в вашей коллекции (${artistCounts[topArtist]} шт.)`,
+        isArtistQuery: true
+      });
+    }
+
+    this.iconicVinylGems.slice(0, 6).forEach(gem => {
+      recs.push(gem);
+    });
+
+    container.innerHTML = recs.map(r => {
+      return `
+        <div class="rec-album-card">
+          <span class="rec-card-badge">${this.escapeHtml(r.tag)}</span>
+          <div class="rec-card-title" title="${this.escapeHtml(r.title)}">${this.escapeHtml(r.title)}</div>
+          <div class="rec-card-artist" title="${this.escapeHtml(r.artist)}">${this.escapeHtml(r.artist)}${r.year ? ` · ${r.year}` : ''}</div>
+          <div class="rec-card-actions">
+            <button type="button" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 8px; width:100%;" onclick="App.searchRecommendedVinyl('${this.escapeHtml(r.artist)}', '${this.escapeHtml(r.isArtistQuery ? '' : r.title)}')">
+              💽 Найти винил
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  searchRecommendedVinyl(artist, title = '') {
+    this.openDiscogsSearchModal();
+    this.setSearchProvider('discogs', false);
+    const q = title ? `${artist} ${title}` : artist;
+    const input = document.getElementById('discogsSearchInput');
+    if (input) {
+      input.value = q;
+      this.performDiscogsSearch();
+    }
+  },
+
+  rollLuckyVinyl() {
+    const randomIndex = Math.floor(Math.random() * this.iconicVinylGems.length);
+    const gem = this.iconicVinylGems[randomIndex];
+    this.searchRecommendedVinyl(gem.artist, gem.title);
+  },
+
+  // ----------------------------------------------------
+  // TURNTABLE ASMR & VALUATION TRACKER (Experiments 5 & 8)
+  // ----------------------------------------------------
+  startVinylCrackle() {
+    if (!this.experiments.turntableAsmr) return;
+    try {
+      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+      if (this.vinylCracklingNode) return;
+      const bufferSize = this.audioCtx.sampleRate * 2;
+      const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        const pop = Math.random() < 0.0006 ? (Math.random() * 2 - 1) * 0.35 : 0;
+        data[i] = (Math.random() * 2 - 1) * 0.012 + pop;
+      }
+      const noise = this.audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      noise.loop = true;
+      const filter = this.audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 3200;
+      const gain = this.audioCtx.createGain();
+      gain.gain.value = 0.28;
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      noise.start();
+      this.vinylCracklingNode = { noise, gain };
+    } catch (e) {}
+  },
+
+  stopVinylCrackle() {
+    if (this.vinylCracklingNode) {
+      try {
+        this.vinylCracklingNode.noise.stop();
+        this.vinylCracklingNode.noise.disconnect();
+      } catch (e) {}
+      this.vinylCracklingNode = null;
+    }
+  },
+
+  updateValuationStats() {
+    if (!this.experiments.valuationTracker) return;
+    const badge = document.getElementById('statHeaderPriceRange');
+    if (!badge) return;
+    let sumMin = 0;
+    let sumMed = 0;
+    let sumMax = 0;
+    let count = 0;
+    this.records.forEach(r => {
+      if (r.priceMedian) {
+        sumMed += Number(r.priceMedian);
+        sumMin += Number(r.priceMin || (r.priceMedian * 0.6));
+        sumMax += Number(r.priceMax || (r.priceMedian * 1.5));
+        count++;
+      }
+    });
+    if (count > 0) {
+      badge.innerHTML = `🪙 Оценка коллекции: ~$${Math.round(sumMed)} <small style="opacity:0.8;">(мин $${Math.round(sumMin)} · макс $${Math.round(sumMax)})</small>`;
     }
   },
 

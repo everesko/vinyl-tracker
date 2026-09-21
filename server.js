@@ -552,7 +552,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'online',
-      version: '1.4.0',
+      version: '1.5.0',
       timestamp: new Date().toISOString(),
       cacheSize: apiCache.size,
       discogsOAuthReady: Boolean(process.env.DISCOGS_CONSUMER_KEY && process.env.DISCOGS_CONSUMER_SECRET)

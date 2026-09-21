@@ -38,6 +38,19 @@
       </div>
 
       <div class="header-right">
+        <!-- Golden Vinyl Button: Experimental Features -->
+        <button id="btnExperimentalModal" class="golden-vinyl-btn" title="Экспериментальные функции (нажмите для настройки)" onclick="App.openExperimentalModal()">
+          <span class="golden-vinyl-icon">📀</span>
+          <span class="golden-vinyl-glow"></span>
+        </button>
+
+        <!-- Version & Release Date Badge -->
+        <div class="app-version-badge" title="Версия приложения и дата релиза">
+          <span class="version-tag">v1.5.0</span>
+          <span class="version-dot">·</span>
+          <span class="version-date">22.09.2026</span>
+        </div>
+
         <button id="cloudHeaderBadge" class="header-badge" title="Настройки облачной базы Firebase" onclick="App.openFirebaseModal()">
           <span class="dot warn"></span> Локально (Offline)
         </button>
@@ -59,38 +72,6 @@
       </div>
     </div>
   </header>
-
-  <!-- ==========================================
-       YouTube Companion Bar (Быстрый чекер и живой поиск)
-       ========================================== -->
-  <section class="youtube-companion">
-    <div class="companion-container">
-      <div class="companion-header">
-        <div class="companion-label">
-          <svg class="youtube-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-          YouTube Режим (Быстрая проверка &amp; Поиск)
-        </div>
-        <div style="font-size: 11px; color: var(--text-muted);">
-          Смотрите видео? Введите название песни, исполнителя или альбома:
-        </div>
-      </div>
-
-      <div class="companion-input-wrapper">
-        <svg class="companion-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input 
-          type="text" 
-          id="companionInput" 
-          class="companion-input" 
-          placeholder="Например: Pink Floyd Time, Miles Davis, Daft Punk, Кино Группа крови..." 
-          autocomplete="off"
-        >
-        <button id="companionClearBtn" class="companion-clear-btn" title="Очистить">✕</button>
-        <button id="companionAddBtn" class="companion-add-btn" onclick="App.handleCompanionPlusClick()" title="Найти и добавить (+)">+</button>
-      </div>
-
-      <div id="companionResult" class="companion-result"></div>
-    </div>
-  </section>
 
   <!-- ==========================================
        Main Content & Table
@@ -156,96 +137,27 @@
     </div>
 
     <!-- ==========================================
-         ADVANCED FILTERS PANEL (Ranges, Sliders, Checkboxes)
+         SMART RECOMMENDATIONS & CRATE DIGGER BAR
          ========================================== -->
-    <section class="advanced-filters-card" id="advancedFiltersCard">
-      <div class="filters-card-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent-theme); display: flex; align-items: center; gap: 6px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-          Расширенные фильтры и выборка
+    <div id="smartRecommendationsBar" class="smart-recommendations-bar" style="display: none;">
+      <div class="recs-header">
+        <div class="recs-title-wrap">
+          <span class="recs-icon">✨</span>
+          <div>
+            <div class="recs-title">Рекомендации Crate Digger</div>
+            <div class="recs-subtitle">На основе самых частых исполнителей в вашей коллекции</div>
+          </div>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button id="btnResetFilters" class="btn btn-secondary btn-sm" onclick="App.resetAllFilters()" style="font-size: 11px; padding: 3px 8px;">
-            ✕ Сбросить
-          </button>
-          <button id="btnToggleFiltersCollapse" class="btn btn-secondary btn-sm" onclick="App.toggleFiltersCollapse()" style="font-size: 11px; padding: 3px 10px;">
-            <span id="filtersCollapseIcon">▼</span> <span id="filtersCollapseText">Свернуть фильтры</span>
+        <div class="recs-actions">
+          <button type="button" class="btn btn-sm btn-lucky-dice" onclick="App.rollLuckyVinyl()" title="Открыть случайную культовую пластинку">
+            🎲 Мне повезёт!
           </button>
         </div>
       </div>
-
-      <div class="filters-grid" id="filtersGrid">
-        <!-- Filter 1: Status Checkboxes -->
-        <div class="filter-block">
-          <div class="filter-title">Статус позиции</div>
-          <div class="filter-checkbox-group">
-            <label class="filter-chip"><input type="checkbox" name="f_status" value="buy" checked onchange="App.applyFilters()"> 🔵 Купить</label>
-            <label class="filter-chip"><input type="checkbox" name="f_status" value="take" checked onchange="App.applyFilters()"> 🟣 Взять</label>
-            <label class="filter-chip"><input type="checkbox" name="f_status" value="replace" checked onchange="App.applyFilters()"> 🟠 Заменить</label>
-            <label class="filter-chip"><input type="checkbox" name="f_status" value="owned" checked onchange="App.applyFilters()"> 🟢 В наличии</label>
-          </div>
-        </div>
-
-        <!-- Filter 2: Ratings & High Value -->
-        <div class="filter-block">
-          <div class="filter-title">Оценка и ценность</div>
-          <div class="filter-checkbox-group">
-            <label class="filter-chip" style="color: var(--accent-theme); font-weight: 700;">
-              <input type="checkbox" id="filterHighValueOnly" onchange="App.applyFilters()"> 💎 Только ценные
-            </label>
-            <label class="filter-chip"><input type="checkbox" name="f_rating" value="5" onchange="App.applyFilters()"> 5★</label>
-            <label class="filter-chip"><input type="checkbox" name="f_rating" value="4" onchange="App.applyFilters()"> 4★</label>
-            <label class="filter-chip"><input type="checkbox" name="f_rating" value="3" onchange="App.applyFilters()"> 3★</label>
-            <label class="filter-chip"><input type="checkbox" name="f_rating" value="2" onchange="App.applyFilters()"> 2★</label>
-            <label class="filter-chip"><input type="checkbox" name="f_rating" value="1" onchange="App.applyFilters()"> 1★</label>
-          </div>
-        </div>
-
-        <!-- Filter 3: Year Range Slider & Inputs -->
-        <div class="filter-block">
-          <div class="filter-title">
-            <span>Год выпуска</span>
-            <span id="filterYearLabel" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-theme);">Все</span>
-          </div>
-          <div class="range-inputs-row">
-            <input type="number" id="filterYearMinInput" class="range-num-input" placeholder="От" min="1930" max="2030" oninput="App.onYearInputChange()">
-            <span style="color: var(--text-muted); font-size: 12px;">—</span>
-            <input type="number" id="filterYearMaxInput" class="range-num-input" placeholder="До" min="1930" max="2030" oninput="App.onYearInputChange()">
-          </div>
-          <input type="range" id="filterYearSlider" class="range-slider-bar" min="1950" max="2026" step="1" oninput="App.onYearSliderChange()">
-        </div>
-
-        <!-- Filter 4: Price / Versions Range -->
-        <div class="filter-block">
-          <div class="filter-title">
-            <span id="filterMetricTitle">Медианная цена ($)</span>
-            <span id="filterMetricLabel" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-theme);">Все</span>
-          </div>
-          <div class="range-inputs-row">
-            <input type="number" id="filterMetricMinInput" class="range-num-input" placeholder="От $" min="0" oninput="App.onMetricInputChange()">
-            <span style="color: var(--text-muted); font-size: 12px;">—</span>
-            <input type="number" id="filterMetricMaxInput" class="range-num-input" placeholder="До $" min="0" oninput="App.onMetricInputChange()">
-          </div>
-          <input type="range" id="filterMetricSlider" class="range-slider-bar" min="0" max="300" step="5" oninput="App.onMetricSliderChange()">
-        </div>
-
-        <!-- Filter 5: Countries Checkboxes -->
-        <div class="filter-block" style="grid-column: 1 / -1;">
-          <div class="filter-title">
-            <span>Страны выпуска</span>
-            <div style="display: flex; gap: 8px;">
-              <a href="#" onclick="App.toggleAllCountries(true); return false;" style="font-size: 10.5px; color: var(--accent-theme);">Выбрать все</a>
-              <span style="color: var(--text-muted);">|</span>
-              <a href="#" onclick="App.toggleAllCountries(false); return false;" style="font-size: 10.5px; color: var(--text-muted);">Снять</a>
-            </div>
-          </div>
-          <div class="filter-checkbox-group" id="filterCountriesGroup">
-            <!-- Dynamically populated from active records -->
-          </div>
-        </div>
-
+      <div id="recsCardsDeck" class="recs-cards-deck">
+        <!-- Injected dynamically -->
       </div>
-    </section>
+    </div>
 
     <!-- ==========================================
          PINNED SHOWCASE MINI-TABLE (ALWAYS ON TOP)
@@ -303,6 +215,16 @@
       </div>
 
       <div class="action-buttons">
+        <button id="btnOpenFiltersModal" class="btn btn-secondary filter-modal-trigger" onclick="App.openFiltersModal()" title="Настроить расширенные фильтры (цены, страны, годы, 💎)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          <span>Фильтры</span>
+          <span id="activeFiltersBadge" class="filter-count-badge" style="display:none;">0</span>
+        </button>
+
+        <button id="btnOpenSpotifyClips" class="btn btn-secondary btn-spotify-clips" onclick="App.openSpotifyClipsModal()" style="display:none;" title="Режим коротких видео Spotify Clips">
+          <span>📹 Clips</span>
+        </button>
+
         <select id="tableSortSelect" class="table-sort-select" onchange="App.setSortFromSelect(this.value)" title="Сортировка записей в таблицах">
           <option value="createdAt_desc">Сортировка: Сначала новые</option>
           <option value="createdAt_asc">Сортировка: Сначала старые</option>
@@ -386,6 +308,10 @@
             <button type="button" class="search-provider-tab" id="searchTabSpotify" onclick="App.setSearchProvider('spotify')">
               🟢 Искать в Spotify
             </button>
+            <button type="button" class="search-provider-tab" id="searchTabYouTube" onclick="App.setSearchProvider('youtube')">
+              <svg class="youtube-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px;"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              ▶ YouTube Чекер
+            </button>
           </div>
           <button type="button" class="dual-search-link-btn" id="btnDualSearchLink" onclick="App.toggleDualSearch()" title="Объединить два поиска: слева винилы Discogs, справа треки Spotify">
             <span id="dualSearchIcon">🔗</span> <span id="dualSearchLabel">Объединить поиски</span>
@@ -417,6 +343,328 @@
           Не нашли нужное? Добавить вручную
         </button>
         <button class="btn btn-secondary modal-cancel-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Fixed Left 4 Covers Dock (Experiment 1)
+       ========================================== -->
+  <aside id="fixedLeftCoversDock" class="fixed-left-covers-dock" style="display: none;" title="Топ-4 последних добавленных исполнителей">
+    <div class="dock-badge">ТОП 4</div>
+    <div id="dockCoversList" class="dock-covers-list">
+      <!-- 4 covers rendered dynamically -->
+    </div>
+  </aside>
+
+  <!-- ==========================================
+       Modal: Advanced Filters & Preferences
+       ========================================== -->
+  <div id="filtersModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 720px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          Расширенные фильтры и выборка
+        </div>
+        <button class="modal-close-btn" onclick="App.closeFiltersModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="filters-grid" id="filtersGrid">
+          <!-- Filter 1: Status Checkboxes -->
+          <div class="filter-block">
+            <div class="filter-title">Статус позиции</div>
+            <div class="filter-checkbox-group">
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="buy" checked onchange="App.applyFilters()"> 🔵 Купить</label>
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="take" checked onchange="App.applyFilters()"> 🟣 Взять</label>
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="replace" checked onchange="App.applyFilters()"> 🟠 Заменить</label>
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="owned" checked onchange="App.applyFilters()"> 🟢 В наличии</label>
+            </div>
+          </div>
+
+          <!-- Filter 2: Ratings & High Value -->
+          <div class="filter-block">
+            <div class="filter-title">Оценка и ценность</div>
+            <div class="filter-checkbox-group">
+              <label class="filter-chip" style="color: var(--accent-theme); font-weight: 700;">
+                <input type="checkbox" id="filterHighValueOnly" onchange="App.applyFilters()"> 💎 Только ценные
+              </label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="5" onchange="App.applyFilters()"> 5★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="4" onchange="App.applyFilters()"> 4★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="3" onchange="App.applyFilters()"> 3★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="2" onchange="App.applyFilters()"> 2★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="1" onchange="App.applyFilters()"> 1★</label>
+            </div>
+          </div>
+
+          <!-- Filter 3: Year Range Slider & Inputs -->
+          <div class="filter-block">
+            <div class="filter-title">
+              <span>Год выпуска</span>
+              <span id="filterYearLabel" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-theme);">Все</span>
+            </div>
+            <div class="range-inputs-row">
+              <input type="number" id="filterYearMinInput" class="range-num-input" placeholder="От" min="1930" max="2030" oninput="App.onYearInputChange()">
+              <span style="color: var(--text-muted); font-size: 12px;">—</span>
+              <input type="number" id="filterYearMaxInput" class="range-num-input" placeholder="До" min="1930" max="2030" oninput="App.onYearInputChange()">
+            </div>
+            <input type="range" id="filterYearSlider" class="range-slider-bar" min="1950" max="2026" step="1" oninput="App.onYearSliderChange()">
+          </div>
+
+          <!-- Filter 4: Price / Versions Range -->
+          <div class="filter-block">
+            <div class="filter-title">
+              <span id="filterMetricTitle">Медианная цена ($)</span>
+              <span id="filterMetricLabel" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-theme);">Все</span>
+            </div>
+            <div class="range-inputs-row">
+              <input type="number" id="filterMetricMinInput" class="range-num-input" placeholder="От $" min="0" oninput="App.onMetricInputChange()">
+              <span style="color: var(--text-muted); font-size: 12px;">—</span>
+              <input type="number" id="filterMetricMaxInput" class="range-num-input" placeholder="До $" min="0" oninput="App.onMetricInputChange()">
+            </div>
+            <input type="range" id="filterMetricSlider" class="range-slider-bar" min="0" max="300" step="5" oninput="App.onMetricSliderChange()">
+          </div>
+
+          <!-- Filter 5: Countries Checkboxes -->
+          <div class="filter-block" style="grid-column: 1 / -1;">
+            <div class="filter-title">
+              <span>Страны выпуска</span>
+              <div style="display: flex; gap: 8px;">
+                <a href="#" onclick="App.toggleAllCountries(true); return false;" style="font-size: 10.5px; color: var(--accent-theme);">Выбрать все</a>
+                <span style="color: var(--text-muted);">|</span>
+                <a href="#" onclick="App.toggleAllCountries(false); return false;" style="font-size: 10.5px; color: var(--text-muted);">Снять</a>
+              </div>
+            </div>
+            <div class="filter-checkbox-group" id="filterCountriesGroup">
+              <!-- Dynamically populated from active records -->
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btnResetFilters" class="btn btn-secondary btn-sm" onclick="App.resetAllFilters()">
+          ✕ Сбросить все фильтры
+        </button>
+        <button class="btn btn-primary" onclick="App.closeFiltersModal()">
+          Готово
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Experimental Lab (Golden Vinyl)
+       ========================================== -->
+  <div id="experimentalModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 700px; width: 95%;">
+      <div class="modal-header" style="border-bottom: 1px solid rgba(234, 179, 8, 0.25);">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 10px; color: #facc15;">
+          <span style="font-size: 22px;">📀</span>
+          <div>
+            <div style="font-size: 16px; font-weight: 700;">Экспериментальные функции Vinyl Hunter</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Настройте эксклюзивные возможности под свой стиль поиска и коллекции</div>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeExperimentalModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; max-height: 70vh; overflow-y: auto;">
+        <!-- Master Toggle -->
+        <div class="exp-master-bar">
+          <div class="exp-master-text">
+            <div style="font-weight: 700; color: #ffffff; font-size: 13px;">Мастер-переключатель</div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Активировать или деактивировать все функции сразу</div>
+          </div>
+          <button type="button" id="btnToggleAllExp" class="btn btn-sm btn-gold-accent" onclick="App.toggleAllExperimentsMaster()">
+            Включить все
+          </button>
+        </div>
+
+        <div class="exp-features-list">
+          <!-- 1. Compact Table + Left Covers + Preview on click -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">1</span> Компактная таблица + 4 фиксированные обложки слева
+              </div>
+              <div class="exp-card-desc">
+                Сжимает строки таблицы для максимальной информативности, фиксирует слева 4 обложки последних добавленных исполнителей (не скроллятся при прокрутке), а при клике на таблицу проигрывает короткое превью лучшей песни.
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expToggleCompactTable" onchange="App.setExperimentState('compactTable', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+
+          <!-- 2. Spotify Short Videos / Clips -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">2</span> Режим коротких видео из Spotify (Clips / Shorts)
+              </div>
+              <div class="exp-card-desc">
+                Вертикальная лента коротких аудио/видео клипов: листайте треки, нажимайте на альбом для мгновенного поиска виниловых изданий или добавляйте треки в вишлист в 1 клик.
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expToggleSpotifyClips" onchange="App.setExperimentState('spotifyClips', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+
+          <!-- 3. Smart Recommendations & "I'm Feeling Lucky" -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">3</span> Умные рекомендации над таблицей + «Мне повезёт 🎲»
+              </div>
+              <div class="exp-card-desc">
+                Красивая лента карточек над таблицей: подбирает исполнителей на основе ваших самых популярных записей, предлагает смежные культовые альбомы и случайные раритеты по кнопке «Мне повезёт».
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expToggleSmartRecs" onchange="App.setExperimentState('smartRecs', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+
+          <!-- 4. Vinyl Bargain Radar -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">4</span> Виниловый радар выгодных цен (Bargain Radar)
+              </div>
+              <div class="exp-card-desc">
+                Интеллектуальный радар цен: автоматически подсвечивает пластинки, доступные на вторичном рынке ниже медианной цены, специальным значком «🔥 ВЫГОДНО».
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expToggleBargainRadar" onchange="App.setExperimentState('bargainRadar', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+
+          <!-- 5. Hi-Fi Turntable ASMR -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">5</span> Hi-Fi Виртуальный проигрыватель с треском винила (ASMR)
+              </div>
+              <div class="exp-card-desc">
+                Визуальный 3D-проигрыватель 33⅓ RPM с вращающимся диском, тонармом и переключаемым аутентичным теплым треском виниловой дорожки при прослушивании.
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expToggleTurntableAsmr" onchange="App.setExperimentState('turntableAsmr', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+
+          <!-- 6. DJ Harmonic Matcher -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">6</span> DJ Harmonic Matcher (Сведение по BPM и тональностям)
+              </div>
+              <div class="exp-card-desc">
+                Определяет BPM и тональность треков (Camelot Wheel), позволяя диджеям и меломанам подбирать гармоничные переходы между пластинками в коллекции.
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expToggleDjMatcher" onchange="App.setExperimentState('djMatcher', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+
+          <!-- 7. Pressing World Map & Geography -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">7</span> Атлас географии прессов винила (Pressing Atlas)
+              </div>
+              <div class="exp-card-desc">
+                Визуализирует страны происхождения ваших пластинок (🇯🇵 Япония, 🇬🇧 Великобритания, 🇺🇸 США, 🇩🇪 Германия) и оценивает географическую редкость прессов.
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expTogglePressingAtlas" onchange="App.setExperimentState('pressingAtlas', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+
+          <!-- 8. Collection Valuation -->
+          <div class="exp-feature-card">
+            <div class="exp-card-info">
+              <div class="exp-card-title">
+                <span class="exp-badge">8</span> Инвестиционная оценка коллекции (Valuation Tracker)
+              </div>
+              <div class="exp-card-desc">
+                Сводный финансовый виджет: считает общую рыночную стоимость коллекции (минимум, медиана, максимум) и выводит топ-3 самых дорогих «граалей».
+              </div>
+            </div>
+            <label class="exp-toggle-switch">
+              <input type="checkbox" id="expToggleValuationTracker" onchange="App.setExperimentState('valuationTracker', this.checked)">
+              <span class="exp-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="App.closeExperimentalModal()">Готово</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Spotify Clips / Reels Video Mode
+       ========================================== -->
+  <div id="spotifyClipsModal" class="modal-backdrop">
+    <div class="clips-modal-dialog">
+      <div class="clips-header">
+        <div class="clips-brand">
+          <span class="clips-logo">🟢</span>
+          <span>SPOTIFY CLIPS</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeSpotifyClipsModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="clips-stage" id="clipsStage">
+        <div class="clips-art-backdrop" id="clipsArtBackdrop"></div>
+        <div class="clips-center-disc" id="clipsCenterDisc">
+          <img id="clipsCoverImg" src="" alt="Album Art">
+          <div class="clips-disc-spindle"></div>
+        </div>
+
+        <div class="clips-progress-bar">
+          <div class="clips-progress-fill" id="clipsProgressFill"></div>
+        </div>
+
+        <div class="clips-meta">
+          <div class="clips-song-title" id="clipsSongTitle">—</div>
+          <div class="clips-artist-name" id="clipsArtistName">—</div>
+          <div class="clips-album-name" id="clipsAlbumName" onclick="App.searchClipsAlbumVinyl()" title="Нажмите, чтобы найти виниловые версии альбома">
+            💽 <span id="clipsAlbumText">—</span>
+          </div>
+        </div>
+
+        <div class="clips-actions-sidebar">
+          <button type="button" class="clips-action-btn" id="clipsBtnPlay" onclick="App.toggleClipsPlay()" title="Воспроизвести / Пауза">
+            <span id="clipsPlayIcon">▶</span>
+          </button>
+          <button type="button" class="clips-action-btn" onclick="App.searchClipsAlbumVinyl()" title="Найти виниловые версии этого альбома">
+            <span>💽</span>
+            <small>Винил</small>
+          </button>
+          <button type="button" class="clips-action-btn" onclick="App.addCurrentClipToLibrary()" title="Добавить трек в коллекцию">
+            <span>+</span>
+            <small>В треки</small>
+          </button>
+          <button type="button" class="clips-action-btn" onclick="App.prevClip()" title="Предыдущий трек (стрелка вверх)">
+            <span>▲</span>
+          </button>
+          <button type="button" class="clips-action-btn" onclick="App.nextClip()" title="Следующий трек (стрелка вниз)">
+            <span>▼</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
