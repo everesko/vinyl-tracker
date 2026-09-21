@@ -18,6 +18,7 @@ const App = {
   spotifyTracks: [],   // spotify songs / tracks (synced view)
   playingAudio: null,  // active HTML5 Audio element for preview
   selectedIds: new Set(),
+  selectedSearchAlbumIds: new Set(),
   filterStatus: 'all',
   tableSearchQuery: '',
   sortCol: 'createdAt',
@@ -1167,7 +1168,7 @@ const App = {
       const resultBox = document.getElementById('companionResult');
       if (resultBox) resultBox.style.display = 'none';
 
-      this.highlightRecord(newAlbum.id);
+      this.highlightRecord(newAlbum.id, false);
     });
   },
 
@@ -1219,19 +1220,21 @@ const App = {
       const resultBox = document.getElementById('companionResult');
       if (resultBox) resultBox.style.display = 'none';
 
-      this.highlightRecord(newRecord.id);
+      this.highlightRecord(newRecord.id, false);
     });
   },
 
-  highlightRecord(id) {
+  highlightRecord(id, shouldScroll = false) {
     if (!id) return;
-    this.filterStatus = 'all';
-    this.tableSearchQuery = '';
-    const searchInput = document.getElementById('tableSearchInput');
-    if (searchInput) searchInput.value = '';
-    document.querySelectorAll('.filter-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.filter === 'all');
-    });
+    if (shouldScroll) {
+      this.filterStatus = 'all';
+      this.tableSearchQuery = '';
+      const searchInput = document.getElementById('tableSearchInput');
+      if (searchInput) searchInput.value = '';
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === 'all');
+      });
+    }
 
     const found = this.findTableAndItem(id, this.appMode, true);
     if (found && found.table) {
@@ -1240,18 +1243,20 @@ const App = {
 
     this.render();
 
-    setTimeout(() => {
-      const sId = String(id);
-      const row = document.getElementById(`record-row-${sId}`);
-      if (row) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        row.style.transition = 'background-color 0.4s ease';
-        row.style.backgroundColor = 'rgba(56, 189, 248, 0.25)';
-        setTimeout(() => {
-          row.style.backgroundColor = '';
-        }, 2000);
-      }
-    }, 120);
+    if (shouldScroll) {
+      setTimeout(() => {
+        const sId = String(id);
+        const row = document.getElementById(`record-row-${sId}`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.style.transition = 'background-color 0.4s ease';
+          row.style.backgroundColor = 'rgba(56, 189, 248, 0.25)';
+          setTimeout(() => {
+            row.style.backgroundColor = '';
+          }, 2000);
+        }
+      }, 120);
+    }
   },
 
   // ----------------------------------------------------
@@ -2412,6 +2417,7 @@ const App = {
     const coverUrl = a.coverImage || a.thumb;
     const discogsLink = a.uri || `https://www.discogs.com/master/${a.masterId}`;
 
+    const trackCount = this.getAlbumTrackCount(a);
     const countText = a.versionsCount !== null && a.versionsCount !== undefined
       ? `${a.versionsCount} виниловых изданий`
       : 'Посмотреть издания';
@@ -2422,8 +2428,9 @@ const App = {
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${a.id}', this.checked)">
         </td>
         <td class="cell-cover">
-          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
+          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')" style="position:relative;">
             ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy">` : `<div class="cover-placeholder">ALBUM</div>`}
+            ${trackCount ? `<span class="cover-tracks-badge">🎵 ${trackCount}</span>` : ''}
           </div>
         </td>
         <td class="artist-album-col">
@@ -2475,6 +2482,7 @@ const App = {
 
   renderReleaseRow(r, isSelected) {
     const coverUrl = r.coverImage || r.thumb;
+    const trackCount = this.getAlbumTrackCount(r);
     
     let medianStr = '—';
     if (r.priceMedian) {
@@ -2507,8 +2515,9 @@ const App = {
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${r.id}', this.checked)">
         </td>
         <td class="cell-cover">
-          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
+          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')" style="position:relative;">
             ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy">` : `<div class="cover-placeholder">VINYL</div>`}
+            ${trackCount ? `<span class="cover-tracks-badge">🎵 ${trackCount}</span>` : ''}
           </div>
         </td>
         <td class="artist-album-col">
@@ -3101,11 +3110,47 @@ const App = {
 
   closeDiscogsSearchModal() {
     this._explicitTargetTableId = null;
+    this.selectedSearchAlbumIds.clear();
+    this.updateSearchMultiSelectBar();
     const modal = document.getElementById('discogsSearchModal');
     if (modal) {
       modal.classList.remove('open');
       modal.classList.remove('active');
     }
+  },
+
+  getAlbumEarliestYear(item) {
+    if (!item) return '';
+    const cacheKey = item.masterId || item.discogsId || item.id;
+    const nameKey = (item.artist && (item.album || item.title))
+      ? `${String(item.artist).toLowerCase().trim()}:::${String(item.album || item.title).toLowerCase().trim()}`
+      : null;
+    const cached = this.getTracklistFromCache(cacheKey) || (nameKey && this.getTracklistFromCache(nameKey));
+
+    let y1 = parseInt(item.year, 10);
+    let y2 = cached && cached.year ? parseInt(cached.year, 10) : null;
+    if (isNaN(y1)) y1 = null;
+    if (isNaN(y2)) y2 = null;
+
+    if (y1 && y2) return String(Math.min(y1, y2));
+    if (y2) return String(y2);
+    if (y1) return String(y1);
+    return item.year || '';
+  },
+
+  getAlbumTrackCount(item) {
+    if (!item) return '';
+    if (typeof item.trackCount === 'number' && item.trackCount > 0) return item.trackCount;
+    if (Array.isArray(item.tracklist) && item.tracklist.length > 0) return item.tracklist.length;
+    const cacheKey = item.masterId || item.discogsId || item.id;
+    const nameKey = (item.artist && (item.album || item.title))
+      ? `${String(item.artist).toLowerCase().trim()}:::${String(item.album || item.title).toLowerCase().trim()}`
+      : null;
+    const cached = this.getTracklistFromCache(cacheKey) || (nameKey && this.getTracklistFromCache(nameKey));
+    if (cached && Array.isArray(cached.tracklist) && cached.tracklist.length > 0) {
+      return cached.tracklist.length;
+    }
+    return '';
   },
 
   isAlbumInLibrary(item) {
@@ -3428,6 +3473,9 @@ const App = {
     const q = input.value.trim();
     if (!q) return;
 
+    this.selectedSearchAlbumIds.clear();
+    this.updateSearchMultiSelectBar();
+
     const isSpotify = this.searchProvider === 'spotify';
     const isAlbumsSearch = isSpotify ? (this.appMode === 'albums' || this.appMode === 'releases') : (this.appMode === 'albums');
     const serviceName = isSpotify ? 'Spotify' : 'Discogs';
@@ -3527,17 +3575,26 @@ const App = {
           const inLib = libInfo.inLibrary;
           const isMaster = !!item.masterId;
           const safeItemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+          const isChecked = this.selectedSearchAlbumIds.has(String(item.id));
+          const earliestYear = this.getAlbumEarliestYear(item);
+          const trackCount = this.getAlbumTrackCount(item);
           return `
-            <div class="search-result-item ${inLib ? 'search-item-in-library' : ''}" style="margin-bottom:8px; padding:8px 10px;">
+            <div class="search-result-item ${inLib ? 'search-item-in-library' : ''}" id="search-item-${item.id}" style="margin-bottom:8px; padding:8px 10px;">
               <div class="search-result-left">
-                <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
+                <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
+                  <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
+                </label>
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:38px; height:38px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                  <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
+                  <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
+                </div>
                 <div class="search-meta" style="min-width:0;">
                   <div class="search-artist" style="font-size:11.5px; color:#cbd5e1; font-weight:600;">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                   <div class="search-title" style="font-size:12.5px; font-weight:700;">
                     <a href="javascript:void(0)" class="dual-album-link" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="color:#ffffff; text-decoration:none;">${this.escapeHtml(item.title || '')}</a>
                   </div>
                   <div class="search-tags" style="font-size:10.5px; color:#94a3b8;">
-                    ${item.year ? `<span style="color:#cbd5e1;">${this.escapeHtml(item.year)}</span> • ` : ''}
+                    <span id="searchYear-${item.id}" style="${earliestYear ? '' : 'display:none;'} color:#cbd5e1;">Год: ${this.escapeHtml(earliestYear)} • </span>
                     <span style="color:#38bdf8;">${this.formatVinylVersions(item.versionsCount || 1)}</span>
                   </div>
                 </div>
@@ -3752,6 +3809,9 @@ const App = {
             ? (isZero ? '🚫 Нет виниловых изданий' : `💽 ${this.formatVinylVersions(item.versionsCount)}`)
             : '⏳ Загрузка изданий...';
 
+          const isChecked = this.selectedSearchAlbumIds.has(String(item.id));
+          const earliestYear = this.getAlbumEarliestYear(item);
+          const trackCount = this.getAlbumTrackCount(item);
           return `
             <div class="search-result-item ${inLib ? 'search-item-in-library' : ''} ${isNowPlaying ? 'search-item-now-playing' : ''} ${isZero ? 'search-item-no-sale' : ''}" 
                  id="search-item-${item.id}"
@@ -3760,8 +3820,12 @@ const App = {
                  data-item-id="${this.escapeHtml(item.id)}"
                  onmouseenter="App.prefetchAlbumTracklist(${safeItemJson})">
               <div class="search-result-left">
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
+                  <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
+                </label>
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Album">
+                  <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
                 </div>
                 <div class="search-meta">
                   <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
@@ -3773,7 +3837,7 @@ const App = {
                   <div class="search-tags">
                     ${inLib ? `<span class="in-library-badge">✓ В таблице: ${this.escapeHtml(tableName)}</span> •` : ''}
                     ${isNowPlaying ? `<span class="now-playing-album-indicator">🔊 Сейчас играет</span> •` : ''}
-                    ${item.year ? `<span>Год: ${this.escapeHtml(item.year)}</span> •` : ''}
+                    <span id="searchYear-${item.id}">${earliestYear ? `Год: ${this.escapeHtml(earliestYear)} •` : ''}</span>
                     <span id="modalAlbumVersCount-${item.id}" class="versions-badge ${isZero ? 'versions-badge-zero' : ''}" style="color:var(--accent-theme); font-weight:600;">${versionsText}</span>
                   </div>
                 </div>
@@ -3842,6 +3906,9 @@ const App = {
           const tableName = libInfo.table ? libInfo.table.name : 'релизов';
           const isNowPlaying = this.isAudioPlayingForAlbum(item);
 
+          const isChecked = this.selectedSearchAlbumIds.has(String(item.id));
+          const earliestYear = this.getAlbumEarliestYear(item);
+          const trackCount = this.getAlbumTrackCount(item);
           return `
             <div class="search-result-item ${inLib ? 'search-item-in-library' : ''} ${isNowPlaying ? 'search-item-now-playing' : ''}" 
                  id="search-item-${item.id}"
@@ -3850,8 +3917,12 @@ const App = {
                  data-item-id="${this.escapeHtml(item.id)}"
                  onmouseenter="App.prefetchAlbumTracklist(${safeItemJson})">
               <div class="search-result-left">
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
+                  <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
+                </label>
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Vinyl">
+                  <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
                 </div>
                 <div class="search-meta">
                   <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
@@ -3863,7 +3934,7 @@ const App = {
                   <div class="search-tags">
                     ${inLib ? `<span class="in-library-badge">✓ В таблице: ${this.escapeHtml(tableName)}</span> •` : ''}
                     ${isNowPlaying ? `<span class="now-playing-album-indicator">🔊 Сейчас играет</span> •` : ''}
-                    ${item.year ? `<span>${this.escapeHtml(item.year)}</span> •` : ''}
+                    <span id="searchYear-${item.id}">${earliestYear ? `Год: ${this.escapeHtml(earliestYear)} •` : ''}</span>
                     ${item.country ? `<span>${this.escapeHtml(item.country)}</span> •` : ''}
                     <span>${this.escapeHtml(item.format || 'Vinyl')}</span>
                     ${item.label ? `• <span>${this.escapeHtml(item.label)}</span>` : ''}
@@ -3920,6 +3991,9 @@ const App = {
   async showArtistAlbums(artistId, artistName, artistThumb) {
     const resultsContainer = document.getElementById('discogsSearchResults');
     if (!resultsContainer) return;
+
+    this.selectedSearchAlbumIds.clear();
+    this.updateSearchMultiSelectBar();
 
     if (!this.previousSearchState) {
       this.previousSearchState = {
@@ -4008,6 +4082,9 @@ const App = {
           ? (isZero ? '🚫 Нет виниловых изданий' : `💽 ${this.formatVinylVersions(item.versionsCount)}`)
           : '⏳ Загрузка изданий...';
 
+        const isChecked = this.selectedSearchAlbumIds.has(String(item.id));
+        const earliestYear = this.getAlbumEarliestYear(item);
+        const trackCount = this.getAlbumTrackCount(item);
         return `
           <div class="search-result-item ${inLib ? 'search-item-in-library' : ''} ${isNowPlaying ? 'search-item-now-playing' : ''} ${isZero ? 'search-item-no-sale' : ''}" 
                id="search-item-${item.id}"
@@ -4016,8 +4093,12 @@ const App = {
                data-item-id="${this.escapeHtml(item.id)}"
                onmouseenter="App.prefetchAlbumTracklist(${safeItemJson})">
             <div class="search-result-left">
-              <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+              <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
+                <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
+              </label>
+              <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; position:relative; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                 <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Album">
+                <span class="cover-tracks-badge" id="coverTracksBadge-${item.id}" style="${trackCount ? '' : 'display:none;'}">🎵 ${trackCount}</span>
               </div>
               <div class="search-meta">
                 <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
@@ -4029,7 +4110,7 @@ const App = {
                 <div class="search-tags">
                   ${inLib ? `<span class="in-library-badge">✓ В таблице: ${this.escapeHtml(tableName)}</span> •` : ''}
                   ${isNowPlaying ? `<span class="now-playing-album-indicator">🔊 Сейчас играет</span> •` : ''}
-                  ${item.year ? `<span>Год: ${this.escapeHtml(item.year)}</span> •` : ''}
+                  <span id="searchYear-${item.id}">${earliestYear ? `Год: ${this.escapeHtml(earliestYear)} •` : ''}</span>
                   <span id="modalAlbumVersCount-${item.id}" class="versions-badge ${isZero ? 'versions-badge-zero' : ''}" style="color:var(--accent-theme); font-weight:600;">${versionsText}</span>
                 </div>
               </div>
@@ -4109,6 +4190,221 @@ const App = {
     this.previousSearchState = null;
   },
 
+  // ----------------------------------------------------
+  // SEARCH RESULTS MULTI-SELECTION (МУЛЬТИВЫДЕЛЕНИЕ)
+  // ----------------------------------------------------
+  onSearchItemCheckboxChange(itemId, isChecked) {
+    const sId = String(itemId);
+    if (isChecked) {
+      this.selectedSearchAlbumIds.add(sId);
+    } else {
+      this.selectedSearchAlbumIds.delete(sId);
+    }
+    this.updateSearchMultiSelectBar();
+  },
+
+  updateSearchMultiSelectBar() {
+    const bar = document.getElementById('searchMultiSelectBar');
+    const countEl = document.getElementById('searchSelectedCount');
+    const addCountEl = document.getElementById('searchSelectedAddCount');
+    const count = this.selectedSearchAlbumIds.size;
+    if (bar) {
+      bar.style.display = count > 0 ? 'flex' : 'none';
+    }
+    if (countEl) countEl.textContent = count;
+    if (addCountEl) addCountEl.textContent = count;
+  },
+
+  selectAllSearchResults(selectAll) {
+    const checkboxes = document.querySelectorAll('.search-item-checkbox:not(:disabled)');
+    if (selectAll) {
+      checkboxes.forEach(cb => {
+        cb.checked = true;
+        const id = cb.dataset.id;
+        if (id) this.selectedSearchAlbumIds.add(String(id));
+      });
+    } else {
+      checkboxes.forEach(cb => {
+        cb.checked = false;
+      });
+      this.selectedSearchAlbumIds.clear();
+    }
+    this.updateSearchMultiSelectBar();
+  },
+
+  async addSelectedSearchResults() {
+    if (this.selectedSearchAlbumIds.size === 0) {
+      this.showToastNotification('⚠️ Не выбрано ни одного альбома');
+      return;
+    }
+
+    const itemsToAdd = (this.lastSearchResults || []).filter(it => 
+      this.selectedSearchAlbumIds.has(String(it.id)) && !this.isAlbumInLibrary(it).inLibrary
+    );
+
+    if (itemsToAdd.length === 0) {
+      this.showToastNotification('Все выбранные альбомы уже есть в вашей коллекции');
+      this.selectedSearchAlbumIds.clear();
+      this.updateSearchMultiSelectBar();
+      return;
+    }
+
+    const mode = this.appMode === 'spotify' ? 'spotify' : (this.appMode === 'albums' ? 'albums' : 'releases');
+    const label = `${itemsToAdd.length} ${this.formatRecordsWord(itemsToAdd.length)}`;
+
+    this.promptDestinationTable(label, mode, async (targetTableId) => {
+      let addedCount = 0;
+      const targetTable = (this.getActiveModeTables(mode) || []).find(t => t.id === targetTableId);
+      const tableName = targetTable ? targetTable.name : 'коллекцию';
+
+      for (const item of itemsToAdd) {
+        if (mode === 'albums') {
+          const versionsCount = (typeof item.versionsCount === 'number') ? item.versionsCount : (item.masterId ? 1 : 1);
+          const newAlbum = {
+            id: `master-${item.id}`,
+            masterId: item.id,
+            artist: item.artist || item.rawTitle,
+            title: item.title || item.rawTitle,
+            year: item.year || '',
+            coverImage: item.coverImage || item.thumb,
+            thumb: item.thumb,
+            uri: item.uri,
+            versionsCount: versionsCount,
+            genre: item.genre || '',
+            style: item.style || '',
+            status: 'buy',
+            notes: '',
+            createdAt: new Date().toISOString()
+          };
+          this.addItemToActiveTable(newAlbum, targetTableId, 'albums');
+          addedCount++;
+
+          const card = document.getElementById(`search-item-${item.id}`);
+          if (card) {
+            card.classList.add('search-item-in-library');
+            card.style.opacity = '0.58';
+            card.style.filter = 'grayscale(100%)';
+            const btn = document.getElementById(`modalBtnAddAlbum-${item.id}`) || card.querySelector('.btn-primary');
+            if (btn) {
+              btn.textContent = '✓ В коллекции';
+              btn.classList.remove('btn-primary');
+              btn.classList.add('btn-secondary', 'sp-btn-added');
+              btn.disabled = true;
+            }
+            const cb = card.querySelector('.search-item-checkbox');
+            if (cb) {
+              cb.checked = false;
+              cb.disabled = true;
+            }
+            let badge = card.querySelector('.in-library-badge');
+            if (!badge) {
+              badge = document.createElement('span');
+              badge.className = 'in-library-badge';
+              badge.textContent = `✓ В таблице: ${tableName}`;
+              const badgesRow = card.querySelector('.search-tags, .sp-album-badges');
+              if (badgesRow) badgesRow.prepend(badge);
+            }
+          }
+        } else if (mode === 'releases') {
+          const newRecord = {
+            id: `discogs-${item.id}`,
+            discogsId: item.id,
+            title: item.title || item.rawTitle,
+            artist: item.artist || item.rawTitle,
+            year: item.year || '',
+            format: item.format || 'Vinyl',
+            country: item.country || '',
+            label: item.label || '',
+            catno: item.catno || '',
+            thumb: item.thumb || item.coverImage,
+            coverImage: item.coverImage || item.thumb,
+            uri: item.uri,
+            status: 'buy',
+            notes: '',
+            createdAt: new Date().toISOString()
+          };
+          this.addItemToActiveTable(newRecord, targetTableId, 'releases');
+          addedCount++;
+
+          const card = document.getElementById(`search-item-${item.id}`);
+          if (card) {
+            card.classList.add('search-item-in-library');
+            card.style.opacity = '0.58';
+            card.style.filter = 'grayscale(100%)';
+            const btn = document.getElementById(`modalBtnAddRelease-${item.id}`) || card.querySelector('.btn-primary');
+            if (btn) {
+              btn.textContent = '✓ В вишлисте';
+              btn.classList.remove('btn-primary');
+              btn.classList.add('btn-secondary', 'sp-btn-added');
+              btn.disabled = true;
+            }
+            const cb = card.querySelector('.search-item-checkbox');
+            if (cb) {
+              cb.checked = false;
+              cb.disabled = true;
+            }
+            let badge = card.querySelector('.in-library-badge');
+            if (!badge) {
+              badge = document.createElement('span');
+              badge.className = 'in-library-badge';
+              badge.textContent = `✓ В таблице: ${tableName}`;
+              const badgesRow = card.querySelector('.search-tags');
+              if (badgesRow) badgesRow.prepend(badge);
+            }
+          }
+        } else if (mode === 'spotify') {
+          const rawId = item.id || item.spotifyId || Date.now();
+          const cleanId = String(rawId).startsWith('sp-') ? rawId : `sp-${rawId}`;
+          const newTrack = {
+            id: cleanId,
+            spotifyId: item.spotifyId || item.id,
+            uri: item.uri || item.spotifyUri || `spotify:track:${item.id}`,
+            title: item.title || 'Без названия',
+            artist: item.artist || 'Неизвестный исполнитель',
+            album: item.album || '',
+            durationMs: item.durationMs || 0,
+            durationStr: item.durationStr || '0:00',
+            previewUrl: item.previewUrl || null,
+            coverImage: item.coverImage || '',
+            externalUrl: item.spotifyUrl || item.externalUrl || '',
+            status: 'buy',
+            rating: 0,
+            isHighValue: false,
+            notes: '',
+            createdAt: new Date().toISOString()
+          };
+          this.addItemToActiveTable(newTrack, targetTableId, 'spotify');
+          addedCount++;
+
+          const card = document.getElementById(`sp-track-${item.id}`);
+          if (card) {
+            card.classList.add('search-item-in-library');
+            const btn = document.getElementById(`modalBtnAddTrack-${item.id}`) || card.querySelector('.sp-btn-add');
+            if (btn) {
+              btn.textContent = '✓ В коллекции';
+              btn.classList.remove('sp-btn-add');
+              btn.classList.add('sp-btn-added');
+              btn.disabled = true;
+            }
+            const cb = card.querySelector('.search-item-checkbox');
+            if (cb) {
+              cb.checked = false;
+              cb.disabled = true;
+            }
+          }
+        }
+      }
+
+      this.saveModeTables(mode);
+      this.renderTables();
+
+      this.selectedSearchAlbumIds.clear();
+      this.updateSearchMultiSelectBar();
+
+      this.showToastNotification(`✓ Добавлено альбомов: ${addedCount} в «${tableName}»`);
+    });
+  },
+
   async addAlbumFromModal(masterId) {
     const item = (this.lastSearchResults || []).find(r => r.id === masterId);
     if (!item) return;
@@ -4153,7 +4449,7 @@ const App = {
       const targetTable = (this.tables.albums || []).find(t => t.id === targetTableId);
       const tableName = targetTable ? targetTable.name : 'альбомов';
 
-      // Keep search modal OPEN and mark item as added, move to top!
+      // Keep search modal OPEN and mark item as added, staying in-place without scrolling or jumping!
       const modalBtn = document.getElementById(`modalBtnAddAlbum-${masterId}`) 
         || document.getElementById(`modalBtnAdd-${masterId}`);
       if (modalBtn) {
@@ -4174,6 +4470,11 @@ const App = {
         card.style.opacity = '0.58';
         card.style.filter = 'grayscale(100%)';
         card.style.background = 'rgba(255, 255, 255, 0.02)';
+        const cb = card.querySelector('.search-item-checkbox');
+        if (cb) {
+          cb.checked = false;
+          cb.disabled = true;
+        }
         let badge = card.querySelector('.in-library-badge');
         if (!badge) {
           badge = document.createElement('span');
@@ -4182,13 +4483,9 @@ const App = {
           const badgesRow = card.querySelector('.search-tags, .sp-album-badges');
           if (badgesRow) badgesRow.prepend(badge);
         }
-        if (card.parentElement) {
-          card.parentElement.prepend(card);
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
       }
 
-      this.highlightRecord(newAlbum.id);
+      this.highlightRecord(newAlbum.id, false);
       this.showToastNotification(`✓ Альбом «${newAlbum.title}» добавлен в «${tableName}»`);
     });
   },
@@ -4229,7 +4526,7 @@ const App = {
       durationStr: item.durationStr || '0:00',
       previewUrl: item.previewUrl || null,
       coverImage: item.coverImage || '',
-      externalUrl: item.externalUrl || (item.id ? `https://open.spotify.com/track/${item.id}` : ''),
+      externalUrl: item.spotifyUrl || item.externalUrl || '',
       status: 'buy',
       rating: 0,
       isHighValue: false,
@@ -4244,7 +4541,7 @@ const App = {
       const targetTable = (this.tables.spotify || []).find(t => t.id === targetTableId);
       const tableName = targetTable ? targetTable.name : 'треков';
 
-      // Keep search modal OPEN and mark item as added, move to top!
+      // Keep search modal OPEN and mark item as added, staying in-place without scrolling or jumping!
       const modalBtn = document.getElementById(`modalBtnAddTrack-${item.id}`);
       if (modalBtn) {
         modalBtn.textContent = '✓ В коллекции';
@@ -4262,6 +4559,11 @@ const App = {
         card.style.opacity = '0.58';
         card.style.filter = 'grayscale(100%)';
         card.style.background = 'rgba(255, 255, 255, 0.02)';
+        const cb = card.querySelector('.search-item-checkbox');
+        if (cb) {
+          cb.checked = false;
+          cb.disabled = true;
+        }
         let badge = card.querySelector('.in-library-badge');
         if (!badge) {
           badge = document.createElement('span');
@@ -4270,16 +4572,12 @@ const App = {
           const badgesRow = card.querySelector('.sp-album-badges, .sp-track-badges');
           if (badgesRow) badgesRow.prepend(badge);
         }
-        if (card.parentElement) {
-          card.parentElement.prepend(card);
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
       }
 
       const companionBox = document.getElementById('companionResult');
       if (companionBox) companionBox.style.display = 'none';
 
-      this.highlightRecord(newTrack.id);
+      this.highlightRecord(newTrack.id, false);
       this.showToastNotification(`✓ «${newTrack.title}» добавлена в таблицу «${tableName}»`);
     });
   },
@@ -4357,6 +4655,14 @@ const App = {
     if (volumeSlider) audio.volume = parseFloat(volumeSlider.value) || 0.8;
     this.playingAudio = audio;
 
+    if (this.experiments.turntableAsmr) {
+      this.openTurntableWidget({
+        title: title || 'Аудио-трек',
+        artist: artist || '',
+        coverUrl: coverUrl || ''
+      });
+    }
+
     const btn = typeof btnElementOrId === 'string' ? document.getElementById(btnElementOrId) : btnElementOrId;
     if (btn) {
       btn.classList.add('playing');
@@ -4372,6 +4678,7 @@ const App = {
       if (scrubber && !this.isAudioScrubbing && dur > 0) {
         scrubber.value = ((cur / dur) * 100).toFixed(1);
       }
+      this.updateTurntableProgress(cur, dur);
     };
 
     audio.onplay = () => {
@@ -4382,6 +4689,7 @@ const App = {
         b.textContent = '⏸';
       }
       this.updateSearchPlayingHighlights();
+      this.onTurntableAudioPlay();
     };
 
     audio.onpause = () => {
@@ -4392,6 +4700,7 @@ const App = {
         b.textContent = '▶';
       }
       this.updateSearchPlayingHighlights();
+      this.onTurntableAudioPause();
     };
 
     audio.onended = () => {
@@ -4407,6 +4716,7 @@ const App = {
       this.currentAudioArtist = null;
       this.currentAudioAlbumTitle = null;
       this.updateSearchPlayingHighlights();
+      this.onTurntableAudioEnded();
     };
 
     audio.onerror = (e) => {
@@ -4667,6 +4977,25 @@ const App = {
             if (cacheKey) this.saveTracklistToCache(cacheKey, data);
             if (nameKey) this.saveTracklistToCache(nameKey, data);
             if (item.masterId) this.saveTracklistToCache(item.masterId, data);
+
+            // Dynamically update DOM badge and earliest year in search cards immediately
+            const badge = document.getElementById(`coverTracksBadge-${item.id}`);
+            if (badge) {
+              badge.textContent = `🎵 ${data.tracklist.length}`;
+              badge.style.display = 'inline-flex';
+            }
+            if (data.year) {
+              const yearEl = document.getElementById(`searchYear-${item.id}`);
+              if (yearEl) {
+                const curYear = parseInt(yearEl.textContent.replace(/\D/g, ''), 10);
+                const newYear = parseInt(data.year, 10);
+                const earliest = (!curYear || isNaN(curYear)) ? newYear : Math.min(curYear, newYear);
+                if (earliest) {
+                  yearEl.textContent = `Год: ${earliest} •`;
+                  yearEl.style.display = 'inline';
+                }
+              }
+            }
           }
         }
       } catch (e) {}
@@ -5163,15 +5492,11 @@ const App = {
           btn.textContent = '✓ В треках';
           btn.classList.add('sp-btn-added');
           btn.classList.remove('sp-btn-add');
-          btn.disabled = true;
         }
-        if (rowEl.parentElement) {
-          rowEl.parentElement.prepend(rowEl);
-          rowEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        // Keep row in place without scrolling
       }
 
-      this.highlightRecord(newTrack.id);
+      this.highlightRecord(newTrack.id, false);
       this.showToastNotification(`✓ Песня «${newTrack.title}» добавлена в «${tableName}»`);
     });
   },
@@ -5463,6 +5788,11 @@ const App = {
         card.style.opacity = '0.58';
         card.style.filter = 'grayscale(100%)';
         card.style.background = 'rgba(255, 255, 255, 0.02)';
+        const cb = card.querySelector('.search-item-checkbox');
+        if (cb) {
+          cb.checked = false;
+          cb.disabled = true;
+        }
         let badge = card.querySelector('.in-library-badge');
         if (!badge) {
           badge = document.createElement('span');
@@ -5471,13 +5801,9 @@ const App = {
           const badgesRow = card.querySelector('.search-tags');
           if (badgesRow) badgesRow.prepend(badge);
         }
-        if (card.parentElement) {
-          card.parentElement.prepend(card);
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
       }
 
-      this.highlightRecord(newRecord.id);
+      this.highlightRecord(newRecord.id, false);
       this.showToastNotification(`✓ Пластинка «${newRecord.title}» добавлена в «${tableName}»`);
     });
   },
@@ -5785,6 +6111,17 @@ const App = {
       }
       if (profileBox) {
         profileBox.style.display = 'none';
+      }
+    }
+
+    const dcSt = document.getElementById('settingsDiscogsStatus');
+    if (dcSt) {
+      if (user && user.username) {
+        dcSt.innerHTML = `<span class="dot" style="background:#22c55e;"></span> @${this.escapeHtml(user.username)} (${user.num_collection || 0} в коллекции)`;
+      } else if (DiscogsClient && DiscogsClient.token) {
+        dcSt.innerHTML = `<span class="dot" style="background:#22c55e;"></span> Подключен (API Token)`;
+      } else {
+        dcSt.innerHTML = `<span class="dot"></span> Не подключен`;
       }
     }
   },
@@ -6369,6 +6706,18 @@ const App = {
         profileBox.style.display = 'none';
       }
     }
+
+    const spSt = document.getElementById('settingsSpotifyStatus');
+    if (spSt) {
+      if (user && (user.id || user.display_name)) {
+        const name = user.display_name || user.id;
+        spSt.innerHTML = `<span class="dot" style="background:#22c55e;"></span> Авторизован (@${this.escapeHtml(name)})`;
+      } else if (SpotifyClient.isAuthenticated()) {
+        spSt.innerHTML = `<span class="dot" style="background:#22c55e;"></span> Подключен`;
+      } else {
+        spSt.innerHTML = `<span class="dot"></span> Не авторизован`;
+      }
+    }
   },
 
   logoutSpotify() {
@@ -6533,16 +6882,40 @@ const App = {
     }
   },
 
+  openGlobalSettingsModal() {
+    this.renderCloudStatus({
+      isFirebaseActive: Boolean(window.firebaseSync && firebaseSync.db),
+      collectionName: (window.firebaseSync && firebaseSync.collectionName) || 'vinyl_records'
+    });
+    this.updateDiscogsUIStatus();
+    this.updateSpotifyUIStatus();
+    const modal = document.getElementById('globalSettingsModal');
+    if (modal) modal.classList.add('open');
+  },
+
+  closeGlobalSettingsModal() {
+    const modal = document.getElementById('globalSettingsModal');
+    if (modal) modal.classList.remove('open');
+  },
+
   renderCloudStatus(info) {
     const badge = document.getElementById('cloudHeaderBadge');
-    if (!badge) return;
-
-    if (info.isFirebaseActive) {
-      badge.innerHTML = `<span class="dot online"></span> Firebase Cloud`;
-      badge.classList.add('active');
-    } else {
-      badge.innerHTML = `<span class="dot warn"></span> Локально (Offline)`;
-      badge.classList.remove('active');
+    if (badge) {
+      if (info.isFirebaseActive) {
+        badge.innerHTML = `<span class="dot online"></span> Firebase Cloud`;
+        badge.classList.add('active');
+      } else {
+        badge.innerHTML = `<span class="dot warn"></span> Локально (Offline)`;
+        badge.classList.remove('active');
+      }
+    }
+    const stEl = document.getElementById('settingsFirebaseStatus');
+    if (stEl) {
+      if (info.isFirebaseActive) {
+        stEl.innerHTML = `<span class="dot" style="background:#22c55e;"></span> Подключено (Коллекция: ${this.escapeHtml(info.collectionName || 'vinyl_records')})`;
+      } else {
+        stEl.innerHTML = `<span class="dot warn"></span> Локально (Offline)`;
+      }
     }
   },
 
@@ -6614,8 +6987,9 @@ const App = {
   },
 
   applyExperimentEffects() {
-    // 1. Compact table
+    // 1. Compact table & left dock
     document.body.classList.toggle('compact-table-mode', Boolean(this.experiments.compactTable));
+    document.body.classList.toggle('has-left-dock', Boolean(this.experiments.compactTable));
     const dock = document.getElementById('fixedLeftCoversDock');
     if (dock) {
       dock.style.display = this.experiments.compactTable ? 'flex' : 'none';
@@ -6646,29 +7020,68 @@ const App = {
   updateFixedLeftCoversDock() {
     const list = document.getElementById('dockCoversList');
     if (!list) return;
+
+    // Collect artist frequencies across all collections to determine top 4 popular artists
     const allItems = [...this.records, ...this.albums, ...this.spotifyTracks].filter(it => it && (it.coverImage || it.thumb));
+    const artistCounts = {};
+    allItems.forEach(it => {
+      const art = (it.artist || '').trim();
+      if (art) {
+        artistCounts[art] = (artistCounts[art] || 0) + 1;
+      }
+    });
+
+    // Rank unique artists by popularity
+    const sortedArtists = Object.keys(artistCounts).sort((a, b) => artistCounts[b] - artistCounts[a]);
+
     const seen = new Set();
     const unique4 = [];
-    for (let i = allItems.length - 1; i >= 0 && unique4.length < 4; i--) {
-      const it = allItems[i];
-      const art = (it.artist || '').toLowerCase().trim();
-      if (art && !seen.has(art)) {
-        seen.add(art);
-        unique4.push(it);
+
+    // Find the most recent cover for each top artist
+    for (const art of sortedArtists) {
+      if (unique4.length >= 4) break;
+      for (let i = allItems.length - 1; i >= 0; i--) {
+        const it = allItems[i];
+        if ((it.artist || '').trim().toLowerCase() === art.toLowerCase() && !seen.has(art.toLowerCase())) {
+          seen.add(art.toLowerCase());
+          unique4.push(it);
+          break;
+        }
       }
     }
+
+    // Fill with any recent unique artists if less than 4
+    if (unique4.length < 4) {
+      for (let i = allItems.length - 1; i >= 0 && unique4.length < 4; i--) {
+        const it = allItems[i];
+        const art = (it.artist || '').trim().toLowerCase();
+        if (art && !seen.has(art)) {
+          seen.add(art);
+          unique4.push(it);
+        }
+      }
+    }
+
     if (unique4.length === 0) {
-      list.innerHTML = '<div style="font-size:9.5px; color:var(--text-muted); text-align:center; padding:6px 2px;">Нет обложек</div>';
+      list.innerHTML = '<div style="font-size:11px; color:var(--text-muted); text-align:center; padding:16px 4px;">Нет добавленных альбомов</div>';
       return;
     }
+
     list.innerHTML = unique4.map(it => {
       const cover = it.coverImage || it.thumb || '';
       const title = this.escapeHtml(it.title || it.album || 'Альбом');
       const artist = this.escapeHtml(it.artist || 'Артист');
+      const trackCount = this.getAlbumTrackCount(it);
       return `
-        <div class="dock-cover-item" onclick="App.openAlbumTracklistModal('${it.id}')" title="${artist} — ${title}">
-          <img src="${cover}" alt="${title}" loading="lazy">
-          <div class="dock-cover-tooltip">${artist} — ${title}</div>
+        <div class="dock-card-wrap">
+          <div class="dock-cover-item" onclick="App.openAlbumTracklistModal('${it.id}')" title="${artist} — ${title}">
+            <img src="${cover}" alt="${title}" loading="lazy">
+            ${trackCount ? `<span class="cover-tracks-badge">🎵 ${trackCount}</span>` : ''}
+          </div>
+          <div class="dock-cover-info">
+            <div class="dock-cover-artist" title="${artist}">${artist}</div>
+            <div class="dock-cover-title" title="${title}">${title}</div>
+          </div>
         </div>
       `;
     }).join('');
@@ -6938,44 +7351,292 @@ const App = {
   },
 
   // ----------------------------------------------------
-  // TURNTABLE ASMR & VALUATION TRACKER (Experiments 5 & 8)
+  // HI-FI VINYL TURNTABLE WIDGET & ASMR CRACKLE (Experiment 5)
   // ----------------------------------------------------
+  turntableState: {
+    isOpen: false,
+    isPacked: true,
+    isPlaying: false,
+    crackleEnabled: true,
+    currentTrack: null
+  },
+
+  openTurntableWidget(trackInfo = null) {
+    const widget = document.getElementById('vinylTurntableWidget');
+    if (!widget) return;
+    widget.style.display = 'flex';
+    this.turntableState.isOpen = true;
+
+    if (trackInfo) {
+      this.loadTurntableTrack(trackInfo);
+    }
+  },
+
+  closeTurntableWidget() {
+    const widget = document.getElementById('vinylTurntableWidget');
+    if (widget) {
+      widget.style.display = 'none';
+    }
+    this.turntableState.isOpen = false;
+    if (!this.playingAudio || this.playingAudio.paused) {
+      this.stopVinylCrackle();
+    }
+  },
+
+  loadTurntableTrack(item) {
+    if (!item) return;
+    this.turntableState.currentTrack = item;
+
+    const titleEl = document.getElementById('ttTrackTitle');
+    const artistEl = document.getElementById('ttArtistName');
+    const jacketCover = document.getElementById('ttJacketCover');
+    const labelImg = document.getElementById('ttLabelImg');
+    const stage = document.getElementById('ttStage');
+    const btnPack = document.getElementById('ttBtnPack');
+
+    const title = item.title || item.album || 'Без названия';
+    const artist = item.artist || 'Неизвестный исполнитель';
+    const cover = item.coverUrl || item.coverImage || item.thumb || '';
+
+    if (titleEl) titleEl.textContent = title;
+    if (artistEl) artistEl.textContent = artist;
+    if (jacketCover) {
+      jacketCover.src = cover || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'120\' fill=\'%231a2233\'><rect width=\'120\' height=\'120\'/></svg>';
+    }
+    if (labelImg) labelImg.src = cover || '';
+
+    // Smooth sleeve extraction animation
+    if (stage) {
+      stage.classList.remove('state-extracted');
+      stage.classList.add('state-packed');
+      this.turntableState.isPacked = true;
+      if (btnPack) btnPack.textContent = '📦';
+
+      setTimeout(() => {
+        stage.classList.remove('state-packed');
+        stage.classList.add('state-extracted');
+        this.turntableState.isPacked = false;
+        if (btnPack) btnPack.textContent = '💿';
+        if (this.playingAudio && !this.playingAudio.paused) {
+          const platter = document.getElementById('ttPlatter');
+          const tonearm = document.getElementById('ttTonearm');
+          if (platter) platter.classList.add('is-spinning');
+          if (tonearm) tonearm.classList.add('arm-on-record');
+        }
+      }, 150);
+    }
+  },
+
+  toggleTurntablePack() {
+    const stage = document.getElementById('ttStage');
+    const btnPack = document.getElementById('ttBtnPack');
+    const platter = document.getElementById('ttPlatter');
+    const tonearm = document.getElementById('ttTonearm');
+    if (!stage) return;
+
+    if (!this.turntableState.isPacked) {
+      // Packaging process: lift tonearm, stop spinning, slide vinyl disc back inside jacket sleeve
+      if (tonearm) tonearm.classList.remove('arm-on-record');
+      if (platter) platter.classList.remove('is-spinning');
+      stage.classList.remove('state-extracted');
+      stage.classList.add('state-packed');
+      this.turntableState.isPacked = true;
+      if (btnPack) {
+        btnPack.textContent = '📦';
+        btnPack.title = 'Достать пластинку из конверта';
+      }
+      this.showToastNotification('📦 Пластинка аккуратно запакована в конверт');
+    } else {
+      // Extraction process: slide vinyl disc out onto platter
+      stage.classList.remove('state-packed');
+      stage.classList.add('state-extracted');
+      this.turntableState.isPacked = false;
+      if (btnPack) {
+        btnPack.textContent = '💿';
+        btnPack.title = 'Запаковать пластинку в конверт';
+      }
+      if (this.playingAudio && !this.playingAudio.paused) {
+        if (tonearm) tonearm.classList.add('arm-on-record');
+        if (platter) platter.classList.add('is-spinning');
+      }
+      this.showToastNotification('💿 Пластинка извлечена и установлена на проигрыватель');
+    }
+  },
+
+  toggleTurntablePlayPause() {
+    this.toggleAudioPlayPause();
+  },
+
+  skipTurntableAudio(deltaSeconds) {
+    if (this.playingAudio) {
+      const cur = this.playingAudio.currentTime || 0;
+      const dur = this.playingAudio.duration || 30;
+      const target = Math.max(0, Math.min(dur, cur + deltaSeconds));
+      this.playingAudio.currentTime = target;
+    }
+  },
+
+  seekTurntableFromEvent(e) {
+    const track = document.getElementById('ttScrubberTrack');
+    if (!track || !this.playingAudio) return;
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+    const dur = this.playingAudio.duration && !isNaN(this.playingAudio.duration) ? this.playingAudio.duration : 30;
+    this.playingAudio.currentTime = pct * dur;
+  },
+
+  toggleVinylCrackle() {
+    this.turntableState.crackleEnabled = !this.turntableState.crackleEnabled;
+    const btn = document.getElementById('ttBtnAsmr');
+    if (btn) {
+      btn.classList.toggle('active', this.turntableState.crackleEnabled);
+    }
+    if (this.turntableState.crackleEnabled) {
+      if (this.playingAudio && !this.playingAudio.paused) {
+        this.startVinylCrackle();
+      }
+      this.showToastNotification('🔊 Аналоговый треск винила включен');
+    } else {
+      this.stopVinylCrackle();
+      this.showToastNotification('🔇 Треск винила отключен');
+    }
+  },
+
   startVinylCrackle() {
-    if (!this.experiments.turntableAsmr) return;
+    if (!this.turntableState.crackleEnabled) return;
     try {
       if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
       if (this.vinylCracklingNode) return;
-      const bufferSize = this.audioCtx.sampleRate * 2;
-      const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        const pop = Math.random() < 0.0006 ? (Math.random() * 2 - 1) * 0.35 : 0;
-        data[i] = (Math.random() * 2 - 1) * 0.012 + pop;
+
+      const bufferSize = 4096;
+      // Real-time procedural non-repetitive vinyl pops and surface hiss generator
+      const proc = this.audioCtx.createScriptProcessor ? this.audioCtx.createScriptProcessor(bufferSize, 0, 1) : null;
+
+      if (proc) {
+        let rotationPhase = 0;
+        proc.onaudioprocess = (e) => {
+          const out = e.outputBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            // Subtle 33 1/3 RPM rumble (0.55 Hz rotation modulation)
+            rotationPhase += (2 * Math.PI * 0.55) / 44100;
+            const rumble = Math.sin(rotationPhase) * 0.003;
+
+            // Surface friction hiss
+            const hiss = (Math.random() * 2 - 1) * 0.006;
+
+            // Random non-repetitive dust pops (Poisson distribution with organic amplitudes)
+            let pop = 0;
+            if (Math.random() < 0.00045) {
+              const sign = Math.random() < 0.5 ? 1 : -1;
+              const amp = 0.06 + Math.random() * 0.26;
+              pop = sign * amp;
+            }
+
+            out[i] = rumble + hiss + pop;
+          }
+        };
+
+        const filter = this.audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 2400;
+        filter.Q.value = 0.8;
+
+        const gain = this.audioCtx.createGain();
+        gain.gain.value = 0.32;
+
+        proc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.audioCtx.destination);
+
+        this.vinylCracklingNode = { proc, filter, gain };
+      } else {
+        const sampleRate = this.audioCtx.sampleRate || 44100;
+        const buffer = this.audioCtx.createBuffer(1, sampleRate * 4, sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+          const pop = Math.random() < 0.0007 ? (Math.random() * 2 - 1) * 0.35 : 0;
+          data[i] = (Math.random() * 2 - 1) * 0.012 + pop;
+        }
+        const noise = this.audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+        const gain = this.audioCtx.createGain();
+        gain.gain.value = 0.25;
+        noise.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        noise.start();
+        this.vinylCracklingNode = { noise, gain };
       }
-      const noise = this.audioCtx.createBufferSource();
-      noise.buffer = buffer;
-      noise.loop = true;
-      const filter = this.audioCtx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 3200;
-      const gain = this.audioCtx.createGain();
-      gain.gain.value = 0.28;
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.audioCtx.destination);
-      noise.start();
-      this.vinylCracklingNode = { noise, gain };
     } catch (e) {}
   },
 
   stopVinylCrackle() {
     if (this.vinylCracklingNode) {
       try {
-        this.vinylCracklingNode.noise.stop();
-        this.vinylCracklingNode.noise.disconnect();
+        if (this.vinylCracklingNode.proc) {
+          this.vinylCracklingNode.proc.disconnect();
+        }
+        if (this.vinylCracklingNode.noise) {
+          this.vinylCracklingNode.noise.stop();
+          this.vinylCracklingNode.noise.disconnect();
+        }
+        if (this.vinylCracklingNode.filter) this.vinylCracklingNode.filter.disconnect();
+        if (this.vinylCracklingNode.gain) this.vinylCracklingNode.gain.disconnect();
       } catch (e) {}
       this.vinylCracklingNode = null;
+    }
+  },
+
+  onTurntableAudioPlay() {
+    const platter = document.getElementById('ttPlatter');
+    const tonearm = document.getElementById('ttTonearm');
+    const led = document.getElementById('ttLedIndicator');
+    const playIcon = document.getElementById('ttPlayIcon');
+    const stage = document.getElementById('ttStage');
+
+    if (stage && !this.turntableState.isPacked) {
+      if (platter) platter.classList.add('is-spinning');
+      if (tonearm) tonearm.classList.add('arm-on-record');
+    }
+    if (led) led.classList.add('active');
+    if (playIcon) playIcon.textContent = '⏸';
+    this.startVinylCrackle();
+  },
+
+  onTurntableAudioPause() {
+    const platter = document.getElementById('ttPlatter');
+    const tonearm = document.getElementById('ttTonearm');
+    const led = document.getElementById('ttLedIndicator');
+    const playIcon = document.getElementById('ttPlayIcon');
+
+    if (platter) platter.classList.remove('is-spinning');
+    if (tonearm) tonearm.classList.remove('arm-on-record');
+    if (led) led.classList.remove('active');
+    if (playIcon) playIcon.textContent = '▶';
+    this.stopVinylCrackle();
+  },
+
+  onTurntableAudioEnded() {
+    this.onTurntableAudioPause();
+    const fill = document.getElementById('ttScrubberFill');
+    const curTime = document.getElementById('ttTimeCurrent');
+    if (fill) fill.style.width = '0%';
+    if (curTime) curTime.textContent = '0:00';
+  },
+
+  updateTurntableProgress(currentTime, duration) {
+    const fill = document.getElementById('ttScrubberFill');
+    const curTime = document.getElementById('ttTimeCurrent');
+    const durTime = document.getElementById('ttTimeDuration');
+    const cur = currentTime || 0;
+    const dur = duration && !isNaN(duration) ? duration : 30;
+
+    if (curTime) curTime.textContent = this.formatAudioTime(cur);
+    if (durTime) durTime.textContent = this.formatAudioTime(dur);
+    if (fill && dur > 0) {
+      fill.style.width = `${Math.min(100, (cur / dur) * 100)}%`;
     }
   },
 

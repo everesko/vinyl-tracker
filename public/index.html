@@ -19,7 +19,6 @@
         <div>
           <div class="brand-title">
             Vinyl Hunter
-            <span class="brand-tag" id="brandTag">CRATE DIGGER</span>
           </div>
         </div>
       </div>
@@ -51,22 +50,18 @@
           <span class="version-date">22.09.2026</span>
         </div>
 
-        <button id="cloudHeaderBadge" class="header-badge" title="Настройки облачной базы Firebase" onclick="App.openFirebaseModal()">
-          <span class="dot warn"></span> Локально (Offline)
+        <!-- Global Settings Button (Discogs, Spotify, Cloud DB) -->
+        <button id="btnOpenGlobalSettings" class="btn btn-secondary btn-sm" title="Настройки аккаунтов, синхронизации и баз данных" onclick="App.openGlobalSettingsModal()">
+          ⚙️ Настройки
         </button>
-        <button id="discogsHeaderBadge" class="header-badge" title="Подключение аккаунта Discogs" onclick="App.openDiscogsSettingsModal()">
-          <span class="dot"></span> Войти через Discogs
-        </button>
-        <button id="spotifyHeaderBadge" class="header-badge" style="display:none;" title="Подключение аккаунта Spotify" onclick="App.openSpotifyModal()">
-          <span class="dot"></span> Войти в Spotify
-        </button>
+
         <button id="btnExportExcel" class="btn btn-secondary btn-sm" title="Экспорт вишлиста в файл Excel .xlsx">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Экспорт в Excel
+          Экспорт
         </button>
         <button id="btnImportExcel" class="btn btn-secondary btn-sm" title="Загрузить коллекции и таблицы из файла Excel (.xlsx)" onclick="document.getElementById('excelFileInput').click()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-          📥 Загрузить Excel
+          Загрузить
         </button>
         <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display:none;" onchange="App.handleExcelImport(event)">
       </div>
@@ -332,6 +327,20 @@
         <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between;">
           <span>✓ Поиск через официальный Discogs API</span>
           <span>Цены подгружаются из Marketplace</span>
+        </div>
+
+        <!-- Sticky Multi-Select Action Bar (Мультивыделение) -->
+        <div id="searchMultiSelectBar" class="search-multiselect-bar" style="display: none;">
+          <div class="search-multiselect-left">
+            <span class="search-multiselect-count">Выбрано альбомов: <strong id="searchSelectedCount" style="color:var(--accent-theme);">0</strong></span>
+            <button type="button" class="btn btn-secondary btn-xs" onclick="App.selectAllSearchResults(true)" style="padding: 2px 7px; font-size: 11px;">Выбрать все</button>
+            <button type="button" class="btn btn-secondary btn-xs" onclick="App.selectAllSearchResults(false)" style="padding: 2px 7px; font-size: 11px;">Снять</button>
+          </div>
+          <div class="search-multiselect-right">
+            <button type="button" class="btn btn-primary btn-sm" id="btnBatchAddSearchAlbums" onclick="App.addSelectedSearchResults()">
+              + Добавить выбранные (<span id="searchSelectedAddCount">0</span>)
+            </button>
+          </div>
         </div>
 
         <div id="discogsSearchResults" class="search-results-list">
@@ -1025,6 +1034,72 @@
   </div>
 
   <!-- ==========================================
+       Modal: Unified Global Settings & Accounts
+       ========================================== -->
+  <div id="globalSettingsModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 540px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <span>⚙️ Настройки и аккаунты</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeGlobalSettingsModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <!-- Card 1: Firebase Cloud Sync -->
+        <div class="settings-service-card">
+          <div class="settings-service-left">
+            <div class="settings-service-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">☁️</div>
+            <div>
+              <div class="settings-service-title">Облачная база Firebase</div>
+              <div class="settings-service-status" id="settingsFirebaseStatus">
+                <span class="dot warn"></span> Локально (Offline)
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="App.openFirebaseModal()">
+            Настроить ➔
+          </button>
+        </div>
+
+        <!-- Card 2: Discogs Account -->
+        <div class="settings-service-card">
+          <div class="settings-service-left">
+            <div class="settings-service-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">💽</div>
+            <div>
+              <div class="settings-service-title">Аккаунт Discogs API</div>
+              <div class="settings-service-status" id="settingsDiscogsStatus">
+                <span class="dot"></span> Не подключен
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="App.openDiscogsSettingsModal()">
+            Подключить ➔
+          </button>
+        </div>
+
+        <!-- Card 3: Spotify Account -->
+        <div class="settings-service-card">
+          <div class="settings-service-left">
+            <div class="settings-service-icon" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;">🟢</div>
+            <div>
+              <div class="settings-service-title">Аккаунт Spotify</div>
+              <div class="settings-service-status" id="settingsSpotifyStatus">
+                <span class="dot"></span> Не авторизован
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="App.openSpotifyModal()">
+            Настроить ➔
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="App.closeGlobalSettingsModal()">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
        Modal: Firebase Cloud Settings
        ========================================== -->
   <div id="firebaseSettingsModal" class="modal-backdrop">
@@ -1386,6 +1461,87 @@
        ========================================== -->
   <div id="lightboxModal" class="lightbox-modal">
     <img id="lightboxImg" class="lightbox-img" src="" alt="Enlarged Vinyl Cover">
+  </div>
+
+  <!-- ==========================================
+       Hi-Fi Vinyl Turntable Widget (Bottom-Right Corner)
+       With Sleeve extraction, grooved vinyl, tonearm, scrubber & packaging!
+       ========================================== -->
+  <div id="vinylTurntableWidget" class="vinyl-turntable-widget" style="display: none;">
+    <div class="tt-header">
+      <div class="tt-track-meta">
+        <span class="tt-indicator-led" id="ttLedIndicator"></span>
+        <div class="tt-title-wrap">
+          <div class="tt-title" id="ttTrackTitle">Vinyl Player Ready</div>
+          <div class="tt-artist" id="ttArtistName">Выберите трек или пластинку</div>
+        </div>
+      </div>
+      <div class="tt-header-actions">
+        <button type="button" class="tt-btn-icon" id="ttBtnPack" onclick="App.toggleTurntablePack()" title="Запаковать / Достать пластинку">📦</button>
+        <button type="button" class="tt-btn-icon" onclick="App.closeTurntableWidget()" title="Закрыть проигрыватель">✕</button>
+      </div>
+    </div>
+
+    <!-- Mechanical Stage with Sleeve + Platter + Tonearm -->
+    <div class="tt-stage" id="ttStage">
+      <!-- Album Sleeve / Jacket (Конверт) -->
+      <div class="tt-jacket" id="ttAlbumJacket" title="Конверт альбома">
+        <img id="ttJacketCover" src="" alt="Album Sleeve" class="tt-jacket-img">
+        <div class="tt-jacket-sheen"></div>
+      </div>
+
+      <!-- Platter Deck (Стол проигрывателя) -->
+      <div class="tt-deck" id="ttDeck">
+        <div class="tt-platter-rim"></div>
+        <div class="tt-platter" id="ttPlatter">
+          <!-- The Vinyl Record that slides out of jacket onto platter -->
+          <div class="tt-vinyl-disc" id="ttVinylDisc">
+            <div class="tt-grooves"></div>
+            <div class="tt-sheen"></div>
+            <div class="tt-center-label" id="ttCenterLabel">
+              <img id="ttLabelImg" src="" alt="Label">
+              <div class="tt-spindle-hole"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tt-spindle-pin"></div>
+
+        <!-- Tonearm Assembly -->
+        <div class="tt-tonearm" id="ttTonearm">
+          <div class="tt-arm-pivot">
+            <div class="tt-counterweight"></div>
+          </div>
+          <div class="tt-arm-tube"></div>
+          <div class="tt-headshell">
+            <div class="tt-cartridge"></div>
+            <div class="tt-needle"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player Controls & Scrubber -->
+    <div class="tt-controls">
+      <div class="tt-scrubber-row">
+        <span class="tt-time" id="ttTimeCurrent">0:00</span>
+        <div class="tt-scrubber-track" id="ttScrubberTrack" onclick="App.seekTurntableFromEvent(event)">
+          <div class="tt-scrubber-fill" id="ttScrubberFill"></div>
+          <div class="tt-scrubber-thumb" id="ttScrubberThumb"></div>
+        </div>
+        <span class="tt-time" id="ttTimeDuration">0:30</span>
+      </div>
+
+      <div class="tt-actions-row">
+        <button type="button" class="tt-action-btn" onclick="App.skipTurntableAudio(-5)" title="Назад на 5 сек">⏪ 5с</button>
+        <button type="button" class="tt-main-play-btn" id="ttBtnPlayPause" onclick="App.toggleTurntablePlayPause()" title="Воспроизведение / Пауза">
+          <span id="ttPlayIcon">▶</span>
+        </button>
+        <button type="button" class="tt-action-btn" onclick="App.skipTurntableAudio(5)" title="Вперед на 5 сек">5с ⏩</button>
+        <button type="button" class="tt-action-btn tt-asmr-btn active" id="ttBtnAsmr" onclick="App.toggleVinylCrackle()" title="Переключить живой треск">
+          🔊 ASMR
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="discogs-client.js"></script>
