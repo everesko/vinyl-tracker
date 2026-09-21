@@ -920,6 +920,10 @@ const server = http.createServer(async (req, res) => {
         min: minPrice !== null ? parseFloat(Number(minPrice).toFixed(2)) : null,
         median: medianPrice !== null ? parseFloat(Number(medianPrice).toFixed(2)) : null,
         max: maxPrice !== null ? parseFloat(Number(maxPrice).toFixed(2)) : null,
+        min_sold: minPrice !== null ? parseFloat(Number(minPrice).toFixed(2)) : null,
+        median_sold: medianPrice !== null ? parseFloat(Number(medianPrice).toFixed(2)) : null,
+        max_sold: maxPrice !== null ? parseFloat(Number(maxPrice).toFixed(2)) : null,
+        has_sold_stats: Boolean(suggestions && Object.keys(suggestions).length > 0),
         currency: currency,
         lowest_price: lowestForSale,
         num_for_sale: numForSale,
@@ -995,6 +999,42 @@ const server = http.createServer(async (req, res) => {
       const artistName = (data.artists && data.artists[0] && data.artists[0].name) || (data.artists_sort) || '';
       const coverUrl = (data.images && data.images[0] && data.images[0].resource_url) || data.thumb || '';
 
+      // If Discogs tracklist is empty, automatically fallback to Spotify album tracks
+      let tracklistSource = 'Discogs';
+      let discogsNotFound = false;
+
+      if (tracklist.length === 0 && (artistName || data.title)) {
+        try {
+          const spToken = await getSpotifyClientCredentialsToken();
+          if (spToken) {
+            const spQuery = artistName ? `album:${data.title || ''} artist:${artistName}` : (data.title || '');
+            const spSearchResp = await executeSpotifyHttp(`/v1/search?q=${encodeURIComponent(spQuery)}&type=album&limit=1`, 'GET', null, spToken);
+            const spAlbum = spSearchResp.statusCode === 200 && spSearchResp.data?.albums?.items?.[0];
+            if (spAlbum && spAlbum.id) {
+              const spTracksResp = await executeSpotifyHttp(`/v1/albums/${spAlbum.id}/tracks?limit=50`, 'GET', null, spToken);
+              if (spTracksResp.statusCode === 200 && Array.isArray(spTracksResp.data?.items)) {
+                for (let idx = 0; idx < spTracksResp.data.items.length; idx++) {
+                  const t = spTracksResp.data.items[idx];
+                  tracklist.push({
+                    position: `${idx + 1}`,
+                    title: t.name || 'Без названия',
+                    duration: t.duration_ms ? `${Math.floor(t.duration_ms / 60000)}:${String(Math.floor((t.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
+                    previewUrl: t.preview_url || null,
+                    type_: 'track'
+                  });
+                }
+                if (tracklist.length > 0) {
+                  tracklistSource = 'Spotify';
+                  discogsNotFound = true;
+                }
+              }
+            }
+          }
+        } catch (spErr) {
+          console.warn('Spotify tracklist fallback error:', spErr.message);
+        }
+      }
+
       const result = {
         id,
         type,
@@ -1002,7 +1042,10 @@ const server = http.createServer(async (req, res) => {
         artist: artistName.replace(/\s*\(\d+\)$/, ''),
         year: data.year || '',
         cover: coverUrl,
-        tracklist
+        tracklist,
+        source: tracklistSource,
+        discogsNotFound,
+        notice: discogsNotFound ? 'В Discogs треклист не найден — загружен официальный треклист Spotify' : null
       };
 
       setCached(cacheKey, result, 7 * 24 * 60 * 60 * 1000); // 7 days cache (tracklists are static)
@@ -1049,55 +1092,100 @@ const server = http.createServer(async (req, res) => {
         return titleMatches && artistMatches;
       }
 
-      // Tier 1: Deezer search with clean artist + clean title
-      if (!foundItem && artist && title) {
-        const d1 = await executeDeezerTrackSearch(`${artist} ${title}`, 8);
-        foundItem = d1.find(isAccurateMatch) || null;
-      }
+      let previewSource = 'Spotify';
 
-      // Tier 2: Deezer with clean artist + firstPart (if multi-track slash)
-      if (!foundItem && artist && firstPart && firstPart !== title) {
-        const d2 = await executeDeezerTrackSearch(`${artist} ${firstPart}`, 6);
-        foundItem = d2.find(isAccurateMatch) || null;
-      }
-
-      // Tier 3: Spotify API search (if configured)
+      // Tier 1 (HIGHEST PRIORITY): Spotify API search for official track preview
       if (!foundItem && (artist || title)) {
         try {
           const spToken = await getSpotifyClientCredentialsToken();
           if (spToken) {
-            const spQuery = artist ? `${artist} ${title}` : title;
-            const spResp = await executeSpotifyHttp(`/v1/search?q=${encodeURIComponent(spQuery)}&type=track&limit=6`, 'GET', null, spToken);
+            const spQuery = artist ? `track:${title} artist:${artist}` : title;
+            const spResp = await executeSpotifyHttp(`/v1/search?q=${encodeURIComponent(spQuery)}&type=track&limit=5`, 'GET', null, spToken);
             if (spResp.statusCode === 200 && spResp.data?.tracks?.items) {
               const spTracks = mapSpotifyTracks(spResp.data.tracks.items);
-              foundItem = spTracks.find(isAccurateMatch) || null;
+              const matchedSp = spTracks.find(isAccurateMatch) || spTracks.find(t => t.previewUrl);
+              if (matchedSp && matchedSp.previewUrl) {
+                foundItem = matchedSp;
+                previewSource = 'Spotify';
+              }
             }
           }
-        } catch (spErr) {}
+        } catch (spErr) {
+          console.warn('Spotify preview search error:', spErr.message);
+        }
       }
 
-      // Tier 4: iTunes search with clean artist + clean title
+      // Tier 2: Deezer search with clean artist + clean title
+      if (!foundItem && artist && title) {
+        const d1 = await executeDeezerTrackSearch(`${artist} ${title}`, 8);
+        const m1 = d1.find(isAccurateMatch) || null;
+        if (m1) {
+          foundItem = m1;
+          previewSource = 'Deezer';
+        }
+      }
+
+      // Tier 3: Deezer with clean artist + firstPart (if multi-track slash)
+      if (!foundItem && artist && firstPart && firstPart !== title) {
+        const d2 = await executeDeezerTrackSearch(`${artist} ${firstPart}`, 6);
+        const m2 = d2.find(isAccurateMatch) || null;
+        if (m2) {
+          foundItem = m2;
+          previewSource = 'Deezer';
+        }
+      }
+
+      // Tier 4: iTunes / Apple Music search
       if (!foundItem && artist && title) {
         try {
           const it1 = await executeItunesTrackSearch(`${artist} ${title}`, 6);
-          foundItem = it1.find(isAccurateMatch) || null;
+          const m3 = it1.find(isAccurateMatch) || null;
+          if (m3) {
+            foundItem = m3;
+            previewSource = 'Apple Music';
+          }
         } catch (itErr) {}
       }
 
-      // Tier 5: Deezer with title only, but STRICTLY requiring artist match
+      // Tier 5: Deezer with title only, requiring artist match
       if (!foundItem && title) {
         const d3 = await executeDeezerTrackSearch(title, 8);
-        foundItem = d3.find(isAccurateMatch) || null;
+        const m4 = d3.find(isAccurateMatch) || null;
+        if (m4) {
+          foundItem = m4;
+          previewSource = 'Deezer';
+        }
+      }
+
+      // Tier 6: YouTube fallback (if no 30s preview found in streaming services)
+      if (!foundItem && (artist || title)) {
+        try {
+          const ytRes = await fetchYouTubeVideoInfo(artist, title);
+          if (ytRes && ytRes.videoId) {
+            foundItem = {
+              previewUrl: null,
+              youtubeId: ytRes.videoId,
+              embedUrl: ytRes.embedUrl,
+              title: ytRes.title || title,
+              artist: artist,
+              isYouTubeFallback: true
+            };
+            previewSource = 'YouTube (Фрагмент припева)';
+          }
+        } catch (ytE) {}
       }
 
       const result = foundItem ? {
         found: true,
-        previewUrl: foundItem.previewUrl,
+        previewUrl: foundItem.previewUrl || null,
+        youtubeId: foundItem.youtubeId || null,
+        embedUrl: foundItem.embedUrl || null,
+        source: previewSource,
         title: foundItem.title,
         artist: foundItem.artist,
         album: foundItem.album,
         coverImage: foundItem.coverImage,
-        durationStr: foundItem.durationStr
+        durationStr: foundItem.durationStr || '0:30'
       } : { found: false };
 
       if (result.found) {
@@ -1878,6 +1966,78 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+async function fetchYouTubeVideoInfo(artist, title) {
+  const cleanA = (artist || '').replace(/\s*\(\d+\)$/, '').trim();
+  let cleanT = (title || '').replace(/^([A-Z]\d*|\d+)[\.\s\-:]+\s*/i, '').trim();
+  cleanT = cleanT.replace(/\s*[\(\[](remaster(ed)?|mono|stereo|bonus|deluxe|version|edit|anniversary|single|mix|original|album version)[^\)\]]*[\)\]]/gi, '').trim();
+
+  const queryStr = `${cleanA} ${cleanT} official video`.trim();
+  const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(queryStr)}`;
+
+  try {
+    const ytHtml = await new Promise(resolve => {
+      https.get(ytUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8'
+        },
+        timeout: 6000
+      }, resp => {
+        let d = ''; resp.on('data', c => d += c); resp.on('end', () => resolve(d));
+      }).on('error', () => resolve(''));
+    });
+
+    const videoBlocks = ytHtml.split('"videoRenderer":');
+    const candidates = [];
+
+    for (let i = 1; i < Math.min(videoBlocks.length, 8); i++) {
+      const b = videoBlocks[i];
+      const idM = b.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+      const titleM = b.match(/"title":\{"runs":\[\{"text":"([^"]+)"/);
+      if (idM && titleM) {
+        candidates.push({
+          id: idM[1],
+          title: titleM[1].replace(/\\u0026/g, '&')
+        });
+      }
+    }
+
+    if (candidates.length > 0) {
+      const normTitle = cleanT.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+      const normArtist = cleanA.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+
+      let best = candidates[0];
+      let bestScore = -1;
+
+      for (const c of candidates) {
+        const cTitleNorm = c.title.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+        let score = 0;
+        if (normTitle && cTitleNorm.includes(normTitle)) score += 50;
+        if (normArtist && cTitleNorm.includes(normArtist)) score += 30;
+        if (c.title.toLowerCase().includes('official')) score += 15;
+        if (c.title.toLowerCase().includes('video') || c.title.toLowerCase().includes('clip')) score += 10;
+        if (c.title.toLowerCase().includes('audio')) score += 5;
+
+        if (score > bestScore) {
+          bestScore = score;
+          best = c;
+        }
+      }
+
+      return {
+        videoId: best.id,
+        title: best.title,
+        start: 50,
+        end: 80,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${best.id}?autoplay=1&enablejsapi=1&start=50&end=80`
+      };
+    }
+  } catch (err) {
+    console.warn('YouTube search error:', err.message);
+  }
+  return null;
+}
+
   // GET /api/video/search?artist=...&title=...
   if (pathname === '/api/video/search' && req.method === 'GET') {
     const artist = (query.artist || '').trim();
@@ -1901,75 +2061,23 @@ const server = http.createServer(async (req, res) => {
     let result = { found: false, artist, title };
 
     try {
-      const cleanA = (artist || '').replace(/\s*\(\d+\)$/, '').trim();
-      let cleanT = (title || '').replace(/^([A-Z]\d*|\d+)[\.\s\-:]+\s*/i, '').trim();
-      cleanT = cleanT.replace(/\s*[\(\[](remaster(ed)?|mono|stereo|bonus|deluxe|version|edit|anniversary|single|mix|original|album version)[^\)\]]*[\)\]]/gi, '').trim();
-
-      const queryStr = `${cleanA} ${cleanT} official video`.trim();
-      const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(queryStr)}`;
-
-      const ytHtml = await new Promise(resolve => {
-        https.get(ytUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8'
-          },
-          timeout: 6000
-        }, resp => {
-          let d = ''; resp.on('data', c => d += c); resp.on('end', () => resolve(d));
-        }).on('error', () => resolve(''));
-      });
-
-      const videoBlocks = ytHtml.split('"videoRenderer":');
-      const candidates = [];
-
-      for (let i = 1; i < Math.min(videoBlocks.length, 8); i++) {
-        const b = videoBlocks[i];
-        const idM = b.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-        const titleM = b.match(/"title":\{"runs":\[\{"text":"([^"]+)"/);
-        if (idM && titleM) {
-          candidates.push({
-            id: idM[1],
-            title: titleM[1].replace(/\\u0026/g, '&')
-          });
-        }
-      }
-
-      if (candidates.length > 0) {
-        const normTitle = cleanT.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
-        const normArtist = cleanA.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
-
-        let best = candidates[0];
-        let bestScore = -1;
-
-        for (const c of candidates) {
-          const cTitleNorm = c.title.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
-          let score = 0;
-          if (normTitle && cTitleNorm.includes(normTitle)) score += 50;
-          if (normArtist && cTitleNorm.includes(normArtist)) score += 30;
-          if (c.title.toLowerCase().includes('official')) score += 15;
-          if (c.title.toLowerCase().includes('video') || c.title.toLowerCase().includes('clip')) score += 10;
-          if (c.title.toLowerCase().includes('audio')) score += 5;
-
-          if (score > bestScore) {
-            bestScore = score;
-            best = c;
-          }
-        }
-
+      const ytInfo = await fetchYouTubeVideoInfo(artist, title);
+      if (ytInfo) {
         result = {
           found: true,
           type: 'youtube',
           source: 'youtube',
-          videoId: best.id,
-          embedUrl: `https://www.youtube-nocookie.com/embed/${best.id}?autoplay=1&enablejsapi=1`,
-          videoTitle: best.title,
+          videoId: ytInfo.videoId,
+          start: ytInfo.start || 50,
+          end: ytInfo.end || 80,
+          embedUrl: ytInfo.embedUrl,
+          videoTitle: ytInfo.title,
           trackName: title,
           artistName: artist
         };
       }
     } catch (ytErr) {
-      console.warn('YouTube search error:', ytErr.message);
+      console.warn('YouTube video search handler error:', ytErr.message);
     }
 
     setCached(cacheKey, result, 24 * 60 * 60 * 1000);

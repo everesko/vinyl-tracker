@@ -1236,11 +1236,31 @@ const App = {
   // ----------------------------------------------------
   render() {
     try { this.renderStats(); } catch (e) { console.error('Error in renderStats:', e); }
+    try { this.renderDestinationFolderSelect(); } catch (e) { console.error('Error in renderDestinationFolderSelect:', e); }
     try { this.renderTableHeader(); } catch (e) { console.error('Error in renderTableHeader:', e); }
     try { this.populateCountryFilterChips(); } catch (e) { console.error('Error in populateCountryFilterChips:', e); }
     try { this.updateRangeSliderBounds(); } catch (e) { console.error('Error in updateRangeSliderBounds:', e); }
     try { this.renderPinnedTable(); } catch (e) { console.error('Error in renderPinnedTable:', e); }
     try { this.renderTable(); } catch (e) { console.error('Error in renderTable:', e); }
+  },
+
+  renderDestinationFolderSelect() {
+    const sel = document.getElementById('destTableSelect');
+    if (!sel) return;
+    const tables = this.getActiveModeTables();
+    if (tables.length === 0) {
+      sel.innerHTML = '<option value="">Нет таблиц</option>';
+      return;
+    }
+    const curVal = this.currentDestinationTableId || this.activeTableId || tables[0].id;
+    sel.innerHTML = tables.map(t => `<option value="${t.id}" ${t.id === curVal ? 'selected' : ''}>${this.escapeHtml(t.name || 'Таблица')}</option>`).join('');
+    this.currentDestinationTableId = curVal;
+  },
+
+  onDestinationTableChange(val) {
+    this.currentDestinationTableId = val;
+    this.activeTableId = val;
+    this.render();
   },
 
   renderStats() {
@@ -1272,6 +1292,7 @@ const App = {
     }
 
     const statTotalEl = document.getElementById('statTotalCount');
+    const statPressesEl = document.getElementById('statPressesCount');
     const statMedianEl = document.getElementById('statTotalMedian');
     const statHuntingEl = document.getElementById('statHuntingCount');
     const statOwnedEl = document.getElementById('statOwnedCount');
@@ -1281,6 +1302,32 @@ const App = {
     if (statTotalEl) statTotalEl.textContent = total;
     if (statHuntingEl) statHuntingEl.textContent = buyCount;
     if (statOwnedEl) statOwnedEl.textContent = ownedCount;
+
+    // Total presses / editions across saved albums
+    let totalPressings = 0;
+    this.albums.forEach(a => {
+      if (typeof a.versionsCount === 'number') totalPressings += a.versionsCount;
+    });
+    if (statPressesEl) statPressesEl.textContent = totalPressings > 0 ? totalPressings : (isAlbums ? '0' : '—');
+
+    // Min & Max prices of available items (Requirement 12)
+    let minPrice = Infinity;
+    let maxPrice = -Infinity;
+    this.records.forEach(r => {
+      const p = r.priceLowest || r.priceMin || r.priceMedian;
+      if (typeof p === 'number' && p > 0) {
+        if (p < minPrice) minPrice = p;
+        if (p > maxPrice) maxPrice = p;
+      }
+    });
+    const priceRangeEl = document.getElementById('statHeaderPriceRange');
+    if (priceRangeEl) {
+      if (minPrice !== Infinity && maxPrice !== -Infinity) {
+        priceRangeEl.textContent = `Мин: $${Math.round(minPrice)} · Макс: $${Math.round(maxPrice)}`;
+      } else {
+        priceRangeEl.textContent = `Мин: — · Макс: —`;
+      }
+    }
 
     if (isSpotify) {
       if (statMedianTitle) statMedianTitle.textContent = 'Общая длительность';
@@ -1294,8 +1341,6 @@ const App = {
       if (statMedianSub) statMedianSub.textContent = 'время звучания песен';
     } else if (isAlbums) {
       if (statMedianTitle) statMedianTitle.textContent = 'Всего вариантов прессов';
-      let totalPressings = 0;
-      this.albums.forEach(a => { if (a.versionsCount) totalPressings += a.versionsCount; });
       if (statMedianEl) statMedianEl.textContent = totalPressings > 0 ? `${totalPressings}` : '—';
       if (statMedianSub) statMedianSub.textContent = 'по сохраненным альбомам';
     } else {
@@ -1556,12 +1601,12 @@ const App = {
   },
 
   renderHighValueBadge(item) {
-    const active = item.isHighValue ? 'active' : '';
-    const label = item.isHighValue ? '💎 Ценность' : '💎 Отметить';
-    const title = item.isHighValue ? 'Повышенная ценность (активно). Нажмите чтобы снять' : 'Поставить патч повышенной ценности';
+    const isDiamond = Boolean(item.isHighValue || item.isDiamond);
+    const active = isDiamond ? 'is-diamond' : '';
+    const title = isDiamond ? 'Закреплено в блоке высокой ценности (💎). Нажмите чтобы снять' : 'Отметить как высокую ценность (💎)';
     return `
-      <button type="button" class="high-value-badge ${active}" onclick="event.stopPropagation(); App.toggleHighValue('${item.id}')" title="${title}">
-        ${label}
+      <button type="button" class="btn-diamond-toggle ${active}" onclick="event.stopPropagation(); App.toggleHighValue('${item.id}')" title="${title}">
+        💎
       </button>
     `;
   },
@@ -1575,7 +1620,9 @@ const App = {
     }
     if (!item) return;
 
-    item.isHighValue = !item.isHighValue;
+    const newVal = !(item.isHighValue || item.isDiamond);
+    item.isHighValue = newVal;
+    item.isDiamond = newVal;
 
     this.saveModeTables();
     if (this.appMode === 'releases') {
@@ -1595,7 +1642,8 @@ const App = {
     const tables = this.getActiveModeTables();
     const list = tables.reduce((acc, t) => acc.concat(t.items || []), []);
 
-    const pinned = list.filter(item => item.isHighValue || Number(item.rating) >= 4.5);
+    // Strictly items marked with the diamond icon (💎)
+    const pinned = list.filter(item => Boolean(item.isHighValue || item.isDiamond));
 
     if (countEl) countEl.textContent = pinned.length;
 
@@ -1894,6 +1942,28 @@ const App = {
     this.populateCountryFilterChips();
     this.updateRangeSliderBounds();
     this.renderTable();
+  },
+
+  toggleFiltersCollapse() {
+    const card = document.getElementById('advancedFiltersCard');
+    const icon = document.getElementById('filtersCollapseIcon');
+    const text = document.getElementById('filtersCollapseText');
+    if (!card) return;
+    card.classList.toggle('collapsed');
+    const isCollapsed = card.classList.contains('collapsed');
+    if (icon) icon.textContent = isCollapsed ? '▲' : '▼';
+    if (text) text.textContent = isCollapsed ? 'Развернуть фильтры' : 'Свернуть фильтры';
+  },
+
+  togglePinnedCollapse() {
+    const section = document.getElementById('pinnedShowcaseSection');
+    const icon = document.getElementById('pinnedCollapseIcon');
+    const text = document.getElementById('pinnedCollapseText');
+    if (!section) return;
+    section.classList.toggle('collapsed');
+    const isCollapsed = section.classList.contains('collapsed');
+    if (icon) icon.textContent = isCollapsed ? '▲' : '▼';
+    if (text) text.textContent = isCollapsed ? 'Развернуть' : 'Свернуть';
   },
 
   renderTable() {
@@ -2349,7 +2419,12 @@ const App = {
     const maxStr = r.priceMax ? `$${Number(r.priceMax).toFixed(2)}` : '—';
 
     let rangeSub = '';
-    if (r.priceMin && r.priceMax) {
+    if (r.minSold || r.medianSold || r.maxSold) {
+      const minS = r.minSold ? `$${Math.round(r.minSold)}` : minStr;
+      const medS = r.medianSold ? `$${Math.round(r.medianSold)}` : medianStr;
+      const maxS = r.maxSold ? `$${Math.round(r.maxSold)}` : maxStr;
+      rangeSub = `<div class="price-range" title="Продажи (мин / медиана / макс)">Продажи: ${minS} / ${medS} / ${maxS}</div>`;
+    } else if (r.priceMin && r.priceMax) {
       rangeSub = `<div class="price-range">мин ${minStr} · макс ${maxStr}</div>`;
     } else if (r.numForSale) {
       rangeSub = `<div class="price-range">в продаже: ${r.numForSale} шт.</div>`;
@@ -3202,6 +3277,75 @@ const App = {
     this.setCoverPulsing(isPlaying);
   },
 
+  dualSearchActive: false,
+
+  toggleDualSearch() {
+    this.dualSearchActive = !this.dualSearchActive;
+    const btn = document.getElementById('btnDualSearchLink');
+    if (btn) {
+      if (this.dualSearchActive) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    }
+    const input = document.getElementById('discogsSearchInput');
+    if (input && input.value.trim()) {
+      this.performDiscogsSearch();
+    }
+  },
+
+  async toggleSearchVersionsDrawer(itemId, masterId) {
+    const drawer = document.getElementById(`search-versions-drawer-${itemId}`);
+    if (!drawer) return;
+    if (drawer.style.display === 'block') {
+      drawer.style.display = 'none';
+      return;
+    }
+    drawer.style.display = 'block';
+    drawer.innerHTML = '<div style="color:var(--accent-theme); text-align:center; padding:10px;">⏳ Загрузка вариантов виниловых изданий...</div>';
+
+    try {
+      const qId = masterId || itemId;
+      const data = await DiscogsClient.getMasterVersions(qId);
+      const versions = (data && data.versions) || [];
+      if (versions.length === 0) {
+        drawer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:8px;">Варианты виниловых изданий не найдены.</div>';
+        return;
+      }
+      drawer.innerHTML = `
+        <div style="font-weight:700; color:var(--accent-theme); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+          <span>💽 Доступные виниловые издания (${versions.length}):</span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('search-versions-drawer-${itemId}').style.display='none'" style="font-size:10px; padding:1px 6px;">✕ Закрыть</button>
+        </div>
+        <div class="search-versions-grid">
+          ${versions.slice(0, 35).map(v => {
+            const formatStr = Array.isArray(v.major_formats) ? v.major_formats.join(', ') : (v.format || 'Vinyl');
+            const catNo = v.catno || '—';
+            return `
+              <div class="search-version-row">
+                <div class="search-version-meta">
+                  <span style="font-weight:700; color:#fff;">${this.escapeHtml(v.country || 'Все страны')}</span>
+                  <span style="color:var(--text-muted);">·</span>
+                  <span>${this.escapeHtml(v.released || v.year || '—')}</span>
+                  <span style="color:var(--text-muted);">·</span>
+                  <span style="color:var(--accent-theme);">${this.escapeHtml(v.label || '—')}</span>
+                  <span style="color:var(--text-muted); font-size:10px;">(${this.escapeHtml(catNo)})</span>
+                  <span class="badge" style="font-size:10px;">${this.escapeHtml(formatStr)}</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" style="font-size:10.5px; padding:2px 8px;" onclick="App.addRecordFromDiscogs(${v.id})">
+                  + В вишлист
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    } catch (err) {
+      drawer.innerHTML = `<div style="color:var(--danger); text-align:center; padding:8px;">Ошибка загрузки: ${this.escapeHtml(err.message)}</div>`;
+    }
+  },
+
   async performDiscogsSearch() {
     const input = document.getElementById('discogsSearchInput');
     const resultsContainer = document.getElementById('discogsSearchResults');
@@ -3213,9 +3357,128 @@ const App = {
     const isSpotify = this.searchProvider === 'spotify';
     const isAlbumsSearch = isSpotify ? (this.appMode === 'albums' || this.appMode === 'releases') : (this.appMode === 'albums');
     const serviceName = isSpotify ? 'Spotify' : 'Discogs';
-    resultsContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--accent-theme)">Поиск в ${serviceName}...</div>`;
 
     try {
+      if (this.dualSearchActive) {
+        resultsContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--accent-theme)">Объединенный поиск (Discogs 💽 + Spotify 🟢)...</div>`;
+        const [artistRes, discogsData, spotifyData] = await Promise.all([
+          DiscogsClient.searchArtist(q).catch(() => null),
+          (this.appMode === 'albums' ? DiscogsClient.searchAlbums(q, 1, 20) : DiscogsClient.searchVinyl(q, 1, 20)).catch(() => ({ results: [] })),
+          SpotifyClient.searchTracks(q, 20).catch(() => ({ results: [] }))
+        ]);
+        const matchedArtist = artistRes;
+        this.currentSearchArtist = matchedArtist;
+        const discogsResults = (discogsData && discogsData.results) || [];
+        const spotifyResults = (spotifyData && spotifyData.results) || [];
+
+        let artistBannerHtml = '';
+        if (matchedArtist) {
+          const safeArtistName = this.escapeHtml(matchedArtist.name);
+          const safeArtistThumb = this.escapeHtml(matchedArtist.thumb || '');
+          const transferArt = safeArtistName.replace(/'/g, "\\'");
+          const transferThumb = safeArtistThumb.replace(/'/g, "\\'");
+          artistBannerHtml = `
+            <div class="search-artist-banner" onclick="App.showArtistAlbums(${matchedArtist.id}, '${transferArt}', '${transferThumb}')" title="Нажмите, чтобы открыть все виниловые издания ${safeArtistName}">
+              <div class="search-artist-banner-left">
+                <div class="search-artist-avatar-wrap">
+                  <img src="${matchedArtist.thumb || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'52\' height=\'52\' fill=\'%23222\'><circle cx=\'26\' cy=\'26\' r=\'26\'/></svg>'}" class="search-artist-avatar" alt="${safeArtistName}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'52\' height=\'52\' fill=\'%23222\'><circle cx=\'26\' cy=\'26\' r=\'26\'/></svg>'">
+                </div>
+                <div class="search-artist-banner-meta">
+                  <span class="search-artist-tag">🎤 ИСПОЛНИТЕЛЬ</span>
+                  <div class="search-artist-name">${safeArtistName}</div>
+                  <div class="search-artist-sub">Виниловые издания · Нажмите, чтобы открыть все винилы ➔</div>
+                </div>
+              </div>
+              <div class="search-artist-banner-right">
+                <button type="button" class="btn btn-sm btn-primary search-artist-btn">
+                  Смотреть все винилы ➔
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        const dColHtml = discogsResults.length === 0 ? '<div style="color:var(--text-muted); text-align:center; padding:20px;">Ничего не найдено в Discogs</div>' : discogsResults.map(item => {
+          const coverImg = item.thumb || item.coverImage;
+          const libInfo = this.isAlbumInLibrary(item);
+          const inLib = libInfo.inLibrary;
+          const isMaster = !!item.masterId;
+          const safeItemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+          return `
+            <div class="search-result-item ${inLib ? 'search-item-in-library' : ''}" style="margin-bottom:8px; padding:8px 10px;">
+              <div class="search-result-left">
+                <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
+                <div class="search-meta" style="min-width:0;">
+                  <div class="search-artist" style="font-size:11.5px;">${this.escapeHtml(item.artist || item.rawTitle)}</div>
+                  <div class="search-title" style="font-size:12px; font-weight:600;">
+                    <a href="javascript:void(0)" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})">${this.escapeHtml(item.title || '')}</a>
+                  </div>
+                  <div class="search-tags" style="font-size:10.5px;">
+                    ${item.year ? `<span>${this.escapeHtml(item.year)}</span> • ` : ''}
+                    <span>${this.formatVinylVersions(item.versionsCount || 1)}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="search-result-right" style="gap:4px;">
+                <button type="button" class="btn btn-sm ${inLib ? 'btn-secondary' : 'btn-primary'}" onclick="${isMaster ? `App.addAlbumFromModal(${item.id})` : `App.addRecordFromDiscogs(${item.id})`}" ${inLib ? 'disabled' : ''} style="font-size:11px; padding:3px 8px;">
+                  ${inLib ? '✓ Есть' : '+ Добавить'}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        const spColHtml = spotifyResults.length === 0 ? '<div style="color:var(--text-muted); text-align:center; padding:20px;">Ничего не найдено в Spotify</div>' : spotifyResults.map(item => {
+          const coverImg = item.coverImage;
+          const transferArt = (item.artist || '').replace(/'/g, "\\'");
+          const transferAlb = (item.album || item.title || '').replace(/'/g, "\\'");
+          return `
+            <div class="search-result-item dual-sp-item-clickable" style="margin-bottom:8px; padding:8px 10px;" onclick="App.transferSpotifyAlbumToSearch('${transferArt}', '${transferAlb}')" title="Кликните, чтобы сразу найти винилы этого альбома на Discogs!">
+              <div class="search-result-left">
+                <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
+                <div class="search-meta" style="min-width:0;">
+                  <div class="search-artist" style="font-size:11.5px; color:#1ed760;">${this.escapeHtml(item.artist)}</div>
+                  <div class="search-title" style="font-size:12px; font-weight:600;">${this.escapeHtml(item.title)}</div>
+                  <div style="font-size:10.5px; color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">💽 Альбом: ${this.escapeHtml(item.album || item.title)}</div>
+                </div>
+              </div>
+              <div class="search-result-right" style="gap:4px;">
+                <button type="button" class="btn btn-secondary btn-sm" style="font-size:10.5px; padding:3px 8px; border-color:#1ed760; color:#1ed760;" onclick="event.stopPropagation(); App.transferSpotifyAlbumToSearch('${transferArt}', '${transferAlb}')" title="Найти винилы альбома на Discogs">
+                  💽 В Discogs ➔
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        resultsContainer.innerHTML = `
+          ${artistBannerHtml}
+          <div class="dual-search-container">
+            <div class="dual-search-col">
+              <div class="dual-col-header">
+                <span>💽 Discogs (Винилы & Альбомы)</span>
+                <span class="badge" style="font-size:10px;">${discogsResults.length}</span>
+              </div>
+              <div class="dual-col-content">
+                ${dColHtml}
+              </div>
+            </div>
+            <div class="dual-search-col">
+              <div class="dual-col-header">
+                <span>🟢 Spotify (Клик переносит в Discogs)</span>
+                <span class="badge" style="font-size:10px; background:rgba(30,215,96,0.2); color:#1ed760;">${spotifyResults.length}</span>
+              </div>
+              <div class="dual-col-content">
+                ${spColHtml}
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      resultsContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--accent-theme)">Поиск в ${serviceName}...</div>`;
+
       let data;
       let matchedArtist = null;
 
@@ -3392,7 +3655,10 @@ const App = {
                   </div>
                 </div>
               </div>
-              <div class="search-result-right" style="display:flex; align-items:center; gap:8px;">
+              <div class="search-result-right" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn-search-versions-toggle" onclick="event.stopPropagation(); App.toggleSearchVersionsDrawer('${item.id}', '${item.masterId || ''}')" title="Посмотреть список вариантов прессов прямо здесь">
+                  💽 Издания ▾
+                </button>
                 <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Посмотреть список песен и прослушать">
                   🎵 Треклист ▶
                 </button>
@@ -3401,6 +3667,7 @@ const App = {
                 </button>
               </div>
             </div>
+            <div id="search-versions-drawer-${item.id}" class="search-versions-drawer" style="display:none;"></div>
           `;
         }).join('');
 
@@ -3907,7 +4174,7 @@ const App = {
     return `${m}:${rem < 10 ? '0' : ''}${rem}`;
   },
 
-  playAudio(url, title = '', artist = '', coverUrl = '', btnElementOrId = null, album = '') {
+  playAudio(url, title = '', artist = '', coverUrl = '', btnElementOrId = null, album = '', source = '') {
     if (!url) return;
 
     if (this.currentAudioBtnId) {
@@ -3937,6 +4204,7 @@ const App = {
     const trackCoverEl = document.getElementById('playerTrackCover');
     const trackTitleEl = document.getElementById('playerTrackTitle');
     const trackArtistEl = document.getElementById('playerTrackArtist');
+    const sourceBadge = document.getElementById('playerSourceBadge');
     const playPauseIcon = document.getElementById('playerPlayPauseIcon');
     const scrubber = document.getElementById('playerScrubber');
     const currentTimeEl = document.getElementById('playerCurrentTime');
@@ -3949,6 +4217,14 @@ const App = {
     }
     if (trackTitleEl) trackTitleEl.textContent = title || 'Аудио-трек';
     if (trackArtistEl) trackArtistEl.textContent = artist || '—';
+    if (sourceBadge) {
+      if (source) {
+        sourceBadge.textContent = `🔊 Источник: ${source}`;
+        sourceBadge.style.display = 'inline-flex';
+      } else {
+        sourceBadge.style.display = 'none';
+      }
+    }
     if (scrubber) scrubber.value = 0;
     if (currentTimeEl) currentTimeEl.textContent = '0:00';
     if (durationTimeEl) durationTimeEl.textContent = '0:30';
@@ -4305,8 +4581,16 @@ const App = {
 
     const artistName = data.artist || item.artist || '';
 
+    const isSpotifyFallback = Boolean(data.discogsNotFound || data.source === 'Spotify');
+    const fallbackBanner = isSpotifyFallback ? `
+      <div class="spotify-fallback-notice" style="background:rgba(30, 215, 96, 0.12); border:1px solid rgba(30, 215, 96, 0.35); border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:11.5px; color:#a7f3d0; display:flex; align-items:center; gap:8px;">
+        <span style="font-size:14px;">🟢</span>
+        <span>${this.escapeHtml(data.message || 'Треклист на Discogs отсутствовал — автоматически загружен оригинальный треклист из Spotify')}</span>
+      </div>
+    ` : '';
+
     if (listEl) {
-      listEl.innerHTML = data.tracklist.map((t, idx) => {
+      listEl.innerHTML = fallbackBanner + data.tracklist.map((t, idx) => {
         const btnId = `tracklist-play-btn-${idx}`;
         return `
           <div class="tracklist-item-row" id="tracklist-row-${idx}">
@@ -4582,12 +4866,16 @@ const App = {
 
     // Get preview audio URL
     let audioUrl = track.previewUrl || null;
+    let previewSource = track.source || 'Spotify';
     if (!audioUrl) {
       try {
         const aRes = await fetch(`/api/track/preview?track=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
         if (aRes.ok) {
           const aData = await aRes.json();
-          if (aData && aData.previewUrl) audioUrl = aData.previewUrl;
+          if (aData && aData.previewUrl) {
+            audioUrl = aData.previewUrl;
+            previewSource = aData.source || 'Spotify';
+          }
         }
       } catch (e) {
         console.warn('Track preview fetch error:', e);
@@ -4595,9 +4883,9 @@ const App = {
     }
 
     if (audioUrl) {
-      this.playAudio(audioUrl, title, artist, cover, btnId, album);
+      this.playAudio(audioUrl, title, artist, cover, btnId, album, previewSource);
       this.setCoverPulsing(true);
-      this.showToastNotification(`🎵 Воспроизведение Spotify: «${artist ? artist + ' — ' : ''}${title}»`);
+      this.showToastNotification(`🎵 Воспроизведение [${previewSource}]: «${artist ? artist + ' — ' : ''}${title}»`);
     } else {
       if (btn) {
         btn.classList.remove('playing');
@@ -4933,7 +5221,15 @@ const App = {
     }
 
     if (previewEl) {
-      if (stats && stats.median) {
+      if (stats && (stats.has_sold_stats || stats.median_sold || stats.min_sold)) {
+        const minS = stats.min_sold ? `$${Math.round(stats.min_sold)}` : '—';
+        const medS = stats.median_sold ? `$${Math.round(stats.median_sold)}` : (stats.median ? `$${stats.median}` : '—');
+        const maxS = stats.max_sold ? `$${Math.round(stats.max_sold)}` : '—';
+        previewEl.innerHTML = `
+          <div class="search-price-val" title="Медианная цена реальных прошлых продаж">${medS}</div>
+          <div style="font-size:9.5px; color:var(--text-muted); line-height:1.2;">Продажи: ${minS} / ${medS} / ${maxS}</div>
+        `;
+      } else if (stats && stats.median) {
         previewEl.innerHTML = `
           <div class="search-price-val">$${stats.median}</div>
           <div style="font-size:10px; color:var(--text-muted)">медиана</div>
@@ -4978,6 +5274,9 @@ const App = {
       priceMin: stats && stats.min ? stats.min : (stats && stats.lowest_price ? stats.lowest_price : null),
       priceMedian: stats && stats.median ? stats.median : null,
       priceMax: stats && stats.max ? stats.max : null,
+      minSold: stats && stats.min_sold ? stats.min_sold : null,
+      medianSold: stats && stats.median_sold ? stats.median_sold : null,
+      maxSold: stats && stats.max_sold ? stats.max_sold : null,
       currency: stats ? stats.currency : 'USD',
       status: 'buy',
       coverImage: item.coverImage || item.thumb,

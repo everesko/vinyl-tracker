@@ -3317,3 +3317,393 @@ tr.table-row-now-playing .cover-thumb-wrapper {
   white-space: nowrap;
 }
 
+/* ====================================================
+   SLIM CUSTOM NON-SYSTEM SCROLLBARS & SLIDERS (Item 15)
+   ==================================================== */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(6, 14, 24, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 210, 255, 0.35);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 210, 255, 0.75);
+}
+
+/* Slim Custom Range Sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.12);
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00d2ff;
+  box-shadow: 0 0 8px rgba(0, 210, 255, 0.8);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  background: #38e1ff;
+}
+
+/* ====================================================
+   COMPACT COLLAPSIBLE BARS (Item 14)
+   ==================================================== */
+.advanced-filters-card {
+  transition: all 0.25s ease;
+}
+.advanced-filters-card.collapsed {
+  padding: 6px 14px;
+  min-height: 38px;
+  margin-bottom: 10px;
+}
+.advanced-filters-card.collapsed .filters-card-header {
+  margin-bottom: 0;
+}
+.advanced-filters-card.collapsed .filters-grid {
+  display: none;
+}
+
+.pinned-showcase-section {
+  transition: all 0.25s ease;
+}
+.pinned-showcase-section.collapsed {
+  padding: 6px 14px;
+  min-height: 38px;
+  margin-bottom: 10px;
+}
+.pinned-showcase-section.collapsed .pinned-table-container,
+.pinned-showcase-section.collapsed .pinned-empty-msg {
+  display: none !important;
+}
+
+/* ====================================================
+   STAT CARDS & PRICE RANGE (Item 12 & Reference)
+   ==================================================== */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(10, 20, 34, 0.7);
+  border: 1px solid rgba(0, 180, 255, 0.15);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+}
+.stat-card-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 210, 255, 0.1);
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.stat-icon-purple {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+.stat-icon-cyan {
+  background: rgba(0, 210, 255, 0.12);
+  border-color: rgba(0, 210, 255, 0.3);
+  color: #00d2ff;
+}
+.stat-icon-green {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+.stat-vinyl-disc-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #0f2744;
+  border: 2px solid #00d2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 8px rgba(0, 210, 255, 0.4);
+}
+.stat-vinyl-disc-inner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00d2ff;
+}
+.stat-price-range-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #00d2ff;
+  background: rgba(0, 210, 255, 0.08);
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+/* Soundwave animation decor inside vinyl stat card */
+.stat-soundwave-decor {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 20px;
+  opacity: 0.35;
+}
+.stat-soundwave-decor span {
+  width: 3px;
+  background: #00d2ff;
+  border-radius: 2px;
+}
+.stat-soundwave-decor span:nth-child(1) { height: 6px; }
+.stat-soundwave-decor span:nth-child(2) { height: 16px; }
+.stat-soundwave-decor span:nth-child(3) { height: 10px; }
+.stat-soundwave-decor span:nth-child(4) { height: 18px; }
+.stat-soundwave-decor span:nth-child(5) { height: 8px; }
+
+/* ====================================================
+   DESTINATION FOLDER & ACTION TOOLBAR (Item 7)
+   ==================================================== */
+.destination-folder-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(12, 24, 40, 0.85);
+  border: 1px solid rgba(0, 180, 255, 0.25);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+.dest-label {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.dest-table-select {
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  max-width: 140px;
+}
+.dest-table-select option {
+  background: #0c1827;
+  color: #fff;
+}
+.btn-big-discogs {
+  background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 0 15px rgba(0, 180, 255, 0.35);
+  padding: 7px 16px !important;
+  border-radius: 8px !important;
+  font-size: 12.5px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-big-discogs:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 20px rgba(0, 180, 255, 0.55);
+}
+
+/* ====================================================
+   DUAL SEARCH WITH CHAIN BUTTON (Item 9)
+   ==================================================== */
+.search-provider-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.dual-search-link-btn {
+  background: rgba(0, 210, 255, 0.08);
+  border: 1px solid rgba(0, 210, 255, 0.3);
+  color: #00d2ff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.dual-search-link-btn:hover {
+  background: rgba(0, 210, 255, 0.16);
+  border-color: #00d2ff;
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+}
+.dual-search-link-btn.active {
+  background: rgba(0, 210, 255, 0.22);
+  border-color: #00d2ff;
+  box-shadow: 0 0 14px rgba(0, 210, 255, 0.5);
+  color: #fff;
+}
+
+.dual-search-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.dual-search-col {
+  background: rgba(10, 20, 32, 0.6);
+  border: 1px solid rgba(0, 180, 255, 0.15);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 200px;
+}
+.dual-col-header {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dual-sp-item-clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dual-sp-item-clickable:hover {
+  background: rgba(30, 215, 96, 0.12) !important;
+  border-color: rgba(30, 215, 96, 0.35) !important;
+  transform: translateX(2px);
+}
+
+@media (max-width: 820px) {
+  .dual-search-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ====================================================
+   DIAMOND HIGH-VALUE BUTTON & BADGES (Item 13)
+   ==================================================== */
+.btn-diamond-toggle {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.45;
+  transition: all 0.2s ease;
+}
+.btn-diamond-toggle:hover {
+  opacity: 0.85;
+  border-color: rgba(0, 210, 255, 0.4);
+  transform: scale(1.15);
+}
+.btn-diamond-toggle.is-diamond {
+  opacity: 1;
+  border-color: #00d2ff;
+  background: rgba(0, 210, 255, 0.15);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.45);
+  filter: drop-shadow(0 0 4px #00d2ff);
+}
+
+/* ====================================================
+   INLINE SEARCH VERSIONS DRAWER (Item 8)
+   ==================================================== */
+.btn-search-versions-toggle {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ccc;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+.btn-search-versions-toggle:hover {
+  background: rgba(0, 210, 255, 0.12);
+  border-color: #00d2ff;
+  color: #fff;
+}
+.search-versions-drawer {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(5, 12, 22, 0.85);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 210, 255, 0.2);
+  font-size: 11.5px;
+}
+.search-versions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+.search-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  gap: 8px;
+}
+.search-version-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Audio source badge */
+.audio-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  border-radius: 4px;
+  font-weight: 600;
+  background: rgba(0, 210, 255, 0.15);
+  color: #00d2ff;
+  border: 1px solid rgba(0, 210, 255, 0.3);
+}
+
