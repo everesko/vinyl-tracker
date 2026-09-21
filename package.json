@@ -1,0 +1,19 @@
+{
+  "name": "vinyl-hunter",
+  "version": "1.0.0",
+  "description": "Minimalist vinyl record tracker & wishlist with Discogs search, pricing, and Firebase sync",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "vinyl",
+    "discogs",
+    "record-collector",
+    "firebase",
+    "wishlist"
+  ],
+  "author": "",
+  "license": "MIT"
+}
