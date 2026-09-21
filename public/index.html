@@ -636,43 +636,58 @@
         </div>
         <button class="modal-close-btn" onclick="App.closeSpotifyClipsModal()" title="Закрыть">✕</button>
       </div>
-      <div class="clips-stage" id="clipsStage">
-        <div class="clips-art-backdrop" id="clipsArtBackdrop"></div>
-        <div class="clips-center-disc" id="clipsCenterDisc">
-          <img id="clipsCoverImg" src="" alt="Album Art">
-          <div class="clips-disc-spindle"></div>
-        </div>
 
-        <div class="clips-progress-bar">
-          <div class="clips-progress-fill" id="clipsProgressFill"></div>
-        </div>
+      <div class="clips-body-wrap">
+        <!-- Main Video / Artwork Stage -->
+        <div class="clips-stage" id="clipsStage">
+          <div class="clips-art-backdrop" id="clipsArtBackdrop"></div>
+          <div class="clips-center-disc" id="clipsCenterDisc">
+            <img id="clipsCoverImg" src="" alt="Album Art">
+            <div class="clips-disc-spindle"></div>
+          </div>
 
-        <div class="clips-meta">
-          <div class="clips-song-title" id="clipsSongTitle">—</div>
-          <div class="clips-artist-name" id="clipsArtistName">—</div>
-          <div class="clips-album-name" id="clipsAlbumName" onclick="App.searchClipsAlbumVinyl()" title="Нажмите, чтобы найти виниловые версии альбома">
-            💽 <span id="clipsAlbumText">—</span>
+          <div class="clips-progress-bar">
+            <div class="clips-progress-fill" id="clipsProgressFill"></div>
+          </div>
+
+          <div class="clips-meta">
+            <div class="clips-song-title" id="clipsSongTitle">—</div>
+            <div class="clips-artist-name" id="clipsArtistName">—</div>
+            <div class="clips-album-name" id="clipsAlbumName" onclick="App.searchClipsAlbumVinyl()" title="Нажмите, чтобы найти виниловые версии альбома">
+              💽 <span id="clipsAlbumText">—</span>
+            </div>
           </div>
         </div>
 
-        <div class="clips-actions-sidebar">
-          <button type="button" class="clips-action-btn" id="clipsBtnPlay" onclick="App.toggleClipsPlay()" title="Воспроизвести / Пауза">
-            <span id="clipsPlayIcon">▶</span>
+        <!-- External Actions Sidebar on the Right (Outside the Video) -->
+        <div class="clips-external-panel">
+          <div class="clips-panel-heading">Действия с треком</div>
+
+          <button type="button" class="clips-wide-btn clips-btn-add" onclick="App.addCurrentClipToLibrary()" title="Добавить этот трек в коллекцию">
+            <span class="btn-icon">＋</span>
+            <span class="btn-text">В коллекцию треков</span>
           </button>
-          <button type="button" class="clips-action-btn" onclick="App.searchClipsAlbumVinyl()" title="Найти виниловые версии этого альбома">
-            <span>💽</span>
-            <small>Винил</small>
+
+          <button type="button" class="clips-wide-btn clips-btn-vinyl" onclick="App.searchClipsAlbumVinyl()" title="Найти виниловые версии этого альбома">
+            <span class="btn-icon">💽</span>
+            <span class="btn-text">Найти винил альбома</span>
           </button>
-          <button type="button" class="clips-action-btn" onclick="App.addCurrentClipToLibrary()" title="Добавить трек в коллекцию">
-            <span>+</span>
-            <small>В треки</small>
+
+          <button type="button" class="clips-wide-btn clips-btn-play" id="clipsBtnPlay" onclick="App.toggleClipsPlay()" title="Воспроизвести / Пауза">
+            <span class="btn-icon" id="clipsPlayIcon">▶</span>
+            <span class="btn-text">Пауза / Воспроизведение</span>
           </button>
-          <button type="button" class="clips-action-btn" onclick="App.prevClip()" title="Предыдущий трек (стрелка вверх)">
-            <span>▲</span>
-          </button>
-          <button type="button" class="clips-action-btn" onclick="App.nextClip()" title="Следующий трек (стрелка вниз)">
-            <span>▼</span>
-          </button>
+
+          <div class="clips-nav-row">
+            <button type="button" class="clips-wide-btn clips-btn-nav" onclick="App.prevClip()" title="Предыдущий трек">
+              <span class="btn-icon">▲</span>
+              <span class="btn-text">Предыдущий</span>
+            </button>
+            <button type="button" class="clips-wide-btn clips-btn-nav" onclick="App.nextClip()" title="Следующий трек">
+              <span class="btn-icon">▼</span>
+              <span class="btn-text">Следующий</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1540,6 +1555,115 @@
         <button type="button" class="tt-action-btn tt-asmr-btn active" id="ttBtnAsmr" onclick="App.toggleVinylCrackle()" title="Переключить живой треск">
           🔊 ASMR
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Floating Vinyl World Map Button (🌍 Pressing Atlas)
+       ========================================== -->
+  <button type="button" id="floatingGlobeBtn" class="floating-globe-btn" onclick="App.openVinylWorldMapModal()" title="География винила (Карта прессов)">
+    <span class="globe-icon">🌍</span>
+    <span class="globe-badge" id="globeCountryCountBadge">0</span>
+  </button>
+
+  <!-- ==========================================
+       Modal: Vinyl Pressing World Map & Geography
+       ========================================== -->
+  <div id="vinylWorldMapModal" class="modal-backdrop">
+    <div class="world-map-modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title" style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:24px;">🌍</span>
+          <div>
+            <div style="font-size:16px; font-weight:800;">Атлас географии винила (Pressing Atlas)</div>
+            <div style="font-size:12px; color:var(--text-secondary); font-weight:400; margin-top:2px;">Страны издания ваших пластинок с интерактивными метками и списками</div>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeVinylWorldMapModal()" title="Закрыть">✕</button>
+      </div>
+
+      <!-- Quick summary stats bar -->
+      <div class="world-map-stats-bar" id="worldMapStatsBar">
+        <!-- populated dynamically -->
+      </div>
+
+      <div class="world-map-content-split">
+        <!-- SVG Map Container with country pins -->
+        <div class="world-map-stage" id="worldMapStage">
+          <!-- Stylized vector World Map SVG -->
+          <svg class="world-map-svg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <radialGradient id="oceanGrad" cx="50%" cy="50%" r="75%">
+                <stop offset="0%" stop-color="#0a1222"/>
+                <stop offset="100%" stop-color="#050a14"/>
+              </radialGradient>
+              <linearGradient id="landGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1e293b"/>
+                <stop offset="100%" stop-color="#0f172a"/>
+              </linearGradient>
+            </defs>
+            <!-- Ocean background -->
+            <rect width="1000" height="500" fill="url(#oceanGrad)" rx="12"/>
+            <!-- Grid lines / Graticule -->
+            <path d="M 0,125 L 1000,125 M 0,250 L 1000,250 M 0,375 L 1000,375 M 250,0 L 250,500 M 500,0 L 500,500 M 750,0 L 750,500" stroke="rgba(56, 189, 248, 0.07)" stroke-width="1" fill="none" stroke-dasharray="4,4"/>
+            <!-- Simplified, recognizable Continental Landmasses -->
+            <!-- North America -->
+            <path class="map-land" d="M 120,60 Q 180,50 240,65 Q 280,80 270,120 Q 230,135 250,180 Q 220,230 180,240 Q 150,220 130,170 Q 110,130 90,90 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
+            <!-- Greenland -->
+            <path class="map-land" d="M 330,40 Q 370,45 360,75 Q 330,95 315,70 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.2"/>
+            <!-- Central America / Caribbean -->
+            <path class="map-land" d="M 180,240 Q 210,260 225,295 Q 215,310 195,275 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.2"/>
+            <!-- South America -->
+            <path class="map-land" d="M 270,290 Q 350,300 370,360 Q 350,440 280,480 Q 260,430 250,360 Q 250,310 270,290 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
+            <!-- Europe -->
+            <path class="map-land" d="M 460,110 Q 520,95 560,125 Q 550,175 490,195 Q 450,180 440,150 Q 450,125 460,110 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1.5"/>
+            <!-- British Isles -->
+            <path class="map-land" d="M 440,120 Q 460,115 455,145 Q 435,150 440,120 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
+            <!-- Africa -->
+            <path class="map-land" d="M 470,205 Q 560,200 580,270 Q 550,380 490,410 Q 450,330 450,260 Q 450,220 470,205 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
+            <!-- Eurasia / Russia / Northern Asia -->
+            <path class="map-land" d="M 560,105 Q 700,75 880,95 Q 890,150 820,180 Q 750,220 630,210 Q 570,180 560,105 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1.5"/>
+            <!-- East Asia / China / India -->
+            <path class="map-land" d="M 640,210 Q 780,210 830,260 Q 770,330 700,340 Q 660,270 640,210 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
+            <!-- Japan archipelago -->
+            <path class="map-land" d="M 855,170 Q 875,175 870,210 Q 850,220 855,170 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.5"/>
+            <!-- Australia & New Zealand -->
+            <path class="map-land" d="M 770,360 Q 880,350 890,420 Q 840,460 780,440 Q 750,400 770,360 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
+            <path class="map-land" d="M 915,420 Q 930,430 920,460 Q 905,450 915,420 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.2"/>
+          </svg>
+
+          <!-- Interactive Glowing Country Pins placed dynamically via % coordinates -->
+          <div id="worldMapPinsLayer" class="world-map-pins-layer">
+            <!-- Rendered dynamically by App.renderWorldMapPins() -->
+          </div>
+        </div>
+
+        <!-- Country Vinyl List Sidebar -->
+        <div class="world-map-details-panel" id="worldMapDetailsPanel">
+          <div class="map-details-empty" id="mapDetailsEmpty">
+            <span style="font-size:32px;">👈</span>
+            <div style="font-weight:700; color:#f8fafc; margin-top:8px;">Выберите страну на карте</div>
+            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Нажмите на метку любой страны, чтобы увидеть все ваши виниловые пластинки из этой страны</div>
+          </div>
+          <div class="map-details-content" id="mapDetailsContent" style="display: none;">
+            <div class="map-details-header">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="map-details-flag" id="mapDetailsFlag">🏳️</span>
+                <div>
+                  <div class="map-details-country-name" id="mapDetailsCountryName">—</div>
+                  <div class="map-details-count" id="mapDetailsCount">0 пластинок</div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-secondary" id="mapFilterTableBtn" onclick="App.applyMapCountryFilterToTable()" title="Отфильтровать главную таблицу по этой стране">
+                🔍 В таблицу
+              </button>
+            </div>
+            <div class="map-details-list" id="mapDetailsList">
+              <!-- Rendered list of records -->
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -2126,6 +2126,7 @@ const App = {
       this.renderSmartRecommendations();
     }
     this.updateActiveFiltersBadge();
+    this.updateFloatingGlobeBadge();
   },
 
   getTableHeadHtml(tableId, isAllSelected) {
@@ -2505,8 +2506,17 @@ const App = {
       rangeSub = `<div class="price-range">в продаже: ${r.numForSale} шт.</div>`;
     }
 
-    const isBargain = Boolean(this.experiments.bargainRadar && r.lowest_price && r.priceMedian && Number(r.lowest_price) < Number(r.priceMedian));
-    const bargainBadge = isBargain ? `<span class="bargain-radar-badge" title="Выгодная цена продажи ($${r.lowest_price}) ниже медианной ($${r.priceMedian})">🔥 ВЫГОДНО</span>` : '';
+    let bargainBadge = '';
+    if (r.lowest_price && r.priceMedian) {
+      const low = Number(r.lowest_price);
+      const med = Number(r.priceMedian);
+      if (low < med) {
+        const discount = Math.round(((med - low) / med) * 100);
+        bargainBadge = `<div class="prominent-deal-banner" title="Цена $${low} на ${discount}% ниже рыночной медианы $${med}"><span class="deal-fire">🔥 ВЫГОДА</span> <span class="deal-save">-${discount}%</span> ($${low})</div>`;
+      } else if (low > med * 1.6) {
+        bargainBadge = `<div class="prominent-deal-banner rarity-deal" title="Редкий коллекционный пресс"><span class="deal-fire">💎 РАРИТЕТ</span> ($${low})</div>`;
+      }
+    }
 
     return `
       <tr id="record-row-${r.id}" class="record-row ${isSelected ? 'selected-row' : ''}" onclick="App.onTableRowClick(event, '${r.id}')">
@@ -2534,7 +2544,8 @@ const App = {
         </td>
         <td>
           <div class="price-box">
-            <div class="price-median">${medianStr} ${bargainBadge}</div>
+            <div class="price-median">${medianStr}</div>
+            ${bargainBadge}
             ${rangeSub}
           </div>
         </td>
@@ -3962,7 +3973,12 @@ const App = {
                   const p = stats.min || stats.lowest_price;
                   const cur = stats.currency || 'USD';
                   const curSym = cur === 'EUR' ? '€' : (cur === 'GBP' ? '£' : '$');
-                  pricePreviewEl.innerHTML = `<span style="color:var(--accent-theme); font-weight:600;">от ${curSym}${p.toFixed(2)}</span>`;
+                  if (stats.median && p < stats.median) {
+                    const discount = Math.round(((stats.median - p) / stats.median) * 100);
+                    pricePreviewEl.innerHTML = `<span class="prominent-deal-banner" title="Цена ${curSym}${p.toFixed(2)} на ${discount}% ниже рынка"><span class="deal-fire">🔥 ВЫГОДА</span> <span class="deal-save">-${discount}%</span> от ${curSym}${p.toFixed(2)}</span>`;
+                  } else {
+                    pricePreviewEl.innerHTML = `<span style="color:#38bdf8; font-weight:700;">от ${curSym}${p.toFixed(2)}${stats.median ? ` <span style="color:#94a3b8; font-weight:500;">(рынок ${curSym}${stats.median.toFixed(2)})</span>` : ''}</span>`;
+                  }
                 }
               }
             } catch (e) {
@@ -6955,6 +6971,10 @@ const App = {
     } catch (e) {}
     this.updateMasterToggleBtnState();
     this.applyExperimentEffects();
+    if (key === 'pressingAtlas' && val) {
+      this.closeExperimentalModal();
+      this.openVinylWorldMapModal();
+    }
   },
 
   toggleAllExperimentsMaster() {
@@ -7120,6 +7140,13 @@ const App = {
       alert('Добавьте хотя бы одну запись в таблицу, чтобы запустить Spotify Clips!');
       return;
     }
+
+    // Automatically close turntable player and stop any playing audio
+    this.closeTurntableWidget();
+    if (this.playingAudio) {
+      this.playingAudio.pause();
+    }
+
     this.clipsPlaylist = list;
     this.currentClipIndex = 0;
     modal.classList.add('open');
@@ -7269,26 +7296,27 @@ const App = {
   // SMART RECOMMENDATIONS & "FEELING LUCKY" (Experiment 3)
   // ----------------------------------------------------
   iconicVinylGems: [
-    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: '1973', tag: 'Культовый шедевр' },
-    { artist: 'Miles Davis', title: 'Kind of Blue', year: '1959', tag: 'Легендарный джаз' },
-    { artist: 'Daft Punk', title: 'Random Access Memories', year: '2013', tag: 'Эталон электроники' },
-    { artist: 'Fleetwood Mac', title: 'Rumours', year: '1977', tag: 'Золотая классика' },
-    { artist: 'The Beatles', title: 'Abbey Road', year: '1969', tag: 'Пластинка эпохи' },
-    { artist: 'Radiohead', title: 'OK Computer', year: '1997', tag: 'Арт-рок икона' },
-    { artist: 'Michael Jackson', title: 'Thriller', year: '1982', tag: 'Самый продаваемый' },
-    { artist: 'John Coltrane', title: 'Blue Train', year: '1958', tag: 'Хард-боп раритет' },
-    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust', year: '1972', tag: 'Глэм-рок винил' },
-    { artist: 'Nirvana', title: 'Nevermind', year: '1991', tag: 'Гранж революция' },
-    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: '1971', tag: 'Хард-рок классика' },
-    { artist: 'Steely Dan', title: 'Aja', year: '1977', tag: 'Аудиофильский тест' }
+    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: '1973', tag: 'Культовый шедевр', cover: 'https://upload.wikimedia.org/wikipedia/en/3/3b/Dark_Side_of_the_Moon.png' },
+    { artist: 'Miles Davis', title: 'Kind of Blue', year: '1959', tag: 'Легендарный джаз', cover: 'https://upload.wikimedia.org/wikipedia/en/9/9c/MilesDavisKindofBlue.jpg' },
+    { artist: 'Daft Punk', title: 'Random Access Memories', year: '2013', tag: 'Эталон электроники', cover: 'https://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg' },
+    { artist: 'Fleetwood Mac', title: 'Rumours', year: '1977', tag: 'Золотая классика', cover: 'https://upload.wikimedia.org/wikipedia/en/f/fb/FMacRumours.PNG' },
+    { artist: 'The Beatles', title: 'Abbey Road', year: '1969', tag: 'Пластинка эпохи', cover: 'https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg' },
+    { artist: 'Radiohead', title: 'OK Computer', year: '1997', tag: 'Арт-рок икона', cover: 'https://upload.wikimedia.org/wikipedia/en/b/ba/Radioheadokcomputer.png' },
+    { artist: 'Michael Jackson', title: 'Thriller', year: '1982', tag: 'Самый продаваемый', cover: 'https://upload.wikimedia.org/wikipedia/en/5/55/Michael_Jackson_-_Thriller.png' },
+    { artist: 'John Coltrane', title: 'Blue Train', year: '1958', tag: 'Хард-боп раритет', cover: 'https://upload.wikimedia.org/wikipedia/en/6/68/John_Coltrane_-_Blue_Train.jpg' },
+    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust', year: '1972', tag: 'Глэм-рок винил', cover: 'https://upload.wikimedia.org/wikipedia/en/0/01/ZiggyStardust.jpg' },
+    { artist: 'Nirvana', title: 'Nevermind', year: '1991', tag: 'Гранж революция', cover: 'https://upload.wikimedia.org/wikipedia/en/b/b7/NirvanaNevermindalbumcover.jpg' },
+    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: '1971', tag: 'Хард-рок классика', cover: 'https://upload.wikimedia.org/wikipedia/en/2/26/Led_Zeppelin_-_Led_Zeppelin_IV.jpg' },
+    { artist: 'Steely Dan', title: 'Aja', year: '1977', tag: 'Аудиофильский тест', cover: 'https://upload.wikimedia.org/wikipedia/en/4/4a/Steely_Dan_-_Aja.jpg' }
   ],
 
   renderSmartRecommendations() {
     const container = document.getElementById('recsCardsDeck');
     if (!container) return;
 
+    const allItems = [...this.records, ...this.albums, ...this.spotifyTracks];
     const artistCounts = {};
-    [...this.records, ...this.albums, ...this.spotifyTracks].forEach(it => {
+    allItems.forEach(it => {
       const a = (it.artist || '').trim();
       if (a) artistCounts[a] = (artistCounts[a] || 0) + 1;
     });
@@ -7298,26 +7326,32 @@ const App = {
 
     const recs = [];
     if (topArtist) {
+      // Find representative album cover for top artist
+      const artistItem = allItems.find(it => (it.artist || '').trim().toLowerCase() === topArtist.toLowerCase() && (it.coverImage || it.thumb));
+      const artistCover = artistItem ? (artistItem.coverImage || artistItem.thumb) : '';
       recs.push({
         artist: topArtist,
         title: `Дискография ${topArtist}`,
-        tag: `🔥 Топ в вашей коллекции (${artistCounts[topArtist]} шт.)`,
-        isArtistQuery: true
+        tag: `🔥 Топ артист (${artistCounts[topArtist]} шт.)`,
+        isArtistQuery: true,
+        cover: artistCover || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\' fill=\'%231a2233\'><rect width=\'140\' height=\'140\'/></svg>'
       });
     }
 
-    this.iconicVinylGems.slice(0, 6).forEach(gem => {
+    this.iconicVinylGems.slice(0, 7).forEach(gem => {
       recs.push(gem);
     });
 
     container.innerHTML = recs.map(r => {
+      const coverUrl = r.cover || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\' fill=\'%231a2233\'><rect width=\'140\' height=\'140\'/></svg>';
       return `
         <div class="rec-album-card">
+          <img src="${coverUrl}" class="rec-card-cover" alt="${this.escapeHtml(r.title)}" loading="lazy" onclick="App.searchRecommendedVinyl('${this.escapeHtml(r.artist)}', '${this.escapeHtml(r.isArtistQuery ? '' : r.title)}')">
           <span class="rec-card-badge">${this.escapeHtml(r.tag)}</span>
           <div class="rec-card-title" title="${this.escapeHtml(r.title)}">${this.escapeHtml(r.title)}</div>
           <div class="rec-card-artist" title="${this.escapeHtml(r.artist)}">${this.escapeHtml(r.artist)}${r.year ? ` · ${r.year}` : ''}</div>
           <div class="rec-card-actions">
-            <button type="button" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 8px; width:100%;" onclick="App.searchRecommendedVinyl('${this.escapeHtml(r.artist)}', '${this.escapeHtml(r.isArtistQuery ? '' : r.title)}')">
+            <button type="button" class="btn btn-sm btn-primary" style="font-size:11px; padding:4px 8px; width:100%; border-radius:6px; font-weight:700;" onclick="App.searchRecommendedVinyl('${this.escapeHtml(r.artist)}', '${this.escapeHtml(r.isArtistQuery ? '' : r.title)}')">
               💽 Найти винил
             </button>
           </div>
@@ -7371,9 +7405,7 @@ const App = {
       widget.style.display = 'none';
     }
     this.turntableState.isOpen = false;
-    if (!this.playingAudio || this.playingAudio.paused) {
-      this.stopVinylCrackle();
-    }
+    this.stopVinylCrackle();
   },
 
   loadTurntableTrack(item) {
@@ -7434,6 +7466,7 @@ const App = {
       stage.classList.remove('state-extracted');
       stage.classList.add('state-packed');
       this.turntableState.isPacked = true;
+      this.stopVinylCrackle();
       if (btnPack) {
         btnPack.textContent = '📦';
         btnPack.title = 'Достать пластинку из конверта';
@@ -7451,6 +7484,7 @@ const App = {
       if (this.playingAudio && !this.playingAudio.paused) {
         if (tonearm) tonearm.classList.add('arm-on-record');
         if (platter) platter.classList.add('is-spinning');
+        this.startVinylCrackle();
       }
       this.showToastNotification('💿 Пластинка извлечена и установлена на проигрыватель');
     }
@@ -7497,7 +7531,12 @@ const App = {
   },
 
   startVinylCrackle() {
+    if (!this.experiments.turntableAsmr) return;
+    if (!this.turntableState.isOpen) return;
+    if (this.turntableState.isPacked) return;
     if (!this.turntableState.crackleEnabled) return;
+    if (!this.playingAudio || this.playingAudio.paused) return;
+
     try {
       if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
@@ -7583,6 +7622,7 @@ const App = {
   },
 
   onTurntableAudioPlay() {
+    if (!this.turntableState.isOpen) return;
     const platter = document.getElementById('ttPlatter');
     const tonearm = document.getElementById('ttTonearm');
     const led = document.getElementById('ttLedIndicator');
@@ -7595,7 +7635,9 @@ const App = {
     }
     if (led) led.classList.add('active');
     if (playIcon) playIcon.textContent = '⏸';
-    this.startVinylCrackle();
+    if (!this.turntableState.isPacked && this.experiments.turntableAsmr) {
+      this.startVinylCrackle();
+    }
   },
 
   onTurntableAudioPause() {
@@ -7652,6 +7694,241 @@ const App = {
     if (count > 0) {
       badge.innerHTML = `🪙 Оценка коллекции: ~$${Math.round(sumMed)} <small style="opacity:0.8;">(мин $${Math.round(sumMin)} · макс $${Math.round(sumMax)})</small>`;
     }
+  },
+
+  // ----------------------------------------------------
+  // VINYL PRESSING WORLD MAP & GEOGRAPHY (Experiment 7)
+  // ----------------------------------------------------
+  countryMapData: {
+    'US': { name: 'США', flag: '🇺🇸', x: 20, y: 34 },
+    'USA': { name: 'США', flag: '🇺🇸', x: 20, y: 34 },
+    'United States': { name: 'США', flag: '🇺🇸', x: 20, y: 34 },
+    'UK': { name: 'Великобритания', flag: '🇬🇧', x: 45, y: 27 },
+    'Great Britain': { name: 'Великобритания', flag: '🇬🇧', x: 45, y: 27 },
+    'United Kingdom': { name: 'Великобритания', flag: '🇬🇧', x: 45, y: 27 },
+    'Japan': { name: 'Япония', flag: '🇯🇵', x: 86, y: 38 },
+    'Germany': { name: 'Германия', flag: '🇩🇪', x: 50, y: 28 },
+    'France': { name: 'Франция', flag: '🇫🇷', x: 47, y: 33 },
+    'Netherlands': { name: 'Нидерланды', flag: '🇳🇱', x: 48.5, y: 28 },
+    'Holland': { name: 'Нидерланды', flag: '🇳🇱', x: 48.5, y: 28 },
+    'Canada': { name: 'Канада', flag: '🇨🇦', x: 19, y: 23 },
+    'Italy': { name: 'Италия', flag: '🇮🇹', x: 51, y: 36 },
+    'Spain': { name: 'Испания', flag: '🇪🇸', x: 45, y: 37 },
+    'Sweden': { name: 'Швеция', flag: '🇸🇪', x: 52, y: 20 },
+    'Norway': { name: 'Норвегия', flag: '🇳🇴', x: 49, y: 19 },
+    'Russia': { name: 'Россия', flag: '🇷🇺', x: 67, y: 23 },
+    'USSR': { name: 'СССР', flag: '🇷🇺', x: 67, y: 23 },
+    'СССР': { name: 'СССР', flag: '🇷🇺', x: 67, y: 23 },
+    'Россия': { name: 'Россия', flag: '🇷🇺', x: 67, y: 23 },
+    'Australia': { name: 'Австралия', flag: '🇦🇺', x: 83, y: 80 },
+    'Brazil': { name: 'Бразилия', flag: '🇧🇷', x: 32, y: 70 },
+    'Mexico': { name: 'Мексика', flag: '🇲🇽', x: 17, y: 44 },
+    'Poland': { name: 'Польша', flag: '🇵🇱', x: 53, y: 27 },
+    'Czech Republic': { name: 'Чехия', flag: '🇨🇿', x: 51.5, y: 29 },
+    'Czechoslovakia': { name: 'Чехословакия', flag: '🇨🇿', x: 51.5, y: 29 },
+    'Austria': { name: 'Австрия', flag: '🇦🇹', x: 51.5, y: 32 },
+    'Belgium': { name: 'Бельгия', flag: '🇧🇪', x: 47.5, y: 29 },
+    'Switzerland': { name: 'Швейцария', flag: '🇨🇭', x: 49, y: 32 },
+    'Greece': { name: 'Греция', flag: '🇬🇷', x: 54, y: 38 },
+    'Finland': { name: 'Финляндия', flag: '🇫🇮', x: 55, y: 19 },
+    'Ireland': { name: 'Ирландия', flag: '🇮🇪', x: 43, y: 27 },
+    'Europe': { name: 'Европа', flag: '🇪🇺', x: 48, y: 30 },
+    'Europe, UK & US': { name: 'Европа & США', flag: '🇪🇺', x: 48, y: 30 },
+    'USA, Canada & Europe': { name: 'США & Европа', flag: '🌎', x: 33, y: 29 },
+    'Worldwide': { name: 'Весь мир', flag: '🌐', x: 50, y: 50 }
+  },
+  selectedMapCountry: null,
+  mapCountryGroups: {},
+
+  getCollectionCountriesMap() {
+    const groups = {};
+    const items = [...this.records, ...this.albums];
+
+    items.forEach(it => {
+      if (!it) return;
+      const raw = (it.country || '').trim();
+      if (!raw) return;
+
+      let matchedKey = null;
+      for (const k of Object.keys(this.countryMapData)) {
+        if (raw.toLowerCase() === k.toLowerCase() || raw.toLowerCase().includes(k.toLowerCase())) {
+          matchedKey = k;
+          break;
+        }
+      }
+
+      const key = matchedKey || raw;
+      if (!groups[key]) {
+        const info = this.countryMapData[key] || {
+          name: raw,
+          flag: '🌐',
+          x: 50 + (Math.sin(raw.length * 7) * 20),
+          y: 45 + (Math.cos(raw.length * 5) * 16)
+        };
+        groups[key] = {
+          key,
+          name: info.name || raw,
+          flag: info.flag || '🌐',
+          x: info.x,
+          y: info.y,
+          items: []
+        };
+      }
+      groups[key].items.push(it);
+    });
+
+    return groups;
+  },
+
+  updateFloatingGlobeBadge() {
+    const badge = document.getElementById('globeCountryCountBadge');
+    if (!badge) return;
+    const groups = this.getCollectionCountriesMap();
+    const count = Object.keys(groups).length;
+    badge.textContent = count;
+  },
+
+  openVinylWorldMapModal() {
+    const modal = document.getElementById('vinylWorldMapModal');
+    if (!modal) return;
+    modal.classList.add('open');
+    modal.classList.add('active');
+    this.renderWorldMapData();
+  },
+
+  closeVinylWorldMapModal() {
+    const modal = document.getElementById('vinylWorldMapModal');
+    if (modal) {
+      modal.classList.remove('open');
+      modal.classList.remove('active');
+    }
+  },
+
+  renderWorldMapData() {
+    this.mapCountryGroups = this.getCollectionCountriesMap();
+    const groups = this.mapCountryGroups;
+    const keys = Object.keys(groups);
+
+    // Update stats bar
+    const statsBar = document.getElementById('worldMapStatsBar');
+    if (statsBar) {
+      if (keys.length === 0) {
+        statsBar.innerHTML = '<span style="color:var(--text-muted);">В вашей коллекции пока не указаны страны издания. Добавьте пластинки из Discogs!</span>';
+      } else {
+        const sorted = [...keys].sort((a, b) => groups[b].items.length - groups[a].items.length);
+        const topCountry = groups[sorted[0]];
+        const rarestCountry = groups[sorted[sorted.length - 1]];
+        const totalItemsWithCountry = keys.reduce((sum, k) => sum + groups[k].items.length, 0);
+
+        statsBar.innerHTML = `
+          <div class="world-map-stat-item">🌐 Всего стран: <strong>${keys.length}</strong></div>
+          <div class="world-map-stat-item">📦 Пластинок с географией: <strong>${totalItemsWithCountry} шт.</strong></div>
+          <div class="world-map-stat-item">🏆 Главная страна: <strong>${topCountry.flag} ${this.escapeHtml(topCountry.name)} (${topCountry.items.length} шт.)</strong></div>
+          ${rarestCountry && rarestCountry !== topCountry ? `<div class="world-map-stat-item">💎 Редкий пресс: <strong>${rarestCountry.flag} ${this.escapeHtml(rarestCountry.name)} (${rarestCountry.items.length} шт.)</strong></div>` : ''}
+        `;
+      }
+    }
+
+    // Render interactive country pins on map layer
+    const layer = document.getElementById('worldMapPinsLayer');
+    if (layer) {
+      layer.innerHTML = keys.map(k => {
+        const g = groups[k];
+        return `
+          <div class="world-map-pin ${this.selectedMapCountry === k ? 'active' : ''}" 
+               style="left: ${g.x}%; top: ${g.y}%;" 
+               onclick="App.selectMapCountry('${this.escapeHtml(k)}')" 
+               title="${this.escapeHtml(g.name)}: ${g.items.length} пластинок">
+            <span class="pin-flag">${g.flag}</span>
+            <span class="pin-count">${g.items.length}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Default selection: select top country if none selected
+    if (keys.length > 0 && !this.selectedMapCountry) {
+      const sorted = [...keys].sort((a, b) => groups[b].items.length - groups[a].items.length);
+      this.selectMapCountry(sorted[0]);
+    } else if (this.selectedMapCountry && groups[this.selectedMapCountry]) {
+      this.selectMapCountry(this.selectedMapCountry);
+    }
+  },
+
+  selectMapCountry(countryKey) {
+    this.selectedMapCountry = countryKey;
+    const group = this.mapCountryGroups[countryKey];
+    if (!group) return;
+
+    // Highlight active pin
+    document.querySelectorAll('.world-map-pin').forEach(pin => {
+      const t = pin.getAttribute('title') || '';
+      pin.classList.toggle('active', t.startsWith(group.name));
+    });
+
+    const empty = document.getElementById('mapDetailsEmpty');
+    const content = document.getElementById('mapDetailsContent');
+    const flagEl = document.getElementById('mapDetailsFlag');
+    const nameEl = document.getElementById('mapDetailsCountryName');
+    const countEl = document.getElementById('mapDetailsCount');
+    const listEl = document.getElementById('mapDetailsList');
+
+    if (empty) empty.style.display = 'none';
+    if (content) content.style.display = 'flex';
+    if (flagEl) flagEl.textContent = group.flag;
+    if (nameEl) nameEl.textContent = group.name;
+    if (countEl) countEl.textContent = `${group.items.length} пластинок в коллекции`;
+
+    if (listEl) {
+      const placeholder = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%23222"><rect width="42" height="42"/></svg>';
+      listEl.innerHTML = group.items.map(it => {
+        const cover = it.coverImage || it.thumb || placeholder;
+        const title = this.escapeHtml(it.title || it.album || 'Альбом');
+        const artist = this.escapeHtml(it.artist || 'Исполнитель');
+        const year = it.year || '';
+        const format = it.format || 'Vinyl';
+        return `
+          <div class="map-record-item" onclick="App.openAlbumTracklistModal('${it.id}')" title="Нажмите, чтобы открыть треклист">
+            <img src="${cover}" class="map-record-cover" alt="Cover" loading="lazy">
+            <div class="map-record-meta">
+              <div class="map-record-title">${title}</div>
+              <div class="map-record-artist">${artist}</div>
+              <div class="map-record-sub">${year ? `Год: ${year} · ` : ''}${format}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  },
+
+  applyMapCountryFilterToTable() {
+    if (!this.selectedMapCountry) return;
+    const group = this.mapCountryGroups[this.selectedMapCountry];
+    const countryName = group ? (group.key || group.name) : this.selectedMapCountry;
+    this.closeVinylWorldMapModal();
+
+    // Check matching country checkboxes in filters
+    let matchedAny = false;
+    document.querySelectorAll('input[name="f_country"]').forEach(cb => {
+      const match = cb.value.toLowerCase().includes(countryName.toLowerCase()) || countryName.toLowerCase().includes(cb.value.toLowerCase());
+      cb.checked = match;
+      if (match) matchedAny = true;
+    });
+
+    if (matchedAny) {
+      this.onCountryFilterChange();
+      this.showToastNotification(`🌍 Фильтр: показаны пластинки из «${group ? group.name : countryName}»`);
+    } else {
+      const searchInput = document.getElementById('tableSearchInput');
+      if (searchInput) {
+        searchInput.value = countryName;
+        this.onSearchInput();
+        this.showToastNotification(`🌍 Поиск по стране: «${countryName}»`);
+      }
+    }
+
+    const tableEl = document.getElementById('recordsTable') || document.getElementById('recordsTableContainer');
+    if (tableEl) tableEl.scrollIntoView({ behavior: 'smooth' });
   },
 
   escapeHtml(str) {
