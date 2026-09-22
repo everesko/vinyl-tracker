@@ -1467,6 +1467,7 @@
           <button type="button" id="playerBtnPlayPause" class="player-play-btn" onclick="App.toggleAudioPlayPause()" title="Воспроизведение / Пауза">
             <span id="playerPlayPauseIcon">▶</span>
           </button>
+          <button type="button" class="player-icon-btn player-stop-btn" onclick="App.stopAudio()" title="Остановить воспроизведение">⏹ Стоп</button>
           <button type="button" class="player-icon-btn" onclick="App.seekAudioRelative(5)" title="Вперед на 5 секунд">5с ⏩</button>
         </div>
 
@@ -1512,7 +1513,8 @@
       </div>
       <div class="tt-header-actions">
         <button type="button" class="tt-btn-icon" id="ttBtnPack" onclick="App.toggleTurntablePack()" title="Запаковать / Достать пластинку">📦</button>
-        <button type="button" class="tt-btn-icon" onclick="App.closeTurntableWidget()" title="Закрыть проигрыватель">✕</button>
+        <button type="button" class="tt-btn-icon" onclick="App.closeTurntableWidget()" title="Свернуть проигрыватель">🗕</button>
+        <button type="button" class="tt-btn-icon" onclick="App.stopAndCloseTurntableWidget()" title="Остановить и закрыть">✕</button>
       </div>
     </div>
 
@@ -1593,6 +1595,7 @@
         <button type="button" class="tt-main-play-btn" id="ttBtnPlayPause" onclick="App.toggleTurntablePlayPause()" title="Воспроизведение / Пауза">
           <span id="ttPlayIcon">▶</span>
         </button>
+        <button type="button" class="tt-action-btn tt-stop-btn" onclick="App.stopAudio()" title="Остановить воспроизведение (Стоп)">⏹</button>
         <button type="button" class="tt-action-btn" onclick="App.skipTurntableAudio(5)" title="Вперед на 5 сек">5с ⏩</button>
         <button type="button" class="tt-action-btn" onclick="App.turntableNextTrack()" title="Следующий трек альбома">⏭</button>
         <button type="button" class="tt-action-btn tt-lift-btn" id="ttBtnLift" onclick="App.toggleTurntableCueLift()" title="Микролифт тонарма (поднять / опустить иглу)">
@@ -1611,6 +1614,20 @@
   <button type="button" id="floatingGlobeBtn" class="floating-globe-btn" onclick="App.openVinylWorldMapModal()" title="География винила (Карта прессов)" style="display: none;">
     <span class="globe-icon">🌍</span>
     <span class="globe-badge" id="globeCountryCountBadge">0</span>
+  </button>
+
+  <!-- ==========================================
+       Floating Player Launcher Icon (Right-Bottom)
+       Always visible floating button to toggle player widget!
+       ========================================== -->
+  <button type="button" id="floatingPlayerBtn" class="floating-player-btn" onclick="App.togglePlayerWidget()" title="Проигрыватель винила (Нажмите чтобы открыть)">
+    <div class="floating-player-icon-wrap">
+      <span class="floating-player-vinyl" id="floatingPlayerVinylIcon">💿</span>
+      <div class="floating-player-waves" id="floatingPlayerWaves">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+    <span class="floating-player-badge" id="floatingPlayerBadge">▶</span>
   </button>
 
   <!-- ==========================================

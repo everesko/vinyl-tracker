@@ -176,6 +176,7 @@ const App = {
     this.render();
     this.initTurntableDragging();
     this.initTurntableWidgetDragging();
+    this.updateFloatingPlayerButtonUI();
   },
 
   handleOAuthCallback() {
@@ -4733,14 +4734,17 @@ const App = {
       }
     }
 
-    if (this.playingAudio && this.playingAudio.src === url) {
+    const isSameTrack = this.playingAudio && (
+      this.playingAudio.src === url ||
+      (this.playingAudio.src && url && (this.playingAudio.src.endsWith(url) || this.playingAudio.src.includes(encodeURIComponent(url)))) ||
+      (this.currentAudioTrackTitle && title && this.currentAudioTrackTitle === title && (!artist || this.currentAudioArtist === artist))
+    );
+    if (isSameTrack) {
       this.toggleAudioPlayPause();
       return;
     }
 
-    if (this.playingAudio) {
-      this.playingAudio.pause();
-    }
+    this.pauseAudio();
 
     this.currentAudioTrackTitle = title;
     this.currentAudioArtist = artist;
@@ -4937,6 +4941,84 @@ const App = {
     this.showToastNotification(`Аудио-превью для «${artist ? artist + ' — ' : ''}${title}» не найдено`);
   },
 
+  pauseAudio() {
+    if (this.playingAudio && !this.playingAudio.paused) {
+      this.playingAudio.pause();
+    }
+    if (this.audioElement && !this.audioElement.paused) {
+      this.audioElement.pause();
+    }
+    if (this.clipsAudio && !this.clipsAudio.paused) {
+      this.clipsAudio.pause();
+    }
+    this.stopVinylCrackle();
+    this.onTurntableAudioPause();
+
+    const b = typeof this.currentAudioBtnId === 'string' ? document.getElementById(this.currentAudioBtnId) : this.currentAudioBtnId;
+    if (b) {
+      b.classList.remove('playing');
+      b.textContent = '▶';
+    }
+    const playPauseIcon = document.getElementById('playerPlayPauseIcon');
+    if (playPauseIcon) playPauseIcon.textContent = '▶';
+    const ttPlayIcon = document.getElementById('ttPlayIcon');
+    if (ttPlayIcon) ttPlayIcon.textContent = '▶';
+
+    this.setCoverPulsing(false);
+    this.updateSearchPlayingHighlights();
+    this.updateFloatingPlayerButtonUI();
+  },
+
+  stopAudio() {
+    this.pauseAudio();
+    if (this.playingAudio) {
+      try { this.playingAudio.currentTime = 0; } catch (e) {}
+    }
+    if (this.audioElement) {
+      try { this.audioElement.currentTime = 0; } catch (e) {}
+    }
+    if (this.clipsAudio) {
+      try { this.clipsAudio.currentTime = 0; } catch (e) {}
+    }
+
+    // Reset scrubbers & time labels in both players
+    const curTime = document.getElementById('playerCurrentTime');
+    if (curTime) curTime.textContent = '0:00';
+    const scrubber = document.getElementById('playerScrubber');
+    if (scrubber) scrubber.value = 0;
+
+    const ttCurTime = document.getElementById('ttTimeCurrent');
+    if (ttCurTime) ttCurTime.textContent = '0:00';
+    const ttFill = document.getElementById('ttScrubberFill');
+    if (ttFill) ttFill.style.width = '0%';
+
+    // Reset tonearm back to rest cradle
+    if (this.turntableState) {
+      this.applyTonearmAngle(this.turntableState.restAngle || 0, true);
+      const tonearm = document.getElementById('ttTonearm');
+      if (tonearm) tonearm.classList.remove('arm-lifted');
+    }
+
+    this.updateFloatingPlayerButtonUI();
+  },
+
+  stopAndCloseTurntableWidget() {
+    this.stopAudio();
+    this.closeTurntableWidget();
+  },
+
+  stopAndCloseAudioPlayer() {
+    this.stopAudio();
+    const playerEl = document.getElementById('bottomAudioPlayer');
+    if (playerEl) playerEl.style.display = 'none';
+    this.currentAudioTrackTitle = null;
+    this.currentAudioArtist = null;
+    this.currentAudioAlbumTitle = null;
+    this.currentAudioBtnId = null;
+    this.updateSearchPlayingHighlights();
+    this.updateFloatingPlayerButtonUI();
+  },
+
   toggleAudioPlayPause() {
     this.unlockAudio();
     if (!this.playingAudio || !this.playingAudio.src) {
@@ -4946,20 +5028,20 @@ const App = {
     if (this.playingAudio.paused) {
       this.playingAudio.play().then(() => {
         this.onTurntableAudioPlay();
+        this.updateFloatingPlayerButtonUI();
       }).catch((e) => {
         console.warn('Resume error:', e);
         this.showToastNotification('Нажмите ▶ для воспроизведения');
       });
     } else {
-      this.playingAudio.pause();
-      this.onTurntableAudioPause();
+      this.pauseAudio();
     }
   },
 
   seekAudioRelative(seconds) {
     if (!this.playingAudio) return;
     const dur = this.playingAudio.duration || 30;
-    const newTime = Math.max(0, Math.min(dur, this.playingAudio.currentTime + seconds));
+    const newTime = Math.max(0, Math.min(dur, (this.playingAudio.currentTime || 0) + seconds));
     this.playingAudio.currentTime = newTime;
   },
 
@@ -4984,24 +5066,50 @@ const App = {
     if (volInput) volInput.value = this.audioVolume;
   },
 
-  stopAndCloseAudioPlayer() {
-    this.stopVinylCrackle();
-    if (this.playingAudio) {
-      this.playingAudio.pause();
-      this.playingAudio = null;
+  togglePlayerWidget() {
+    if (this.experiments.turntableAsmr) {
+      const widget = document.getElementById('vinylTurntableWidget');
+      const isVisible = widget && widget.style.display !== 'none';
+      if (isVisible) {
+        this.closeTurntableWidget();
+      } else {
+        const track = (this.turntableState && this.turntableState.currentTrack) ? this.turntableState.currentTrack : {
+          title: this.currentAudioTrackTitle || 'Виниловый проигрыватель',
+          artist: this.currentAudioArtist || '',
+          coverUrl: this.currentAudioCoverUrl || ''
+        };
+        const isPlaying = !!(this.playingAudio && !this.playingAudio.paused);
+        this.openTurntableWidget(track, isPlaying);
+      }
+    } else {
+      const bottomPlayer = document.getElementById('bottomAudioPlayer');
+      if (bottomPlayer) {
+        const isVisible = bottomPlayer.style.display !== 'none';
+        bottomPlayer.style.display = isVisible ? 'none' : 'block';
+      }
     }
-    const b = typeof this.currentAudioBtnId === 'string' ? document.getElementById(this.currentAudioBtnId) : this.currentAudioBtnId;
-    if (b) {
-      b.classList.remove('playing');
-      b.textContent = '▶';
+    this.updateFloatingPlayerButtonUI();
+  },
+
+  updateFloatingPlayerButtonUI() {
+    const btn = document.getElementById('floatingPlayerBtn');
+    const badge = document.getElementById('floatingPlayerBadge');
+    if (!btn) return;
+
+    const isAudioPlaying = !!(this.playingAudio && !this.playingAudio.paused && !this.playingAudio.ended);
+
+    if (isAudioPlaying) {
+      btn.classList.add('is-playing');
+      if (badge) badge.textContent = '⏸';
+      const label = this.currentAudioTrackTitle
+        ? `${this.currentAudioArtist ? this.currentAudioArtist + ' — ' : ''}${this.currentAudioTrackTitle}`
+        : 'Воспроизведение';
+      btn.title = `🎵 Сейчас играет: ${label}\nНажмите, чтобы открыть проигрыватель`;
+    } else {
+      btn.classList.remove('is-playing');
+      if (badge) badge.textContent = '▶';
+      btn.title = '💿 Проигрыватель винила (Нажмите, чтобы открыть)';
     }
-    this.currentAudioTrackTitle = null;
-    this.currentAudioArtist = null;
-    this.currentAudioAlbumTitle = null;
-    this.currentAudioBtnId = null;
-    this.updateSearchPlayingHighlights();
-    const playerEl = document.getElementById('bottomAudioPlayer');
-    if (playerEl) playerEl.style.display = 'none';
   },
 
   togglePreviewAudio(url, btnElement) {
@@ -8083,6 +8191,7 @@ const App = {
     }
     this.turntableState.isOpen = false;
     this.stopVinylCrackle();
+    this.updateFloatingPlayerButtonUI();
   },
 
   applyTonearmAngle(angle, withTransition = true) {
@@ -8641,13 +8750,14 @@ const App = {
     }
 
     if (this.playingAudio && !this.playingAudio.paused) {
-      this.playingAudio.pause();
+      this.pauseAudio();
       return;
     }
 
     if (this.playingAudio && this.playingAudio.paused && this.playingAudio.src) {
       this.playingAudio.play().then(() => {
         this.onTurntableAudioPlay();
+        this.updateFloatingPlayerButtonUI();
       }).catch(e => {
         console.warn('Play error:', e);
       });
@@ -8835,10 +8945,15 @@ const App = {
   },
 
   onTurntableAudioPlay() {
+    this.updateFloatingPlayerButtonUI();
+    const playPauseIcon = document.getElementById('playerPlayPauseIcon');
+    if (playPauseIcon) playPauseIcon.textContent = '⏸';
+    const ttPlayIcon = document.getElementById('ttPlayIcon');
+    if (ttPlayIcon) ttPlayIcon.textContent = '⏸';
+
     if (!this.turntableState.isOpen) return;
     const platter = document.getElementById('ttPlatter');
     const led = document.getElementById('ttLedIndicator');
-    const playIcon = document.getElementById('ttPlayIcon');
     const stage = document.getElementById('ttStage');
 
     if (stage) {
@@ -8859,20 +8974,23 @@ const App = {
     }
 
     if (led) led.classList.add('active');
-    if (playIcon) playIcon.textContent = '⏸';
     if (!this.turntableState.isPacked && !this.turntableState.isLifted && this.experiments.turntableAsmr && this.turntableState.crackleEnabled) {
       this.startVinylCrackle();
     }
   },
 
   onTurntableAudioPause() {
+    this.updateFloatingPlayerButtonUI();
+    const playPauseIcon = document.getElementById('playerPlayPauseIcon');
+    if (playPauseIcon) playPauseIcon.textContent = '▶';
+    const ttPlayIcon = document.getElementById('ttPlayIcon');
+    if (ttPlayIcon) ttPlayIcon.textContent = '▶';
+
     const platter = document.getElementById('ttPlatter');
     const led = document.getElementById('ttLedIndicator');
-    const playIcon = document.getElementById('ttPlayIcon');
 
     if (platter) platter.classList.remove('is-spinning');
     if (led) led.classList.remove('active');
-    if (playIcon) playIcon.textContent = '▶';
     this.stopVinylCrackle();
   },
 
