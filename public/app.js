@@ -4785,11 +4785,6 @@ const App = {
     const volumeSlider = document.getElementById('playerVolume');
     if (volumeSlider) volumeSlider.value = this.audioVolume;
     if (audioEl) audioEl.volume = this.audioVolume;
-
-    // Global listener to unlock audio on first interaction
-    const unlockFn = () => this.unlockAudio();
-    window.addEventListener('pointerdown', unlockFn, { passive: true });
-    window.addEventListener('keydown', unlockFn, { passive: true });
   },
 
   unlockAudio() {
@@ -4800,19 +4795,6 @@ const App = {
       }
       if (this.audioCtx && this.audioCtx.state === 'suspended') {
         this.audioCtx.resume().catch(() => {});
-      }
-      if (this.audioElement && (!this.playingAudio || this.playingAudio.paused)) {
-        if (!this.audioElement.src || this.audioElement.src === '') {
-          this.audioElement.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-        }
-        const p = this.audioElement.play();
-        if (p && typeof p.then === 'function') {
-          p.then(() => {
-            if (this.audioElement.src.startsWith('data:')) {
-              this.audioElement.pause();
-            }
-          }).catch(() => {});
-        }
       }
     } catch (e) {}
   },
@@ -5076,27 +5058,50 @@ const App = {
 
   stopAudio() {
     this.pauseAudio();
+
+    // 1. Force stop, reset and clear all audio objects
     if (this.playingAudio) {
-      try { this.playingAudio.pause(); this.playingAudio.currentTime = 0; } catch (e) {}
+      try {
+        this.playingAudio.pause();
+        this.playingAudio.currentTime = 0;
+        this.playingAudio.src = '';
+      } catch (e) {}
+      this.playingAudio = null;
     }
     if (this.audioElement) {
-      try { this.audioElement.pause(); this.audioElement.currentTime = 0; } catch (e) {}
+      try {
+        this.audioElement.pause();
+        this.audioElement.currentTime = 0;
+        this.audioElement.src = '';
+      } catch (e) {}
     }
     if (this.clipsAudio) {
-      try { this.clipsAudio.pause(); this.clipsAudio.currentTime = 0; } catch (e) {}
+      try {
+        this.clipsAudio.pause();
+        this.clipsAudio.currentTime = 0;
+        this.clipsAudio.src = '';
+      } catch (e) {}
+      this.clipsAudio = null;
     }
 
+    // 2. Clear all audio/video elements across document
     try {
       document.querySelectorAll('audio, video').forEach(el => {
         try {
           el.pause();
           el.currentTime = 0;
+          el.src = '';
         } catch (e) {}
       });
     } catch (e) {}
-    this.stopVinylCrackle();
 
-    // Reset scrubbers & time labels in both players
+    // 3. Stop ASMR noise & suspend audio context completely
+    this.stopVinylCrackle();
+    if (this.audioCtx) {
+      try { this.audioCtx.suspend().catch(() => {}); } catch (e) {}
+    }
+
+    // 4. Reset scrubbers & time labels in both players
     const curTime = document.getElementById('playerCurrentTime');
     if (curTime) curTime.textContent = '0:00';
     const scrubber = document.getElementById('playerScrubber');
@@ -5107,7 +5112,7 @@ const App = {
     const ttFill = document.getElementById('ttScrubberFill');
     if (ttFill) ttFill.style.width = '0%';
 
-    // Reset tonearm back to rest cradle and stop platter
+    // 5. Reset tonearm back to rest cradle and stop platter
     if (this.turntableState) {
       this.turntableState.isPlaying = false;
       this.applyTonearmAngle(this.turntableState.restAngle || -16, true);
@@ -5122,6 +5127,22 @@ const App = {
       if (ttPlayIcon) ttPlayIcon.textContent = '▶';
     }
 
+    const playPauseIcon = document.getElementById('playerPlayPauseIcon');
+    if (playPauseIcon) playPauseIcon.textContent = '▶';
+
+    document.querySelectorAll('.preview-audio-btn, .tracklist-play-btn, .sp-track-play-btn, .record-play-btn, .clips-wide-btn').forEach(b => {
+      b.classList.remove('playing');
+      if (b.textContent === '⏸' || b.textContent === '⏳') b.textContent = '▶';
+    });
+
+    this.currentAudioTrackTitle = null;
+    this.currentAudioArtist = null;
+    this.currentAudioAlbumTitle = null;
+    this.currentAudioCoverUrl = null;
+    this.currentAudioBtnId = null;
+
+    this.setCoverPulsing(false);
+    this.updateSearchPlayingHighlights();
     this.updateFloatingPlayerButtonUI();
   },
 
@@ -7661,37 +7682,54 @@ const App = {
     document.body.classList.toggle('compact-table-mode', Boolean(this.experiments.compactTable));
 
     // 2. Vinyl Cabinet Shelves View
-    if (this.experiments.vinylCabinet && this.viewLayout !== 'cabinet') {
-      this.setViewLayout('cabinet');
+    const sliderWrapper = document.getElementById('viewSliderWrapper') || document.querySelector('.view-slider-wrapper');
+    if (sliderWrapper) {
+      sliderWrapper.style.display = this.experiments.vinylCabinet ? 'inline-flex' : 'none';
+    }
+    if (!this.experiments.vinylCabinet) {
+      this.viewLayout = 'table';
+      const cabContainer = document.getElementById('vinylCabinetContainer');
+      if (cabContainer) cabContainer.style.display = 'none';
+      const tblContainer = document.getElementById('tablesContainer');
+      if (tblContainer) tblContainer.style.display = 'block';
+    } else {
+      if (this.viewLayout === 'cabinet') {
+        const cabContainer = document.getElementById('vinylCabinetContainer');
+        if (cabContainer) cabContainer.style.display = 'block';
+        const tblContainer = document.getElementById('tablesContainer');
+        if (tblContainer) tblContainer.style.display = 'none';
+      }
     }
 
-    // 4. Spotify clips discovery button
+    // 3. Spotify clips discovery button
     const clipsBtn = document.getElementById('btnGlobalDiscoveryClips') || document.getElementById('btnOpenSpotifyClips');
     if (clipsBtn) {
+      clipsBtn.style.display = this.experiments.spotifyClips ? 'inline-flex' : 'none';
       clipsBtn.classList.toggle('pulse-active', Boolean(this.experiments.spotifyClips));
     }
+    if (!this.experiments.spotifyClips) {
+      this.closeSpotifyClipsModal();
+    }
 
-    // 5. Smart Recommendations
+    // 4. Smart Recommendations
     const recsBar = document.getElementById('smartRecommendationsBar');
     if (recsBar) {
       recsBar.style.display = this.experiments.smartRecs ? 'block' : 'none';
-      if (this.experiments.smartRecs) this.renderSmartRecommendations();
+      if (this.experiments.smartRecs) {
+        this.renderSmartRecommendations();
+      } else {
+        recsBar.innerHTML = '';
+      }
     }
 
-    // 6. Hi-Fi Turntable ASMR / 3D Smart Vinyl Player
+    // 5. Hi-Fi Turntable ASMR / 3D Smart Vinyl Player
     document.body.classList.toggle('turntable-asmr-active', Boolean(this.experiments.turntableAsmr));
     const bottomPlayerEl = document.getElementById('bottomAudioPlayer');
-    if (this.experiments.turntableAsmr) {
-      if (bottomPlayerEl) bottomPlayerEl.style.display = 'none';
-      if (this.playingAudio && !this.playingAudio.paused) {
-        this.openTurntableWidget({
-          title: this.currentAudioTrackTitle || 'Аудио-трек',
-          artist: this.currentAudioArtist || '',
-          coverUrl: this.currentAudioCoverUrl || ''
-        });
-      }
-    } else {
-      this.closeTurntableWidget();
+    const ttWidget = document.getElementById('vinylTurntableWidget');
+    if (!this.experiments.turntableAsmr) {
+      if (ttWidget) ttWidget.style.display = 'none';
+      this.turntableState.isOpen = false;
+      this.stopVinylCrackle();
       if (this.playingAudio && !this.playingAudio.paused) {
         if (bottomPlayerEl) bottomPlayerEl.style.display = 'block';
       }
@@ -7700,7 +7738,7 @@ const App = {
     // Native total collection sale valuation
     this.updateValuationStats();
 
-    if (this.viewLayout === 'cabinet') {
+    if (this.viewLayout === 'cabinet' && this.experiments.vinylCabinet) {
       this.renderVinylCabinet();
     } else {
       this.renderTable();
@@ -7711,6 +7749,10 @@ const App = {
   // VINYL CABINET SHELVES VIEW (ШКАФ ВИНИЛОВЫХ ПЛАСТИНОК)
   // ----------------------------------------------------
   setViewLayout(layout) {
+    if (layout === 'cabinet' && !this.experiments.vinylCabinet) {
+      this.showToastNotification('Шкаф винила активируется в золотом меню «Эксперименты»');
+      return;
+    }
     this.viewLayout = layout;
     const btnTable = document.getElementById('btnViewTable') || document.getElementById('btnOptTable');
     const btnCabinet = document.getElementById('btnViewCabinet') || document.getElementById('btnOptCabinet');
@@ -7975,38 +8017,19 @@ const App = {
   },
 
   onTableRowClick(event, itemId) {
-    if (!this.experiments.compactTable) return;
-    // Do not trigger if user interacted with a control or title link
-    if (event.target.closest('button, input, a, select, .cover-thumb-wrapper, .star-rating, .cell-checkbox, .editions-badge-btn, .icon-btn')) {
-      return;
-    }
-    const found = this.findTableAndItem(itemId, this.appMode, true);
-    if (!found || !found.item) return;
-    const item = found.item;
-
-    if (item.previewUrl) {
-      this.playAudio(item.previewUrl, item.title || item.album || 'Песня', item.artist || '', item.coverImage || item.thumb || '');
-      return;
-    }
-
-    (async () => {
-      try {
-        const res = await fetch(`/api/spotify/album/tracks?artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`);
-        if (res.ok) {
-          const d = await res.json();
-          if (d && d.tracklist && d.tracklist[0] && d.tracklist[0].previewUrl) {
-            const tr = d.tracklist[0];
-            this.playAudio(tr.previewUrl, tr.title, tr.artist || item.artist, d.cover || item.coverImage || '');
-          }
-        }
-      } catch (e) {}
-    })();
+    // Audio is strictly played ONLY when the user explicitly clicks a dedicated play button (▶).
+    // Clicking rows in the table does NOT start audio playback.
+    return;
   },
 
   // ----------------------------------------------------
   // SPOTIFY CLIPS / REELS (Experiment 2)
   // ----------------------------------------------------
   async openSpotifyClipsModal() {
+    if (!this.experiments.spotifyClips) {
+      this.showToastNotification('Лента Reels доступна только в меню Экспериментов (Золотая шестеренка)');
+      return;
+    }
     const modal = document.getElementById('spotifyClipsModal');
     if (!modal) return;
 
@@ -8320,6 +8343,13 @@ const App = {
   },
 
   openTurntableWidget(trackInfo = null, isPlayingImmediately = false) {
+    if (!this.experiments.turntableAsmr) {
+      const bottomPlayer = document.getElementById('bottomAudioPlayer');
+      if (bottomPlayer && (this.playingAudio || trackInfo)) {
+        bottomPlayer.style.display = 'block';
+      }
+      return;
+    }
     const widget = document.getElementById('vinylTurntableWidget');
     if (!widget) return;
     widget.style.display = 'flex';

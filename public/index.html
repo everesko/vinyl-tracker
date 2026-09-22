@@ -212,7 +212,7 @@
 
       <div class="action-buttons">
         <!-- Luxury View Slider: Table vs Vinyl Cabinet Shelves (Ползунок-переключатель) -->
-        <div class="view-slider-wrapper" title="Переключить вид: классическая таблица или деревянный шкаф винила">
+        <div class="view-slider-wrapper" id="viewSliderWrapper" style="display: none;" title="Переключить вид: классическая таблица или деревянный шкаф винила">
           <div class="view-slider-pill" id="viewSliderPill">
             <button type="button" class="view-slider-opt active" id="btnOptTable" onclick="App.setViewLayout('table')">
               <span class="slider-icon">📋</span> <span class="slider-label">Таблица</span>
@@ -225,7 +225,7 @@
         </div>
 
         <!-- Global Discovery Video Reels Button -->
-        <button type="button" id="btnGlobalDiscoveryClips" class="btn btn-secondary btn-discovery-reels" onclick="App.openSpotifyClipsModal()" title="Лента открытий: новые треки и короткие видеоклипы">
+        <button type="button" id="btnGlobalDiscoveryClips" class="btn btn-secondary btn-discovery-reels" style="display: none;" onclick="App.openSpotifyClipsModal()" title="Лента открытий: новые треки и короткие видеоклипы">
           <span class="reels-pulse-dot"></span>
           <span>🎬 Discovery Reels</span>
         </button>
@@ -553,23 +553,7 @@
             </div>
           </div>
 
-          <!-- 3. Pressing World Map & Geography -->
-          <div class="exp-card">
-            <div class="exp-card-header">
-              <div class="exp-card-icon">🌍</div>
-              <div class="exp-card-tag exp-tag-geo">ГЕОГРАФИЯ</div>
-              <label class="exp-toggle-switch">
-                <input type="checkbox" id="expTogglePressingAtlas" onchange="App.setExperimentState('pressingAtlas', this.checked)">
-                <span class="exp-slider"></span>
-              </label>
-            </div>
-            <div class="exp-card-title">Атлас географии винила (Earth Map)</div>
-            <div class="exp-card-desc">
-              Интерактивная карта Земли и плавающая кнопка глобуса: отображает ВСЕ добавленные альбомы с привязкой к странам наибольшего тиража прессов (🇯🇵, 🇬🇧, 🇺🇸, 🇩🇪) и сеткой виниловых конвертов при клике.
-            </div>
-          </div>
-
-          <!-- 4. Spotify Clips / Reels Discovery Feed -->
+          <!-- 3. Spotify Clips / Reels Discovery Feed -->
           <div class="exp-card">
             <div class="exp-card-header">
               <div class="exp-card-icon">🎬</div>
