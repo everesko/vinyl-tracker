@@ -211,24 +211,6 @@
       </div>
 
       <div class="action-buttons">
-        <!-- Luxury View Slider: Table vs Vinyl Cabinet Shelves (Ползунок-переключатель) -->
-        <div class="view-slider-wrapper" id="viewSliderWrapper" style="display: none;" title="Переключить вид: классическая таблица или деревянный шкаф винила">
-          <div class="view-slider-pill" id="viewSliderPill">
-            <button type="button" class="view-slider-opt active" id="btnOptTable" onclick="App.setViewLayout('table')">
-              <span class="slider-icon">📋</span> <span class="slider-label">Таблица</span>
-            </button>
-            <button type="button" class="view-slider-opt" id="btnOptCabinet" onclick="App.setViewLayout('cabinet')">
-              <span class="slider-icon">🪵</span> <span class="slider-label">Шкаф винила</span>
-            </button>
-            <div class="view-slider-thumb" id="viewSliderThumb"></div>
-          </div>
-        </div>
-
-        <!-- Global Discovery Video Reels Button -->
-        <button type="button" id="btnGlobalDiscoveryClips" class="btn btn-secondary btn-discovery-reels" style="display: none;" onclick="App.openSpotifyClipsModal()" title="Лента открытий: новые треки и короткие видеоклипы">
-          <span class="reels-pulse-dot"></span>
-          <span>🎬 Discovery Reels</span>
-        </button>
 
         <button id="btnOpenFiltersModal" class="btn btn-secondary filter-modal-trigger" onclick="App.openFiltersModal()" title="Настроить расширенные фильтры (цены, страны, годы, 💎)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
@@ -298,10 +280,6 @@
       <!-- Tables rendered dynamically by App.renderTables() -->
     </div>
 
-    <!-- Vinyl Cabinet Shelves View (Шкаф виниловых пластинок) -->
-    <div id="vinylCabinetContainer" class="vinyl-cabinet-container" style="display: none;">
-      <!-- Shelves, leaning records, hanging vines & vintage decor rendered dynamically by App.renderVinylCabinet() -->
-    </div>
 
   </main>
 
@@ -537,37 +515,6 @@
             </div>
           </div>
 
-          <!-- 2. Vinyl Cabinet Shelves View -->
-          <div class="exp-card">
-            <div class="exp-card-header">
-              <div class="exp-card-icon">🗄️</div>
-              <div class="exp-card-tag exp-tag-new">НОВИНКА</div>
-              <label class="exp-toggle-switch">
-                <input type="checkbox" id="expToggleVinylCabinet" onchange="App.setExperimentState('vinylCabinet', this.checked)">
-                <span class="exp-slider"></span>
-              </label>
-            </div>
-            <div class="exp-card-title">Шкаф виниловых пластинок</div>
-            <div class="exp-card-desc">
-              Многоярусный деревянный стеллаж: пластинки стоят под углом по 6 штук на полке, drag-and-drop перетаскивание между полками, кастомные латунные таблички с названиями полок и живые колышущиеся растения.
-            </div>
-          </div>
-
-          <!-- 3. Spotify Clips / Reels Discovery Feed -->
-          <div class="exp-card">
-            <div class="exp-card-header">
-              <div class="exp-card-icon">🎬</div>
-              <div class="exp-card-tag exp-tag-feed">DISCOVERY</div>
-              <label class="exp-toggle-switch">
-                <input type="checkbox" id="expToggleSpotifyClips" onchange="App.setExperimentState('spotifyClips', this.checked)">
-                <span class="exp-slider"></span>
-              </label>
-            </div>
-            <div class="exp-card-title">Spotify Discovery Reels (Shorts)</div>
-            <div class="exp-card-desc">
-              Вертикальная видео-лента скролла колесиком мыши: кнопки вынесены вправо от видеоряда, система рекомендует свежие треки под ваши вкусы и СТРОГО исключает уже добавленные альбомы из библиотеки.
-            </div>
-          </div>
 
           <!-- 5. Smart Recommendations & "I'm Feeling Lucky" -->
           <div class="exp-card">
@@ -608,74 +555,6 @@
     </div>
   </div>
 
-  <!-- ==========================================
-       Modal: Spotify Clips / Reels Video Mode
-       ========================================== -->
-  <div id="spotifyClipsModal" class="modal-backdrop">
-    <div class="clips-modal-dialog">
-      <div class="clips-header">
-        <div class="clips-brand">
-          <span class="clips-logo">🟢</span>
-          <span>SPOTIFY CLIPS</span>
-        </div>
-        <button class="modal-close-btn" onclick="App.closeSpotifyClipsModal()" title="Закрыть">✕</button>
-      </div>
-
-      <div class="clips-body-wrap">
-        <!-- Main Video / Artwork Stage -->
-        <div class="clips-stage" id="clipsStage">
-          <div class="clips-art-backdrop" id="clipsArtBackdrop"></div>
-          <div class="clips-center-disc" id="clipsCenterDisc">
-            <img id="clipsCoverImg" src="" alt="Album Art">
-            <div class="clips-disc-spindle"></div>
-          </div>
-
-          <div class="clips-progress-bar">
-            <div class="clips-progress-fill" id="clipsProgressFill"></div>
-          </div>
-
-          <div class="clips-meta">
-            <div class="clips-song-title" id="clipsSongTitle">—</div>
-            <div class="clips-artist-name" id="clipsArtistName">—</div>
-            <div class="clips-album-name" id="clipsAlbumName" onclick="App.searchClipsAlbumVinyl()" title="Нажмите, чтобы найти виниловые версии альбома">
-              💽 <span id="clipsAlbumText">—</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- External Actions Sidebar on the Right (Outside the Video) -->
-        <div class="clips-external-panel">
-          <div class="clips-panel-heading">Действия с треком</div>
-
-          <button type="button" class="clips-wide-btn clips-btn-add" onclick="App.addCurrentClipToLibrary()" title="Добавить этот трек в коллекцию">
-            <span class="btn-icon">＋</span>
-            <span class="btn-text">В коллекцию треков</span>
-          </button>
-
-          <button type="button" class="clips-wide-btn clips-btn-vinyl" onclick="App.searchClipsAlbumVinyl()" title="Найти виниловые версии этого альбома">
-            <span class="btn-icon">💽</span>
-            <span class="btn-text">Найти винил альбома</span>
-          </button>
-
-          <button type="button" class="clips-wide-btn clips-btn-play" id="clipsBtnPlay" onclick="App.toggleClipsPlay()" title="Воспроизвести / Пауза">
-            <span class="btn-icon" id="clipsPlayIcon">▶</span>
-            <span class="btn-text">Пауза / Воспроизведение</span>
-          </button>
-
-          <div class="clips-nav-row">
-            <button type="button" class="clips-wide-btn clips-btn-nav" onclick="App.prevClip()" title="Предыдущий трек">
-              <span class="btn-icon">▲</span>
-              <span class="btn-text">Предыдущий</span>
-            </button>
-            <button type="button" class="clips-wide-btn clips-btn-nav" onclick="App.nextClip()" title="Следующий трек">
-              <span class="btn-icon">▼</span>
-              <span class="btn-text">Следующий</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- ==========================================
        Modal: Master Album Vinyl Pressings Breakdown

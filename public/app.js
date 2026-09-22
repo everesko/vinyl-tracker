@@ -45,13 +45,9 @@ const App = {
   currentModalAlbumItem: null,
   experiments: {
     compactTable: false,
-    spotifyClips: false,
     smartRecs: false,
-    turntableAsmr: false,
-    vinylCabinet: false
+    turntableAsmr: false
   },
-  viewLayout: 'table', // 'table' or 'cabinet'
-  shelfTitles: {},
   searchViewMode: 'stands', // 'stands' or 'list'
   threeTurntable: {
     isInitialized: false,
@@ -69,9 +65,6 @@ const App = {
   },
   audioCtx: null,
   vinylCracklingNode: null,
-  clipsPlaylist: [],
-  currentClipIndex: 0,
-  clipsAudio: null,
 
   async init() {
     this.handleOAuthCallback();
@@ -3255,6 +3248,13 @@ const App = {
 
   getAlbumEarliestYear(item) {
     if (!item) return '';
+    if (item.firstPressYear) return String(item.firstPressYear);
+    
+    // For specific releases without masterId, the explicit release pressing year is authoritative
+    if (!item.masterId && item.year) {
+      return String(item.year);
+    }
+
     const cacheKey = item.masterId || item.discogsId || item.id;
     const nameKey = (item.artist && (item.album || item.title))
       ? `${String(item.artist).toLowerCase().trim()}:::${String(item.album || item.title).toLowerCase().trim()}`
@@ -3263,12 +3263,12 @@ const App = {
 
     let y1 = parseInt(item.year, 10);
     let y2 = cached && cached.year ? parseInt(cached.year, 10) : null;
-    if (isNaN(y1)) y1 = null;
-    if (isNaN(y2)) y2 = null;
+    if (isNaN(y1) || y1 <= 1900) y1 = null;
+    if (isNaN(y2) || y2 <= 1900) y2 = null;
 
     if (y1 && y2) return String(Math.min(y1, y2));
-    if (y2) return String(y2);
     if (y1) return String(y1);
+    if (y2) return String(y2);
     return item.year || '';
   },
 
@@ -5035,9 +5035,6 @@ const App = {
     if (this.audioElement && !this.audioElement.paused) {
       this.audioElement.pause();
     }
-    if (this.clipsAudio && !this.clipsAudio.paused) {
-      this.clipsAudio.pause();
-    }
     this.stopVinylCrackle();
     this.onTurntableAudioPause();
 
@@ -5074,14 +5071,6 @@ const App = {
         this.audioElement.currentTime = 0;
         this.audioElement.src = '';
       } catch (e) {}
-    }
-    if (this.clipsAudio) {
-      try {
-        this.clipsAudio.pause();
-        this.clipsAudio.currentTime = 0;
-        this.clipsAudio.src = '';
-      } catch (e) {}
-      this.clipsAudio = null;
     }
 
     // 2. Clear all audio/video elements across document
@@ -5130,7 +5119,7 @@ const App = {
     const playPauseIcon = document.getElementById('playerPlayPauseIcon');
     if (playPauseIcon) playPauseIcon.textContent = '▶';
 
-    document.querySelectorAll('.preview-audio-btn, .tracklist-play-btn, .sp-track-play-btn, .record-play-btn, .clips-wide-btn').forEach(b => {
+    document.querySelectorAll('.preview-audio-btn, .tracklist-play-btn, .sp-track-play-btn, .record-play-btn').forEach(b => {
       b.classList.remove('playing');
       if (b.textContent === '⏸' || b.textContent === '⏳') b.textContent = '▶';
     });
@@ -5450,16 +5439,11 @@ const App = {
               slashEl.textContent = ` / ${data.tracklist.length}`;
               slashEl.style.display = 'inline';
             }
-            if (data.year) {
+            if (data.year && !item.year) {
               const yearEl = document.getElementById(`searchYear-${item.id}`);
-              if (yearEl) {
-                const curYear = parseInt(yearEl.textContent.replace(/\D/g, ''), 10);
-                const newYear = parseInt(data.year, 10);
-                const earliest = (!curYear || isNaN(curYear)) ? newYear : Math.min(curYear, newYear);
-                if (earliest) {
-                  yearEl.textContent = `Год: ${earliest} •`;
-                  yearEl.style.display = 'inline';
-                }
+              if (yearEl && !yearEl.textContent.trim()) {
+                yearEl.textContent = `Год: ${data.year} •`;
+                yearEl.style.display = 'inline';
               }
             }
           }
@@ -5506,10 +5490,24 @@ const App = {
       return;
     }
 
-    const rawCover = data.cover || item.coverImage || item.thumb || '';
-    const coverArtist = data.artist || item.artist || '';
-    const coverAlbum = data.title || item.album || item.title || '';
+    const targetArtist = item.artist || data.artist || '';
+    const targetTitle = item.album || item.title || data.title || 'Треклист альбома';
+
+    // Year: item's exact pressing year or first press year has absolute priority over generic/Spotify data.year
+    let targetYear = item.year || item.released || item.firstPressYear || '';
+    if (!targetYear && item.masterId) {
+      targetYear = this.getAlbumEarliestYear(item);
+    }
+    if (!targetYear) {
+      targetYear = data.year || '';
+    }
+
+    // Cover: item's exact cover from search card / library item has absolute priority over generic/Spotify data.cover
+    const rawCover = item.coverImage || item.thumb || data.cover || '';
+    const coverArtist = targetArtist;
+    const coverAlbum = targetTitle;
     const coverUrl = this.getSafeCoverUrl(rawCover, coverArtist, coverAlbum);
+
     if (modalCover && coverUrl) {
       modalCover.src = coverUrl;
       modalCover.style.display = 'block';
@@ -5526,17 +5524,17 @@ const App = {
         largeCover.src = `/api/cover-image?artist=${encodeURIComponent(coverArtist)}&album=${encodeURIComponent(coverAlbum)}`;
       };
     }
-    if (modalTitle && (data.title || item.album || item.title)) {
-      modalTitle.textContent = data.title || item.album || item.title;
+    if (modalTitle && targetTitle) {
+      modalTitle.textContent = targetTitle;
     }
-    if (modalSub && (data.artist || item.artist)) {
-      modalSub.textContent = `${data.artist || item.artist}${data.year || item.year ? ` · ${data.year || item.year}` : ''}`;
+    if (modalSub && (targetArtist || targetYear)) {
+      modalSub.textContent = `${targetArtist}${targetYear ? ` · ${targetYear}` : ''}`;
     }
-    if (metaArtist) metaArtist.textContent = data.artist || item.artist || '';
-    if (metaAlbum) metaAlbum.textContent = data.title || item.album || item.title || '';
+    if (metaArtist) metaArtist.textContent = targetArtist;
+    if (metaAlbum) metaAlbum.textContent = targetTitle;
     if (metaBadges) {
       metaBadges.innerHTML = `
-        ${(data.year || item.year) ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">📅 ${this.escapeHtml(data.year || item.year)}</span>` : ''}
+        ${targetYear ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">📅 ${this.escapeHtml(targetYear)}</span>` : ''}
         <span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">🎵 Треков: ${data.tracklist.length}</span>
         ${item.format ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">💽 ${this.escapeHtml(item.format)}</span>` : ''}
         ${item.country ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">🌍 ${this.escapeHtml(item.country)}</span>` : ''}
@@ -5812,7 +5810,8 @@ const App = {
         largeCover.src = `/api/cover-image?artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(displayTitle)}`;
       };
     }
-    const displaySub = `${item.artist || 'Неизвестный исполнитель'}${item.year ? ` · ${item.year}` : (item.album && item.title !== item.album ? ` · ${item.title}` : '')}`;
+    const displayYear = item.year || item.released || item.firstPressYear || (item.masterId ? this.getAlbumEarliestYear(item) : '');
+    const displaySub = `${item.artist || 'Неизвестный исполнитель'}${displayYear ? ` · ${displayYear}` : (item.album && item.title !== item.album ? ` · ${item.title}` : '')}`;
     if (modalTitle) modalTitle.textContent = displayTitle;
     if (modalSub) modalSub.textContent = displaySub;
 
@@ -5820,7 +5819,7 @@ const App = {
     if (metaAlbum) metaAlbum.textContent = displayTitle;
     if (metaBadges) {
       metaBadges.innerHTML = `
-        ${item.year ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">📅 ${this.escapeHtml(item.year)}</span>` : ''}
+        ${displayYear ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">📅 ${this.escapeHtml(displayYear)}</span>` : ''}
         ${item.format ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">💽 ${this.escapeHtml(item.format)}</span>` : ''}
         ${item.country ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-size:11px;">🌍 ${this.escapeHtml(item.country)}</span>` : ''}
       `;
@@ -7623,7 +7622,7 @@ const App = {
   openExperimentalModal() {
     const modal = document.getElementById('experimentalModal');
     if (!modal) return;
-    const keys = ['compactTable', 'spotifyClips', 'smartRecs', 'turntableAsmr', 'vinylCabinet'];
+    const keys = ['compactTable', 'smartRecs', 'turntableAsmr'];
     keys.forEach(k => {
       const toggleId = 'expToggle' + k.charAt(0).toUpperCase() + k.slice(1);
       const input = document.getElementById(toggleId);
@@ -7649,9 +7648,6 @@ const App = {
     } catch (e) {}
     this.updateMasterToggleBtnState();
     this.applyExperimentEffects();
-    if (key === 'vinylCabinet' && val) {
-      this.setViewLayout('cabinet');
-    }
   },
 
   toggleAllExperimentsMaster() {
@@ -7681,37 +7677,7 @@ const App = {
     // 1. Compact table mode (clean, no left dock)
     document.body.classList.toggle('compact-table-mode', Boolean(this.experiments.compactTable));
 
-    // 2. Vinyl Cabinet Shelves View
-    const sliderWrapper = document.getElementById('viewSliderWrapper') || document.querySelector('.view-slider-wrapper');
-    if (sliderWrapper) {
-      sliderWrapper.style.display = this.experiments.vinylCabinet ? 'inline-flex' : 'none';
-    }
-    if (!this.experiments.vinylCabinet) {
-      this.viewLayout = 'table';
-      const cabContainer = document.getElementById('vinylCabinetContainer');
-      if (cabContainer) cabContainer.style.display = 'none';
-      const tblContainer = document.getElementById('tablesContainer');
-      if (tblContainer) tblContainer.style.display = 'block';
-    } else {
-      if (this.viewLayout === 'cabinet') {
-        const cabContainer = document.getElementById('vinylCabinetContainer');
-        if (cabContainer) cabContainer.style.display = 'block';
-        const tblContainer = document.getElementById('tablesContainer');
-        if (tblContainer) tblContainer.style.display = 'none';
-      }
-    }
-
-    // 3. Spotify clips discovery button
-    const clipsBtn = document.getElementById('btnGlobalDiscoveryClips') || document.getElementById('btnOpenSpotifyClips');
-    if (clipsBtn) {
-      clipsBtn.style.display = this.experiments.spotifyClips ? 'inline-flex' : 'none';
-      clipsBtn.classList.toggle('pulse-active', Boolean(this.experiments.spotifyClips));
-    }
-    if (!this.experiments.spotifyClips) {
-      this.closeSpotifyClipsModal();
-    }
-
-    // 4. Smart Recommendations
+    // 2. Smart Recommendations
     const recsBar = document.getElementById('smartRecommendationsBar');
     if (recsBar) {
       recsBar.style.display = this.experiments.smartRecs ? 'block' : 'none';
@@ -7722,7 +7688,7 @@ const App = {
       }
     }
 
-    // 5. Hi-Fi Turntable ASMR / 3D Smart Vinyl Player
+    // 3. Hi-Fi Turntable ASMR / 3D Smart Vinyl Player
     document.body.classList.toggle('turntable-asmr-active', Boolean(this.experiments.turntableAsmr));
     const bottomPlayerEl = document.getElementById('bottomAudioPlayer');
     const ttWidget = document.getElementById('vinylTurntableWidget');
@@ -7738,502 +7704,13 @@ const App = {
     // Native total collection sale valuation
     this.updateValuationStats();
 
-    if (this.viewLayout === 'cabinet' && this.experiments.vinylCabinet) {
-      this.renderVinylCabinet();
-    } else {
-      this.renderTable();
-    }
-  },
-
-  // ----------------------------------------------------
-  // VINYL CABINET SHELVES VIEW (ШКАФ ВИНИЛОВЫХ ПЛАСТИНОК)
-  // ----------------------------------------------------
-  setViewLayout(layout) {
-    if (layout === 'cabinet' && !this.experiments.vinylCabinet) {
-      this.showToastNotification('Шкаф винила активируется в золотом меню «Эксперименты»');
-      return;
-    }
-    this.viewLayout = layout;
-    const btnTable = document.getElementById('btnViewTable') || document.getElementById('btnOptTable');
-    const btnCabinet = document.getElementById('btnViewCabinet') || document.getElementById('btnOptCabinet');
-    const optTable = document.getElementById('btnOptTable');
-    const optCabinet = document.getElementById('btnOptCabinet');
-    const sliderPill = document.getElementById('viewSliderPill');
-    const tblContainer = document.getElementById('tablesContainer');
-    const cabContainer = document.getElementById('vinylCabinetContainer');
-
-    if (sliderPill) {
-      sliderPill.classList.toggle('cabinet-active', layout === 'cabinet');
-    }
-    if (optTable) optTable.classList.toggle('active', layout === 'table');
-    if (optCabinet) optCabinet.classList.toggle('active', layout === 'cabinet');
-    if (btnTable) btnTable.classList.toggle('active', layout === 'table');
-    if (btnCabinet) btnCabinet.classList.toggle('active', layout === 'cabinet');
-
-    if (layout === 'cabinet') {
-      if (tblContainer) tblContainer.style.display = 'none';
-      if (cabContainer) {
-        cabContainer.style.display = 'block';
-        this.renderVinylCabinet();
-      }
-    } else {
-      if (cabContainer) cabContainer.style.display = 'none';
-      if (tblContainer) {
-        tblContainer.style.display = 'block';
-        this.renderTable();
-      }
-    }
-    try {
-      localStorage.setItem('vh_view_layout', layout);
-    } catch (e) {}
-  },
-
-  getShelfTitles() {
-    try {
-      const saved = localStorage.getItem('vh_shelf_titles');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      0: '🏆 Избранное & Раритеты',
-      1: '✨ Культовая классика',
-      2: '⚡ Новые поступления',
-      3: '🎷 Джаз, Соул & Фанк',
-      4: '🎸 Рок & Альтернатива',
-      5: '📦 Коллекция прессов'
-    };
-  },
-
-  setShelfTitle(idx, title) {
-    const titles = this.getShelfTitles();
-    titles[idx] = title.trim();
-    try {
-      localStorage.setItem('vh_shelf_titles', JSON.stringify(titles));
-    } catch (e) {}
-    this.renderVinylCabinet();
-  },
-
-  promptEditShelfTitle(idx) {
-    const titles = this.getShelfTitles();
-    const current = titles[idx] || `Полка ${idx + 1}`;
-    const next = prompt(`Введите название для полки #${idx + 1}:`, current);
-    if (next !== null && next.trim()) {
-      this.setShelfTitle(idx, next.trim());
-      this.showToastNotification(`🏷️ Название полки #${idx + 1} обновлено: «${next.trim()}»`);
-    }
-  },
-
-  renderVinylCabinet() {
-    const container = document.getElementById('vinylCabinetContainer');
-    if (!container) return;
-
-    // Automatically gather all vinyl albums & releases from all tables
-    const albumItems = (this.getAllItemsInMode('albums') || []).length > 0 ? this.getAllItemsInMode('albums') : (this.albums || []);
-    const releaseItems = (this.getAllItemsInMode('releases') || []).length > 0 ? this.getAllItemsInMode('releases') : (this.records || []);
-    const seen = new Set();
-    const allVinylItems = [];
-    [...albumItems, ...releaseItems].forEach(it => {
-      if (!it) return;
-      const key = `${(it.artist || '').toLowerCase().trim()}:::${(it.title || it.album || '').toLowerCase().trim()}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        allVinylItems.push(it);
-      }
-    });
-
-    const items = allVinylItems;
-    const searchVal = (document.getElementById('tableSearchInput')?.value || '').trim().toLowerCase();
-    
-    let filtered = items;
-    if (searchVal) {
-      filtered = items.filter(it => {
-        const art = (it.artist || '').toLowerCase();
-        const tit = (it.title || it.album || '').toLowerCase();
-        return art.includes(searchVal) || tit.includes(searchVal);
-      });
-    }
-
-    if (this.currentFilter !== 'all') {
-      filtered = filtered.filter(it => it.status === this.currentFilter);
-    }
-
-    const perShelf = 6;
-    const shelfCount = Math.max(2, Math.ceil(filtered.length / perShelf));
-    const shelfTitles = this.getShelfTitles();
-
-    let shelvesHtml = '';
-    for (let s = 0; s < shelfCount; s++) {
-      const shelfItems = filtered.slice(s * perShelf, (s + 1) * perShelf);
-      const title = shelfTitles[s] || `Полка ${s + 1}`;
-
-      let recordsHtml = '';
-      for (let slot = 0; slot < perShelf; slot++) {
-        const r = shelfItems[slot];
-        if (r) {
-          const rawCover = r.coverImage || r.thumb;
-          const cover = this.getSafeCoverUrl(rawCover, r.artist, r.title || r.album) || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" fill="%23222"><rect width="160" height="160"/></svg>';
-          const titleText = this.escapeHtml(r.title || r.album || 'Без названия');
-          const artistText = this.escapeHtml(r.artist || 'Исполнитель');
-          const year = r.year || '';
-          const price = r.priceMedian ? `$${Math.round(r.priceMedian)}` : (r.priceLowest ? `$${Math.round(r.lowest_price || r.priceLowest)}` : '');
-
-          recordsHtml += `
-            <div class="cabinet-vinyl-slot" 
-                 draggable="true" 
-                 ondragstart="App.onCabinetRecordDragStart(event, '${r.id}')"
-                 onclick="App.onCabinetRecordClick('${r.id}')"
-                 title="${artistText} — ${titleText} (Нажмите для действий)">
-              <div class="cabinet-record-sleeve">
-                <img src="${cover}" class="cabinet-cover-img" alt="${titleText}" loading="lazy" onerror="if (!this.dataset.err) { this.dataset.err='1'; this.src='/api/cover-image?artist='+encodeURIComponent('${this.escapeHtml(r.artist)}')+'&album='+encodeURIComponent('${this.escapeHtml(r.title || r.album)}'); }">
-                <div class="cabinet-sleeve-spine"></div>
-                <div class="cabinet-sleeve-sheen"></div>
-                <div class="cabinet-vinyl-peek"></div>
-                ${price ? `<span class="cabinet-price-pill">${price}</span>` : ''}
-              </div>
-              <div class="cabinet-record-tag">
-                <div class="cab-tag-title">${titleText}</div>
-                <div class="cab-tag-artist">${artistText}${year ? ` · ${year}` : ''}</div>
-              </div>
-            </div>
-          `;
-        } else {
-          // Empty slot in shelf
-          recordsHtml += `
-            <div class="cabinet-vinyl-slot cabinet-slot-empty" onclick="App.openDiscogsSearchModal()" title="Свободное место на полке: нажмите, чтобы найти пластинку">
-              <div class="cabinet-empty-ghost">
-                <span>＋</span>
-              </div>
-            </div>
-          `;
-        }
-      }
-
-      shelvesHtml += `
-        <div class="cabinet-shelf" ondragover="App.onCabinetShelfDragOver(event)" ondrop="App.onCabinetShelfDrop(event, ${s})">
-          <div class="cabinet-plaque-bar">
-            <div class="cabinet-brass-plaque" onclick="App.promptEditShelfTitle(${s})" title="Нажмите, чтобы изменить название полки">
-              <span class="plaque-screw">🔩</span>
-              <span class="plaque-text">${this.escapeHtml(title)}</span>
-              <span class="plaque-edit-icon">✎</span>
-              <span class="plaque-screw">🔩</span>
-            </div>
-          </div>
-          <div class="cabinet-shelf-bay">
-            <div class="cabinet-shelf-back"></div>
-            <div class="cabinet-shelf-records-row">
-              ${recordsHtml}
-            </div>
-            <div class="cabinet-shelf-ledge"></div>
-          </div>
-        </div>
-      `;
-    }
-
-    container.innerHTML = `
-      <div class="cabinet-wrapper">
-        <!-- Top decorative canopy with hanging ivy and props -->
-        <div class="cabinet-top-canopy">
-          <!-- Animated Swaying Hanging Ivy/Vines -->
-          <div class="cabinet-hanging-vines">
-            <svg class="ivy-vine-svg vine-left" viewBox="0 0 160 120" fill="none">
-              <path class="vine-stem" d="M10,0 C30,30 15,70 35,110 C45,85 55,50 40,20" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
-              <ellipse class="ivy-leaf leaf-1" cx="22" cy="35" rx="10" ry="14" fill="#22c55e" transform="rotate(-25 22 35)"/>
-              <ellipse class="ivy-leaf leaf-2" cx="38" cy="65" rx="11" ry="15" fill="#16a34a" transform="rotate(30 38 65)"/>
-              <ellipse class="ivy-leaf leaf-3" cx="28" cy="95" rx="9" ry="12" fill="#4ade80" transform="rotate(-15 28 95)"/>
-            </svg>
-            <svg class="ivy-vine-svg vine-right" viewBox="0 0 160 120" fill="none">
-              <path class="vine-stem" d="M150,0 C130,35 140,75 120,115 C110,85 105,45 125,15" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
-              <ellipse class="ivy-leaf leaf-4" cx="138" cy="38" rx="10" ry="14" fill="#22c55e" transform="rotate(25 138 38)"/>
-              <ellipse class="ivy-leaf leaf-5" cx="122" cy="72" rx="11" ry="15" fill="#16a34a" transform="rotate(-30 122 72)"/>
-              <ellipse class="ivy-leaf leaf-6" cx="130" cy="102" rx="9" ry="12" fill="#4ade80" transform="rotate(15 130 102)"/>
-            </svg>
-          </div>
-
-          <!-- Vintage Props (Wooden Acoustic Speaker, Plant, Edison Lamp) -->
-          <div class="cabinet-props-row">
-            <div class="cabinet-prop cabinet-prop-speaker" title="Аудиофильский монитор">
-              <div class="prop-speaker-cone"></div>
-              <div class="prop-speaker-tweeter"></div>
-            </div>
-            <div class="cabinet-prop cabinet-prop-plant" title="Комнатный суккулент в глиняном горшке">
-              <div class="prop-succulent-leaves">🪴</div>
-            </div>
-            <div class="cabinet-prop cabinet-prop-lamp" title="Теплый ретро-свет">
-              <div class="prop-edison-filament">💡</div>
-              <div class="prop-lamp-glow"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- The Wooden Cabinet Multi-tier Shelves -->
-        <div class="cabinet-frame">
-          ${shelvesHtml}
-        </div>
-      </div>
-    `;
-  },
-
-  onCabinetRecordClick(recordId) {
-    const found = this.findTableAndItem(recordId, this.appMode, true);
-    if (!found || !found.item) return;
-    const it = found.item;
-
-    const action = confirm(
-      `Пластинка: «${it.artist || ''} — ${it.title || it.album || ''}»\n\n` +
-      `[OK] — Загрузить и слушать в 3D проигрывателе 🎛️\n` +
-      `[Отмена] — Открыть треклист альбома 🎵`
-    );
-
-    if (action) {
-      // Put on turntable immediately
-      this.openTurntableWidget({
-        id: it.id,
-        title: it.title || it.album || 'Альбом',
-        artist: it.artist || '',
-        coverUrl: it.coverImage || it.thumb || '',
-        previewUrl: it.previewUrl || ''
-      }, true);
-    } else {
-      this.openAlbumTracklistModal(it.id, it);
-    }
-  },
-
-  onCabinetRecordDragStart(e, recordId) {
-    e.dataTransfer.setData('text/plain', recordId);
-    e.dataTransfer.effectAllowed = 'move';
-  },
-
-  onCabinetShelfDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  },
-
-  onCabinetShelfDrop(e, targetShelfIdx) {
-    e.preventDefault();
-    const recordId = e.dataTransfer.getData('text/plain');
-    if (!recordId) return;
-
-    this.showToastNotification(`📦 Пластинка аккуратно перемещена на полку #${targetShelfIdx + 1}`);
-    this.renderVinylCabinet();
+    this.renderTable();
   },
 
   onTableRowClick(event, itemId) {
     // Audio is strictly played ONLY when the user explicitly clicks a dedicated play button (▶).
     // Clicking rows in the table does NOT start audio playback.
     return;
-  },
-
-  // ----------------------------------------------------
-  // SPOTIFY CLIPS / REELS (Experiment 2)
-  // ----------------------------------------------------
-  async openSpotifyClipsModal() {
-    if (!this.experiments.spotifyClips) {
-      this.showToastNotification('Лента Reels доступна только в меню Экспериментов (Золотая шестеренка)');
-      return;
-    }
-    const modal = document.getElementById('spotifyClipsModal');
-    if (!modal) return;
-
-    // Automatically close turntable player and stop any playing audio
-    this.closeTurntableWidget();
-    if (this.playingAudio) {
-      this.playingAudio.pause();
-    }
-
-    modal.classList.add('open');
-    modal.classList.add('active');
-
-    // Build exclusion list containing every item in user's collection
-    const allCollectionItems = [...this.records, ...this.albums, ...this.spotifyTracks];
-    const excludeSet = new Set();
-    allCollectionItems.forEach(it => {
-      if (it.title) excludeSet.add(it.title.toLowerCase().trim());
-      if (it.album) excludeSet.add(it.album.toLowerCase().trim());
-      if (it.artist && (it.title || it.album)) {
-        excludeSet.add(`${it.artist} - ${it.title || it.album}`.toLowerCase().trim());
-      }
-    });
-
-    const excludeParam = Array.from(excludeSet).slice(0, 45).join(',');
-
-    try {
-      const feedRes = await fetch(`/api/discovery/feed?exclude=${encodeURIComponent(excludeParam)}`);
-        const feedData = await feedRes.json();
-        const list = Array.isArray(feedData) ? feedData : (feedData && feedData.tracks ? feedData.tracks : []);
-        if (list.length > 0) {
-          this.clipsPlaylist = list;
-          this.currentClipIndex = 0;
-          this.loadClip(0);
-          this.initClipsWheelNavigation();
-          return;
-        }
-    } catch (e) {
-      console.warn('Discovery feed error:', e);
-    }
-
-    // Fallback: iconic vinyl gems strictly excluding already added ones
-    const filteredFallback = this.iconicVinylGems.filter(g => !excludeSet.has(g.title.toLowerCase()));
-    this.clipsPlaylist = filteredFallback.length > 0 ? filteredFallback : this.iconicVinylGems;
-    this.currentClipIndex = 0;
-    this.loadClip(0);
-    this.initClipsWheelNavigation();
-  },
-
-  initClipsWheelNavigation() {
-    const stage = document.getElementById('clipsStage') || document.getElementById('spotifyClipsModal');
-    if (!stage || stage._wheelBound) return;
-    stage._wheelBound = true;
-
-    let lastScrollTime = 0;
-    stage.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const now = Date.now();
-      if (now - lastScrollTime < 380) return; // Debounce fast wheel gestures
-      lastScrollTime = now;
-
-      if (e.deltaY > 0) {
-        this.nextClip();
-      } else if (e.deltaY < 0) {
-        this.prevClip();
-      }
-    }, { passive: false });
-  },
-
-  closeSpotifyClipsModal() {
-    const modal = document.getElementById('spotifyClipsModal');
-    if (modal) {
-      modal.classList.remove('open');
-      modal.classList.remove('active');
-    }
-    if (this.clipsAudio) {
-      this.clipsAudio.pause();
-      this.clipsAudio = null;
-    }
-  },
-
-  async loadClip(idx) {
-    if (idx < 0 || idx >= this.clipsPlaylist.length) return;
-    this.currentClipIndex = idx;
-    const item = this.clipsPlaylist[idx];
-    const songEl = document.getElementById('clipsSongTitle');
-    const artEl = document.getElementById('clipsArtistName');
-    const albEl = document.getElementById('clipsAlbumText');
-    const coverEl = document.getElementById('clipsCoverImg');
-    const backdrop = document.getElementById('clipsArtBackdrop');
-    const playIcon = document.getElementById('clipsPlayIcon');
-    const disc = document.getElementById('clipsCenterDisc');
-
-    const songTitle = item.title || item.album || 'Без названия';
-    const artistName = item.artist || 'Исполнитель';
-    const albumName = item.album || item.title || 'Альбом';
-    const cover = item.coverImage || item.thumb || '';
-
-    if (songEl) songEl.textContent = songTitle;
-    if (artEl) artEl.textContent = artistName;
-    if (albEl) albEl.textContent = albumName;
-    if (coverEl) coverEl.src = cover || '';
-    if (backdrop && cover) backdrop.style.backgroundImage = `url("${cover}")`;
-    if (disc) disc.classList.remove('paused');
-
-    if (this.clipsAudio) {
-      this.clipsAudio.pause();
-      this.clipsAudio = null;
-    }
-
-    let preview = item.previewUrl;
-    if (!preview) {
-      try {
-        const res = await fetch(`/api/spotify/album/tracks?artist=${encodeURIComponent(artistName)}&album=${encodeURIComponent(albumName)}`);
-        if (res.ok) {
-          const d = await res.json();
-          if (d && d.tracklist && d.tracklist[0] && d.tracklist[0].previewUrl) {
-            preview = d.tracklist[0].previewUrl;
-            if (!cover && d.cover) {
-              if (coverEl) coverEl.src = d.cover;
-              if (backdrop) backdrop.style.backgroundImage = `url("${d.cover}")`;
-            }
-          }
-        }
-      } catch (e) {}
-    }
-
-    if (preview) {
-      this.clipsAudio = new Audio(preview);
-      this.clipsAudio.play().catch(() => {});
-      if (playIcon) playIcon.textContent = '⏸';
-      const progressFill = document.getElementById('clipsProgressFill');
-      this.clipsAudio.ontimeupdate = () => {
-        if (this.clipsAudio && this.clipsAudio.duration) {
-          const pct = (this.clipsAudio.currentTime / this.clipsAudio.duration) * 100;
-          if (progressFill) progressFill.style.width = `${pct}%`;
-        }
-      };
-      this.clipsAudio.onended = () => {
-        this.nextClip();
-      };
-    } else {
-      if (playIcon) playIcon.textContent = '▶';
-    }
-  },
-
-  toggleClipsPlay() {
-    const playIcon = document.getElementById('clipsPlayIcon');
-    const disc = document.getElementById('clipsCenterDisc');
-    if (!this.clipsAudio) {
-      this.loadClip(this.currentClipIndex);
-      return;
-    }
-    if (this.clipsAudio.paused) {
-      this.clipsAudio.play();
-      if (playIcon) playIcon.textContent = '⏸';
-      if (disc) disc.classList.remove('paused');
-    } else {
-      this.clipsAudio.pause();
-      if (playIcon) playIcon.textContent = '▶';
-      if (disc) disc.classList.add('paused');
-    }
-  },
-
-  nextClip() {
-    if (this.currentClipIndex < this.clipsPlaylist.length - 1) {
-      this.loadClip(this.currentClipIndex + 1);
-    } else {
-      this.loadClip(0);
-    }
-  },
-
-  prevClip() {
-    if (this.currentClipIndex > 0) {
-      this.loadClip(this.currentClipIndex - 1);
-    } else {
-      this.loadClip(this.clipsPlaylist.length - 1);
-    }
-  },
-
-  searchClipsAlbumVinyl() {
-    const item = this.clipsPlaylist[this.currentClipIndex];
-    if (!item) return;
-    this.closeSpotifyClipsModal();
-    this.openDiscogsSearchModal();
-    this.setSearchProvider('discogs', false);
-    const q = `${item.artist || ''} ${item.album || item.title || ''}`.trim();
-    const input = document.getElementById('discogsSearchInput');
-    if (input) {
-      input.value = q;
-      this.performDiscogsSearch();
-    }
-  },
-
-  addCurrentClipToLibrary() {
-    const item = this.clipsPlaylist[this.currentClipIndex];
-    if (!item) return;
-    this.addRecordDirectly({
-      artist: item.artist || '',
-      title: item.title || item.album || '',
-      album: item.album || item.title || '',
-      coverImage: item.coverImage || item.thumb || '',
-      previewUrl: item.previewUrl || ''
-    });
-    this.showToastNotification(`✓ «${item.artist} — ${item.title || item.album}» добавлен в коллекцию!`);
   },
 
   // ----------------------------------------------------
@@ -9731,6 +9208,9 @@ const App = {
     const container = document.getElementById('discogsSearchStandsContainer');
     if (!container || !Array.isArray(results)) return;
 
+    // Ensure all items are mapped in searchItemsMap
+    results.forEach(item => this.searchItemsMap.set(String(item.id), item));
+
     if (results.length === 0) {
       container.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: var(--text-muted);">
@@ -9750,31 +9230,25 @@ const App = {
 
       return `
         <div class="acrylic-stand-card" id="stand-card-${item.id}">
-          <div class="stand-gatefold-stage" onclick="App.toggleStandInnersleeve('${item.id}')" title="Кликните, чтобы выдвинуть вкладыш с треклистом">
+          <div class="stand-gatefold-stage" onclick="App.openAlbumTracklistModal('${item.id}')" title="Нажмите, чтобы открыть треклист альбома и слушать">
             <div class="stand-album-jacket" id="stand-jacket-${item.id}">
               <img src="${this.escapeHtml(coverImg)}" class="stand-jacket-cover" alt="Cover" loading="lazy">
               <div class="stand-jacket-sheen"></div>
               <div class="stand-gatefold-spine"></div>
-              <div class="stand-innersleeve-peek">🎵 Треклист ▾</div>
-            </div>
-            <div class="stand-innersleeve" id="stand-innersleeve-${item.id}" onclick="event.stopPropagation()">
-              <div class="innersleeve-header">
-                <div class="innersleeve-title">📜 Вкладыш альбома</div>
-                <button type="button" class="btn-innersleeve-close" onclick="App.toggleStandInnersleeve('${item.id}')">✕</button>
-              </div>
-              <div class="innersleeve-body" id="innersleeve-body-${item.id}">
-                <div class="innersleeve-loading">⏳ Загрузка списка песен...</div>
-              </div>
+              <div class="stand-jacket-play-overlay">🎵 ▶</div>
             </div>
           </div>
           <div class="stand-acrylic-base">
             <div class="stand-reflection"></div>
             <div class="stand-details">
               <div class="stand-artist" title="${this.escapeHtml(item.artist || item.rawTitle || '')}">${this.escapeHtml(item.artist || item.rawTitle || '')}</div>
-              <div class="stand-title" title="${this.escapeHtml(item.title || '')}">${this.escapeHtml(item.title || '')}</div>
+              <div class="stand-title" onclick="App.openAlbumTracklistModal('${item.id}')" style="cursor:pointer;" title="Нажмите, чтобы открыть треклист">${this.escapeHtml(item.title || '')}</div>
               <div class="stand-meta">${earliestYear ? `Год: ${earliestYear} · ` : ''}${this.escapeHtml(subtitle)}</div>
             </div>
             <div class="stand-controls">
+              <button type="button" class="btn-stand-tracklist" onclick="event.stopPropagation(); App.openAlbumTracklistModal('${item.id}')" title="Посмотреть список песен и прослушать">
+                🎵 Треклист ▶
+              </button>
               <button type="button" class="btn-stand-golden-pill" onclick="event.stopPropagation(); App.addRecordOrAlbum('${item.id}')" title="Добавить в коллекцию">
                 <span class="golden-plus">＋</span> В коллекцию
               </button>
@@ -9813,85 +9287,6 @@ const App = {
       if (container) container.innerHTML = this.renderStandStarRating(item);
     }
     await this.setRating(id, stars);
-  },
-
-  async toggleStandInnersleeve(itemId) {
-    const card = document.getElementById(`stand-card-${itemId}`);
-    if (!card) return;
-    const isOpen = card.classList.contains('innersleeve-open');
-    if (isOpen) {
-      card.classList.remove('innersleeve-open');
-      return;
-    }
-
-    card.classList.add('innersleeve-open');
-    const body = document.getElementById(`innersleeve-body-${itemId}`);
-    if (!body) return;
-
-    if (this.tracklistCache.has(String(itemId))) {
-      this.renderInnersleeveTracklist(itemId, this.tracklistCache.get(String(itemId)));
-      return;
-    }
-
-    body.innerHTML = '<div class="innersleeve-loading">⏳ Загрузка списка дорожек...</div>';
-    const item = this.searchItemsMap.get(String(itemId)) || (this.lastSearchResults || []).find(r => String(r.id) === String(itemId));
-
-    try {
-      let data = null;
-      if (item && item.masterId) {
-        data = await DiscogsClient.getMasterDetails(item.masterId);
-      } else {
-        data = await DiscogsClient.getReleaseDetails(itemId);
-      }
-      if (data && data.tracklist) {
-        this.tracklistCache.set(String(itemId), data);
-        this.renderInnersleeveTracklist(itemId, data);
-      } else {
-        body.innerHTML = '<div class="innersleeve-empty">Список песен отсутствует</div>';
-      }
-    } catch (e) {
-      body.innerHTML = '<div class="innersleeve-empty">Не удалось загрузить треклист</div>';
-    }
-  },
-
-  renderInnersleeveTracklist(itemId, data) {
-    const body = document.getElementById(`innersleeve-body-${itemId}`);
-    if (!body) return;
-    const tracks = data.tracklist || [];
-    if (tracks.length === 0) {
-      body.innerHTML = '<div class="innersleeve-empty">Список песен пуст</div>';
-      return;
-    }
-    const item = this.searchItemsMap.get(String(itemId)) || (this.lastSearchResults || []).find(r => String(r.id) === String(itemId));
-    const artist = (item && item.artist) || data.artist || '';
-    const cover = (item && (item.coverImage || item.thumb)) || '';
-
-    body.innerHTML = `
-      <div class="innersleeve-track-list">
-        ${tracks.map((t, idx) => {
-          const pos = t.position || `${idx + 1}`;
-          const title = this.escapeHtml(t.title || 'Трек');
-          const dur = t.duration || '';
-          return `
-            <div class="innersleeve-track-row" onclick="App.playStandAlbumTrack('${this.escapeHtml(artist)}', '${title}', '', '${cover}')">
-              <span class="innersleeve-track-pos">${pos}</span>
-              <span class="innersleeve-track-title">${title}</span>
-              <span class="innersleeve-track-dur">${dur}</span>
-              <button type="button" class="btn-innersleeve-play" title="Слушать превью">▶</button>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  },
-
-  async playStandAlbumTrack(artist, title, previewUrl, coverUrl) {
-    this.unlockAudio();
-    if (previewUrl) {
-      this.playAudio(previewUrl, title, artist, coverUrl);
-      return;
-    }
-    await this.fetchAndPlayPreview(title, artist, coverUrl);
   },
 
   async addRecordOrAlbum(id) {
