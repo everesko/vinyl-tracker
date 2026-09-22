@@ -569,6 +569,20 @@ const DiscogsClient = {
       }
 
       const data = await res.json();
+      if (data && Array.isArray(data.versions) && data.versions.length > 0) {
+        data.versions.forEach(v => {
+          const yr = parseInt(v.released || v.year, 10);
+          if (yr && !isNaN(yr) && yr > 1900) {
+            v.year = String(yr);
+          }
+        });
+        const validYears = data.versions
+          .map(v => parseInt(v.year || v.released, 10))
+          .filter(y => !isNaN(y) && y > 1900 && y <= new Date().getFullYear());
+        if (validYears.length > 0) {
+          data.firstPressYear = Math.min(...validYears);
+        }
+      }
       clientMemoryCache.set(cacheKey, data);
       return data;
     } catch (e) {

@@ -101,6 +101,82 @@ function setCached(key, data, ttlMs = 15 * 60 * 1000) {
   });
 }
 
+// Persistent tracklists disk cache (ensures instant 0ms responses for all album tracklists)
+const TRACKLIST_CACHE_FILE = path.join(DATA_DIR, 'tracklists_cache.json');
+let diskTracklistCache = {};
+try {
+  if (fs.existsSync(TRACKLIST_CACHE_FILE)) {
+    diskTracklistCache = JSON.parse(fs.readFileSync(TRACKLIST_CACHE_FILE, 'utf8') || '{}');
+  }
+} catch (e) {
+  diskTracklistCache = {};
+}
+
+function getDiskTracklist(key) {
+  if (!key) return null;
+  return diskTracklistCache[key] || null;
+}
+
+function setDiskTracklist(key, data) {
+  if (!key || !data) return;
+  diskTracklistCache[key] = data;
+  try {
+    fs.writeFile(TRACKLIST_CACHE_FILE, JSON.stringify(diskTracklistCache, null, 2), () => {});
+  } catch (e) {}
+}
+
+function findBestAlbumMatch(results, targetArtist, targetAlbum) {
+  if (!Array.isArray(results) || results.length === 0) return null;
+  const normA = (targetArtist || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+  const normT = (targetAlbum || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+
+  let best = null;
+  let bestScore = -999;
+
+  for (const r of results) {
+    const rArtist = (r.artistName || (r.artist && r.artist.name) || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+    const rTitle = (r.collectionName || r.title || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+    const rawAll = ((r.collectionName || r.title || '') + ' ' + (r.artistName || '')).toLowerCase();
+
+    let score = 0;
+
+    // Strict penalties for unwanted releases
+    if (rawAll.includes('tribute') || rawAll.includes('karaoke') || rawAll.includes('cover version') || rawAll.includes('instrumental version')) {
+      score -= 100;
+    }
+    if (rawAll.includes('various artists') && normA && !normA.includes('various')) {
+      score -= 40;
+    }
+
+    // Artist matching
+    if (normA && rArtist) {
+      if (rArtist === normA) {
+        score += 60;
+      } else if (rArtist.includes(normA) || normA.includes(rArtist)) {
+        score += 35;
+      } else {
+        score -= 50; // Heavy penalty if artist does not match!
+      }
+    }
+
+    // Title matching
+    if (normT && rTitle) {
+      if (rTitle === normT) {
+        score += 50;
+      } else if (rTitle.includes(normT) || normT.includes(rTitle)) {
+        score += 30;
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = r;
+    }
+  }
+
+  return (bestScore > 0) ? best : results[0];
+}
+
 function loadEnv() {
   const envPath = path.join(__dirname, '.env');
   if (fs.existsSync(envPath)) {
@@ -702,6 +778,20 @@ const server = http.createServer(async (req, res) => {
       const response = await discogsRequest(apiPath, 'GET', null, null, userToken);
 
       if (response.statusCode === 200 && response.data) {
+        if (Array.isArray(response.data.versions)) {
+          response.data.versions.forEach(v => {
+            const yr = parseInt(v.released || v.year, 10);
+            if (yr && !isNaN(yr) && yr > 1900) {
+              v.year = String(yr);
+            }
+          });
+          const validYears = response.data.versions
+            .map(v => parseInt(v.year || v.released, 10))
+            .filter(y => !isNaN(y) && y > 1900 && y <= new Date().getFullYear());
+          if (validYears.length > 0) {
+            response.data.firstPressYear = Math.min(...validYears);
+          }
+        }
         setCached(cacheKey, response.data, 30 * 60 * 1000);
       }
 
@@ -998,9 +1088,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     const cacheKey = `tracklist:${type}:${id}:${qArtist}:${qAlbum}:${qGeneral}`;
-    const cached = getCached(cacheKey) || (id ? getCached(`tracklist:${type}:${id}`) : null);
+    const cached = getCached(cacheKey) 
+      || (id ? getCached(`tracklist:${type}:${id}`) : null)
+      || getDiskTracklist(cacheKey)
+      || (id ? getDiskTracklist(`tracklist:${type}:${id}`) : null)
+      || (qArtist && qAlbum ? getDiskTracklist(`tracklist:${qArtist.toLowerCase()}:::${qAlbum.toLowerCase()}`) : null);
+
     if (cached && Array.isArray(cached.tracklist) && cached.tracklist.length > 0) {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'X-Cache': 'HIT' });
+      setCached(cacheKey, cached);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'X-Cache': 'DISK-HIT' });
       res.end(JSON.stringify(cached));
       return;
     }
@@ -1290,7 +1386,14 @@ const server = http.createServer(async (req, res) => {
 
       if (tracklist.length > 0) {
         setCached(cacheKey, result, 30 * 24 * 60 * 60 * 1000); // 30 days cache for static tracklists
-        if (id) setCached(`tracklist:${type}:${id}`, result, 30 * 24 * 60 * 60 * 1000);
+        setDiskTracklist(cacheKey, result);
+        if (id) {
+          setCached(`tracklist:${type}:${id}`, result, 30 * 24 * 60 * 60 * 1000);
+          setDiskTracklist(`tracklist:${type}:${id}`, result);
+        }
+        if (cleanArt && cleanAlbum) {
+          setDiskTracklist(`tracklist:${cleanArt.toLowerCase()}:::${cleanAlbum.toLowerCase()}`, result);
+        }
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1515,11 +1618,13 @@ const server = http.createServer(async (req, res) => {
       const isHttps = parsed.protocol === 'https:';
       const lib = isHttps ? https : http;
 
+      const isDiscogs = parsed.hostname.includes('discogs');
+      const referer = isDiscogs ? 'https://www.discogs.com/' : parsed.origin;
       const proxyReq = lib.get(rawUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          'Referer': parsed.origin
+          'Referer': referer
         }
       }, (proxyRes) => {
         if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
@@ -1529,6 +1634,11 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (proxyRes.statusCode >= 400) {
+          if (query.artist && query.album) {
+            res.writeHead(302, { 'Location': `/api/cover-image?artist=${encodeURIComponent(query.artist)}&album=${encodeURIComponent(query.album)}` });
+            res.end();
+            return;
+          }
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="#18181b"/><circle cx="150" cy="150" r="130" fill="#09090b" stroke="#27272a" stroke-width="6"/><circle cx="150" cy="150" r="50" fill="#f59e0b"/><circle cx="150" cy="150" r="14" fill="#09090b"/><text x="150" y="240" font-family="sans-serif" font-size="14" font-weight="700" fill="#a1a1aa" text-anchor="middle">VINYL</text></svg>`;
           res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=86400' });
           res.end(svg);
@@ -1546,6 +1656,11 @@ const server = http.createServer(async (req, res) => {
 
       proxyReq.on('error', () => {
         if (!res.headersSent) {
+          if (query.artist && query.album) {
+            res.writeHead(302, { 'Location': `/api/cover-image?artist=${encodeURIComponent(query.artist)}&album=${encodeURIComponent(query.album)}` });
+            res.end();
+            return;
+          }
           // Serve clean SVG placeholder fallback
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="#18181b"/><circle cx="150" cy="150" r="130" fill="#09090b" stroke="#27272a" stroke-width="6"/><circle cx="150" cy="150" r="50" fill="#f59e0b"/><circle cx="150" cy="150" r="14" fill="#09090b"/><text x="150" y="240" font-family="sans-serif" font-size="14" font-weight="700" fill="#a1a1aa" text-anchor="middle">VINYL</text></svg>`;
           res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
@@ -1596,10 +1711,10 @@ const server = http.createServer(async (req, res) => {
       let foundCover = null;
       let source = null;
 
-      // 1. Try iTunes search for 1000x1000 high-res cover
+      // 1. Try iTunes search for 1000x1000 high-res cover with smart matching
       try {
         const itTerm = `${artist} ${album}`.trim();
-        const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(itTerm)}&entity=album&limit=3`;
+        const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(itTerm)}&entity=album&limit=6`;
         const itData = await new Promise((resolve) => {
           https.get(itUrl, { headers: { 'User-Agent': 'VinylHunterApp/1.0' }, timeout: 3500 }, resp => {
             let data = '';
@@ -1611,19 +1726,19 @@ const server = http.createServer(async (req, res) => {
         });
 
         if (itData && itData.results && itData.results.length > 0) {
-          const match = itData.results[0];
-          if (match.artworkUrl100) {
+          const match = findBestAlbumMatch(itData.results, artist, album);
+          if (match && match.artworkUrl100) {
             foundCover = match.artworkUrl100.replace('100x100bb', '1000x1000bb');
             source = 'iTunes HD';
           }
         }
       } catch (e) {}
 
-      // 2. Try Deezer search fallback
+      // 2. Try Deezer search fallback with smart matching
       if (!foundCover) {
         try {
           const dzTerm = `${artist} ${album}`.trim();
-          const dzUrl = `https://api.deezer.com/search/album?q=${encodeURIComponent(dzTerm)}&limit=3`;
+          const dzUrl = `https://api.deezer.com/search/album?q=${encodeURIComponent(dzTerm)}&limit=6`;
           const dzData = await new Promise((resolve) => {
             https.get(dzUrl, { headers: { 'User-Agent': 'VinylHunterApp/1.0' }, timeout: 3500 }, resp => {
               let data = '';
@@ -1635,9 +1750,11 @@ const server = http.createServer(async (req, res) => {
           });
 
           if (dzData && dzData.data && dzData.data.length > 0) {
-            const alb = dzData.data[0];
-            foundCover = alb.cover_xl || alb.cover_big || alb.cover_medium;
-            source = 'Deezer';
+            const alb = findBestAlbumMatch(dzData.data, artist, album);
+            if (alb) {
+              foundCover = alb.cover_xl || alb.cover_big || alb.cover_medium;
+              source = 'Deezer';
+            }
           }
         } catch (e) {}
       }

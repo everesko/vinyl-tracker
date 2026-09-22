@@ -1,0 +1,404 @@
+{
+  "tracklist:master:2698310:::": {
+    "id": "2698310",
+    "type": "master",
+    "title": "Cassette",
+    "artist": "SadSvit",
+    "year": 2021,
+    "cover": "https://i.discogs.com/fNjDVJPdw_Z9wEFibWL0fQHm6oHkEg95J5WRP73aL0g/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIzNzkx/NjkxLTE2NTcwNDE5/NDctNDM4NC5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Дискотека",
+        "duration": "2:56",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Вдома Не Буду",
+        "duration": "2:45",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Касета",
+        "duration": "2:24",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Літо",
+        "duration": "2:16",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Молодість",
+        "duration": "2:30",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Ніч",
+        "duration": "2:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Прощавай",
+        "duration": "2:26",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Танці",
+        "duration": "3:02",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:2698310": {
+    "id": "2698310",
+    "type": "master",
+    "title": "Cassette",
+    "artist": "SadSvit",
+    "year": 2021,
+    "cover": "https://i.discogs.com/fNjDVJPdw_Z9wEFibWL0fQHm6oHkEg95J5WRP73aL0g/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIzNzkx/NjkxLTE2NTcwNDE5/NDctNDM4NC5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Дискотека",
+        "duration": "2:56",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Вдома Не Буду",
+        "duration": "2:45",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Касета",
+        "duration": "2:24",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Літо",
+        "duration": "2:16",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Молодість",
+        "duration": "2:30",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Ніч",
+        "duration": "2:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Прощавай",
+        "duration": "2:26",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Танці",
+        "duration": "3:02",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:sadsvit:::cassette": {
+    "id": "2698310",
+    "type": "master",
+    "title": "Cassette",
+    "artist": "SadSvit",
+    "year": 2021,
+    "cover": "https://i.discogs.com/fNjDVJPdw_Z9wEFibWL0fQHm6oHkEg95J5WRP73aL0g/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIzNzkx/NjkxLTE2NTcwNDE5/NDctNDM4NC5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Дискотека",
+        "duration": "2:56",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Вдома Не Буду",
+        "duration": "2:45",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Касета",
+        "duration": "2:24",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Літо",
+        "duration": "2:16",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Молодість",
+        "duration": "2:30",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Ніч",
+        "duration": "2:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Прощавай",
+        "duration": "2:26",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Танці",
+        "duration": "3:02",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:10362:Pink Floyd:The Dark Side of the Moon:": {
+    "id": "10362",
+    "type": "master",
+    "title": "The Dark Side Of The Moon",
+    "artist": "Pink Floyd",
+    "year": 1973,
+    "cover": "https://i.discogs.com/mwWMy1jLJhX7BGUigOAzbMQjmN6y2a9ppdzulDAUYSU/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4NzMw/MTMtMTQ3MTEwMDM4/MS0zMDIyLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Speak To Me",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Breathe In The Air",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "On The Run",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Time",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "The Great Gig In The Sky",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Money",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Us And Them",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Any Colour You Like",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Brain Damage",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Eclipse",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:10362": {
+    "id": "10362",
+    "type": "master",
+    "title": "The Dark Side Of The Moon",
+    "artist": "Pink Floyd",
+    "year": 1973,
+    "cover": "https://i.discogs.com/mwWMy1jLJhX7BGUigOAzbMQjmN6y2a9ppdzulDAUYSU/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4NzMw/MTMtMTQ3MTEwMDM4/MS0zMDIyLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Speak To Me",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Breathe In The Air",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "On The Run",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Time",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "The Great Gig In The Sky",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Money",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Us And Them",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Any Colour You Like",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Brain Damage",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Eclipse",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:pink floyd:::the dark side of the moon": {
+    "id": "10362",
+    "type": "master",
+    "title": "The Dark Side Of The Moon",
+    "artist": "Pink Floyd",
+    "year": 1973,
+    "cover": "https://i.discogs.com/mwWMy1jLJhX7BGUigOAzbMQjmN6y2a9ppdzulDAUYSU/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4NzMw/MTMtMTQ3MTEwMDM4/MS0zMDIyLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Speak To Me",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Breathe In The Air",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "On The Run",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Time",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "The Great Gig In The Sky",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Money",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Us And Them",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Any Colour You Like",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Brain Damage",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Eclipse",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  }
+}

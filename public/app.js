@@ -176,6 +176,7 @@ const App = {
     this.initTurntableDragging();
     this.initTurntableWidgetDragging();
     this.updateFloatingPlayerButtonUI();
+    this.prefetchCollectionTracklists();
   },
 
   handleOAuthCallback() {
@@ -2441,7 +2442,7 @@ const App = {
   },
 
   renderAlbumRow(a, isSelected) {
-    const coverUrl = a.coverImage || a.thumb;
+    const coverUrl = this.getSafeCoverUrl(a.coverImage || a.thumb, a.artist, a.title);
     const discogsLink = a.uri || `https://www.discogs.com/master/${a.masterId}`;
 
     const trackCount = this.getAlbumTrackCount(a);
@@ -2455,7 +2456,7 @@ const App = {
         </td>
         <td class="cell-cover">
           <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
-            ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy">` : `<div class="cover-placeholder">ALBUM</div>`}
+            ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy" onerror="if (!this.dataset.err) { this.dataset.err='1'; this.src='/api/cover-image?artist='+encodeURIComponent('${this.escapeHtml(a.artist)}')+'&album='+encodeURIComponent('${this.escapeHtml(a.title)}'); }">` : `<div class="cover-placeholder">ALBUM</div>`}
           </div>
         </td>
         <td class="artist-album-col">
@@ -2466,7 +2467,7 @@ const App = {
           </div>
         </td>
         <td>
-          ${a.year ? `<span class="meta-badge">${this.escapeHtml(a.year)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
+          ${a.year ? `<span class="meta-badge" title="Год первопресса: ${this.escapeHtml(a.year)}">📅 ${this.escapeHtml(a.year)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
         </td>
         <td class="cell-versions-count">
           <button type="button" class="editions-count-badge ${countVal === 0 ? 'is-zero' : ''}" onclick="App.openMasterVersionsModal(${a.masterId}, '${this.escapeHtml(a.artist)}', '${this.escapeHtml(a.title)}', '${a.year || ''}', '${this.escapeHtml(coverUrl || '')}')" title="Виниловых изданий: ${displayCount}. Нажмите, чтобы открыть все прессы на Discogs">
@@ -2507,7 +2508,8 @@ const App = {
   },
 
   renderReleaseRow(r, isSelected) {
-    const coverUrl = r.coverImage || r.thumb;
+    const coverUrl = this.getSafeCoverUrl(r.coverImage || r.thumb, r.artist, r.title);
+    const discogsLink = r.uri || (r.discogsId ? `https://www.discogs.com/release/${r.discogsId}` : '');
     const trackCount = this.getAlbumTrackCount(r);
     
     let medianStr = '—';
@@ -2551,7 +2553,7 @@ const App = {
         </td>
         <td class="cell-cover">
           <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
-            ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy">` : `<div class="cover-placeholder">VINYL</div>`}
+            ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy" onerror="if (!this.dataset.err) { this.dataset.err='1'; this.src='/api/cover-image?artist='+encodeURIComponent('${this.escapeHtml(r.artist)}')+'&album='+encodeURIComponent('${this.escapeHtml(r.title)}'); }">` : `<div class="cover-placeholder">VINYL</div>`}
           </div>
         </td>
         <td class="artist-album-col">
@@ -2563,7 +2565,7 @@ const App = {
         </td>
         <td>
           <div class="meta-badge-group">
-            ${r.year ? `<span class="meta-badge">${this.escapeHtml(r.year)}</span>` : ''}
+            ${r.year ? `<span class="meta-badge" title="Год первопресса / издания: ${this.escapeHtml(r.year)}">📅 ${this.escapeHtml(r.year)}</span>` : ''}
             ${r.country ? `<span class="meta-badge">${this.escapeHtml(r.country)}</span>` : ''}
             ${r.format ? `<span class="meta-badge" title="${this.escapeHtml(r.format)}">${this.escapeHtml(r.format.split(',')[0])}</span>` : ''}
           </div>
@@ -2804,6 +2806,86 @@ const App = {
     this.render();
   },
 
+  getSafeCoverUrl(url, artist = '', album = '') {
+    if (!url) {
+      if (artist && album) {
+        return `/api/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`;
+      }
+      return '';
+    }
+    const str = String(url).trim();
+    if (str.includes('discogs.com') || str.includes('i.discogs.com')) {
+      const art = encodeURIComponent(artist || '');
+      const alb = encodeURIComponent(album || '');
+      return `/api/image-proxy?url=${encodeURIComponent(str)}&artist=${art}&album=${alb}`;
+    }
+    return str;
+  },
+
+  updateAlbumYearToFirstPress(masterId, firstPressYear) {
+    if (!masterId || !firstPressYear) return;
+    const strMaster = String(masterId);
+    let updated = false;
+
+    (this.tables.albums || []).forEach(tbl => {
+      if (Array.isArray(tbl.items)) {
+        tbl.items.forEach(a => {
+          if (String(a.masterId) === strMaster || String(a.id) === `master-${strMaster}` || String(a.id) === strMaster) {
+            if (String(a.year) !== String(firstPressYear)) {
+              a.year = String(firstPressYear);
+              updated = true;
+            }
+          }
+        });
+      }
+    });
+
+    if (updated) {
+      this.saveModeTables('albums');
+      this.renderTable();
+    }
+  },
+
+  prefetchCollectionTracklists() {
+    setTimeout(async () => {
+      try {
+        const albums = (this.getAllItemsInMode('albums') || []);
+        const releases = (this.getAllItemsInMode('releases') || []);
+        const combined = [...albums, ...releases];
+        for (const item of combined) {
+          if (!item) continue;
+          const cacheKey = item.masterId || item.discogsId || item.id;
+          const nameKey = (item.artist && (item.album || item.title))
+            ? `${String(item.artist).toLowerCase().trim()}:::${String(item.album || item.title).toLowerCase().trim()}`
+            : null;
+
+          if (this.getTracklistFromCache(cacheKey) || (nameKey && this.getTracklistFromCache(nameKey))) {
+            continue;
+          }
+
+          const queryId = item.masterId || item.discogsId || (String(item.id || '').replace(/^master-|^discogs-/, ''));
+          const queryType = (item.masterId || item.type === 'master' || String(item.id || '').startsWith('master-')) ? 'master' : 'release';
+          const qArtist = item.artist || '';
+          const qAlbum = item.album || item.title || '';
+          const qFull = [qArtist, qAlbum].filter(Boolean).join(' - ');
+
+          try {
+            const res = await fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}&q=${encodeURIComponent(qFull)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.tracklist && data.tracklist.length > 0) {
+                if (cacheKey) this.saveTracklistToCache(cacheKey, data);
+                if (nameKey) this.saveTracklistToCache(nameKey, data);
+              }
+            }
+          } catch (e) {}
+
+          await new Promise(r => setTimeout(r, 200));
+        }
+      } catch (err) {}
+    }, 1500);
+  },
+
   // ----------------------------------------------------
   // MASTER ALBUM VERSIONS BREAKDOWN MODAL
   // Lists all vinyl pressings with country, year, format, prices
@@ -2818,11 +2900,18 @@ const App = {
 
     if (!modal) return;
 
-    this.currentMasterModalData = { masterId, artist, title, year, coverUrl, allVersions: [] };
+    const safeCover = this.getSafeCoverUrl(coverUrl, artist, title);
+    this.currentMasterModalData = { masterId, artist, title, year, coverUrl: safeCover, allVersions: [] };
 
     if (headerTitle) headerTitle.textContent = `${artist} — ${title}`;
-    if (headerSub) headerSub.textContent = `Оригинальный выпуск: ${year || '—'} · Загрузка виниловых изданий с Discogs...`;
-    if (coverImg) coverImg.src = coverUrl || '';
+    if (headerSub) headerSub.textContent = `Оригинальный первопресс: ${year || '—'} · Загрузка виниловых изданий с Discogs...`;
+    if (coverImg) {
+      coverImg.src = safeCover || '';
+      coverImg.onerror = () => {
+        coverImg.onerror = null;
+        coverImg.src = `/api/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(title)}`;
+      };
+    }
     if (versionsBody) {
       versionsBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--accent-theme);">Загрузка всех виниловых изданий из базы Discogs...</td></tr>`;
     }
@@ -2834,10 +2923,20 @@ const App = {
       const versions = data.versions || [];
       const totalCount = data.pagination ? data.pagination.items : versions.length;
 
+      // Calculate TRUE first press year across all versions
+      const validYears = versions.map(v => parseInt(v.year || v.released, 10)).filter(y => !isNaN(y) && y > 1900 && y <= new Date().getFullYear());
+      const firstPressYear = (validYears.length > 0) ? Math.min(...validYears) : (data.firstPressYear || year || '');
+
       this.currentMasterModalData.allVersions = versions;
+      this.currentMasterModalData.year = firstPressYear;
 
       if (headerSub) {
-        headerSub.innerHTML = `Оригинальный выпуск: <strong>${year || '—'}</strong> · Всего виниловых прессов на Discogs: <strong style="color:var(--accent-theme);">${totalCount}</strong>`;
+        headerSub.innerHTML = `Оригинальный первопресс: <strong style="color:var(--accent-theme);">${firstPressYear || '—'}</strong> · Всего виниловых прессов на Discogs: <strong style="color:var(--accent-theme);">${totalCount}</strong>`;
+      }
+
+      // Automatically sync year in table to first press year!
+      if (firstPressYear) {
+        this.updateAlbumYearToFirstPress(masterId, String(firstPressYear));
       }
 
       // Populate Country filter options
@@ -4466,21 +4565,27 @@ const App = {
     if (!item) return;
 
     let versionsCount = item.versionsCount;
-    if (versionsCount === null || versionsCount === undefined) {
-      if (item.masterId) {
-        const versData = await DiscogsClient.getMasterVersions(item.masterId, 1, 1).catch(() => null);
-        versionsCount = versData && versData.pagination ? versData.pagination.items : 1;
-      } else {
-        versionsCount = 1;
+    let firstPressYear = item.firstPressYear || null;
+    if (versionsCount === null || versionsCount === undefined || !firstPressYear) {
+      if (item.masterId || item.id) {
+        const mId = item.masterId || item.id;
+        const versData = await DiscogsClient.getMasterVersions(mId, 1, 1).catch(() => null);
+        if (versData) {
+          if (versData.pagination) versionsCount = versData.pagination.items;
+          if (versData.firstPressYear) firstPressYear = versData.firstPressYear;
+        }
       }
+      if (versionsCount === null || versionsCount === undefined) versionsCount = 1;
     }
+
+    const resolvedYear = String(firstPressYear || item.firstPressYear || item.year || '');
 
     const newAlbum = {
       id: `master-${item.id}`,
       masterId: item.id,
       artist: item.artist || item.rawTitle,
       title: item.title || item.rawTitle,
-      year: item.year || '',
+      year: resolvedYear,
       coverImage: item.coverImage || item.thumb,
       thumb: item.thumb,
       uri: item.uri,
@@ -4489,6 +4594,7 @@ const App = {
       style: item.style || '',
       status: 'buy',
       notes: '',
+      tracklist: item.tracklist || [],
       createdAt: new Date().toISOString()
     };
 
@@ -4924,7 +5030,8 @@ const App = {
       if (res.ok) {
         const data = await res.json();
         if (data && data.found && data.previewUrl) {
-          this.playAudio(data.previewUrl, title, artist, coverUrl || data.coverImage, btnElementOrId, album || data.album, data.source);
+          const finalCover = this.getSafeCoverUrl(coverUrl || data.coverImage, artist, album || data.album);
+          this.playAudio(data.previewUrl, title, artist, finalCover, btnElementOrId, album || data.album, data.source);
           return;
         }
       }
@@ -5378,14 +5485,25 @@ const App = {
       return;
     }
 
-    const coverUrl = data.cover || item.coverImage || item.thumb || '';
+    const rawCover = data.cover || item.coverImage || item.thumb || '';
+    const coverArtist = data.artist || item.artist || '';
+    const coverAlbum = data.title || item.album || item.title || '';
+    const coverUrl = this.getSafeCoverUrl(rawCover, coverArtist, coverAlbum);
     if (modalCover && coverUrl) {
       modalCover.src = coverUrl;
       modalCover.style.display = 'block';
+      modalCover.onerror = () => {
+        modalCover.onerror = null;
+        modalCover.src = `/api/cover-image?artist=${encodeURIComponent(coverArtist)}&album=${encodeURIComponent(coverAlbum)}`;
+      };
     }
     if (largeCover && coverUrl) {
       largeCover.src = coverUrl;
       largeCover.style.display = 'block';
+      largeCover.onerror = () => {
+        largeCover.onerror = null;
+        largeCover.src = `/api/cover-image?artist=${encodeURIComponent(coverArtist)}&album=${encodeURIComponent(coverAlbum)}`;
+      };
     }
     if (modalTitle && (data.title || item.album || item.title)) {
       modalTitle.textContent = data.title || item.album || item.title;
@@ -5655,17 +5773,24 @@ const App = {
     const loadingEl = document.getElementById('tracklistModalLoading');
     const listEl = document.getElementById('tracklistModalList');
 
-    const coverUrl = item.coverImage || item.thumb || '';
+    const displayTitle = item.album || item.title || 'Треклист альбома';
+    const safeCover = this.getSafeCoverUrl(item.coverImage || item.thumb || '', item.artist, displayTitle);
     if (modalCover) {
-      modalCover.src = coverUrl || '';
-      modalCover.style.display = coverUrl ? 'block' : 'none';
+      modalCover.src = safeCover || '';
+      modalCover.style.display = safeCover ? 'block' : 'none';
+      modalCover.onerror = () => {
+        modalCover.onerror = null;
+        modalCover.src = `/api/cover-image?artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(displayTitle)}`;
+      };
     }
     if (largeCover) {
-      largeCover.src = coverUrl || '';
-      largeCover.style.display = coverUrl ? 'block' : 'none';
+      largeCover.src = safeCover || '';
+      largeCover.style.display = safeCover ? 'block' : 'none';
+      largeCover.onerror = () => {
+        largeCover.onerror = null;
+        largeCover.src = `/api/cover-image?artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(displayTitle)}`;
+      };
     }
-
-    const displayTitle = item.album || item.title || 'Треклист альбома';
     const displaySub = `${item.artist || 'Неизвестный исполнитель'}${item.year ? ` · ${item.year}` : (item.album && item.title !== item.album ? ` · ${item.title}` : '')}`;
     if (modalTitle) modalTitle.textContent = displayTitle;
     if (modalSub) modalSub.textContent = displaySub;
@@ -7702,7 +7827,8 @@ const App = {
       for (let slot = 0; slot < perShelf; slot++) {
         const r = shelfItems[slot];
         if (r) {
-          const cover = r.coverImage || r.thumb || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" fill="%23222"><rect width="160" height="160"/></svg>';
+          const rawCover = r.coverImage || r.thumb;
+          const cover = this.getSafeCoverUrl(rawCover, r.artist, r.title || r.album) || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" fill="%23222"><rect width="160" height="160"/></svg>';
           const titleText = this.escapeHtml(r.title || r.album || 'Без названия');
           const artistText = this.escapeHtml(r.artist || 'Исполнитель');
           const year = r.year || '';
@@ -7715,7 +7841,7 @@ const App = {
                  onclick="App.onCabinetRecordClick('${r.id}')"
                  title="${artistText} — ${titleText} (Нажмите для действий)">
               <div class="cabinet-record-sleeve">
-                <img src="${cover}" class="cabinet-cover-img" alt="${titleText}" loading="lazy">
+                <img src="${cover}" class="cabinet-cover-img" alt="${titleText}" loading="lazy" onerror="if (!this.dataset.err) { this.dataset.err='1'; this.src='/api/cover-image?artist='+encodeURIComponent('${this.escapeHtml(r.artist)}')+'&album='+encodeURIComponent('${this.escapeHtml(r.title || r.album)}'); }">
                 <div class="cabinet-sleeve-spine"></div>
                 <div class="cabinet-sleeve-sheen"></div>
                 <div class="cabinet-vinyl-peek"></div>
@@ -8293,14 +8419,25 @@ const App = {
 
     const title = item.title || item.album || 'Без названия';
     const artist = item.artist || 'Неизвестный исполнитель';
-    const cover = item.coverUrl || item.coverImage || item.thumb || '';
+    const rawCover = item.coverUrl || item.coverImage || item.thumb || '';
+    const cover = this.getSafeCoverUrl(rawCover, artist, title);
 
     if (titleEl) titleEl.textContent = title;
     if (artistEl) artistEl.textContent = artist;
     if (jacketCover) {
       jacketCover.src = cover || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'120\' fill=\'%231a2233\'><rect width=\'120\' height=\'120\'/></svg>';
+      jacketCover.onerror = () => {
+        jacketCover.onerror = null;
+        jacketCover.src = `/api/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(title)}`;
+      };
     }
-    if (labelImg) labelImg.src = cover || '';
+    if (labelImg) {
+      labelImg.src = cover || '';
+      labelImg.onerror = () => {
+        labelImg.onerror = null;
+        labelImg.src = `/api/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(title)}`;
+      };
+    }
 
     // Physical vinyl tint based on format or color
     if (disc) {
