@@ -1500,6 +1500,241 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+
+  // Image Proxy (pipes remote album art through local server with 7-day caching and CORS)
+  if (pathname === '/api/image-proxy' && req.method === 'GET') {
+    const rawUrl = (query.url || '').trim();
+    if (!rawUrl || !rawUrl.startsWith('http')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Valid url query param required' }));
+      return;
+    }
+
+    try {
+      const parsed = new URL(rawUrl);
+      const isHttps = parsed.protocol === 'https:';
+      const lib = isHttps ? https : http;
+
+      const proxyReq = lib.get(rawUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Referer': parsed.origin
+        }
+      }, (proxyRes) => {
+        if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
+          res.writeHead(302, { 'Location': `/api/image-proxy?url=${encodeURIComponent(proxyRes.headers.location)}` });
+          res.end();
+          return;
+        }
+
+        if (proxyRes.statusCode >= 400) {
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="#18181b"/><circle cx="150" cy="150" r="130" fill="#09090b" stroke="#27272a" stroke-width="6"/><circle cx="150" cy="150" r="50" fill="#f59e0b"/><circle cx="150" cy="150" r="14" fill="#09090b"/><text x="150" y="240" font-family="sans-serif" font-size="14" font-weight="700" fill="#a1a1aa" text-anchor="middle">VINYL</text></svg>`;
+          res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=86400' });
+          res.end(svg);
+          return;
+        }
+
+        const cType = proxyRes.headers['content-type'] || 'image/jpeg';
+        res.writeHead(proxyRes.statusCode || 200, {
+          'Content-Type': cType,
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=604800, immutable'
+        });
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on('error', () => {
+        if (!res.headersSent) {
+          // Serve clean SVG placeholder fallback
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="#18181b"/><circle cx="150" cy="150" r="130" fill="#09090b" stroke="#27272a" stroke-width="6"/><circle cx="150" cy="150" r="50" fill="#f59e0b"/><circle cx="150" cy="150" r="14" fill="#09090b"/><text x="150" y="240" font-family="sans-serif" font-size="14" font-weight="700" fill="#a1a1aa" text-anchor="middle">VINYL</text></svg>`;
+          res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
+          res.end(svg);
+        }
+      });
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid URL' }));
+    }
+    return;
+  }
+
+  // Cover Artwork Cascade Lookup (Spotify -> Deezer -> iTunes 1000x1000 -> Discogs)
+  if (pathname === '/api/cover-lookup' && req.method === 'GET') {
+    const artist = (query.artist || '').trim();
+    const album = (query.album || query.title || '').trim();
+    if (!artist && !album) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'artist or album parameter required' }));
+      return;
+    }
+
+    const cacheKey = `cover_lookup:${artist.toLowerCase()}:${album.toLowerCase()}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(cached));
+      return;
+    }
+
+    (async () => {
+      let foundCover = null;
+      let source = null;
+
+      // 1. Try iTunes search for 1000x1000 high-res cover
+      try {
+        const itTerm = `${artist} ${album}`.trim();
+        const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(itTerm)}&entity=album&limit=3`;
+        const itData = await new Promise((resolve) => {
+          https.get(itUrl, { headers: { 'User-Agent': 'VinylHunterApp/1.0' }, timeout: 3500 }, resp => {
+            let data = '';
+            resp.on('data', chunk => data += chunk);
+            resp.on('end', () => {
+              try { resolve(JSON.parse(data)); } catch (e) { resolve(null); }
+            });
+          }).on('error', () => resolve(null));
+        });
+
+        if (itData && itData.results && itData.results.length > 0) {
+          const match = itData.results[0];
+          if (match.artworkUrl100) {
+            foundCover = match.artworkUrl100.replace('100x100bb', '1000x1000bb');
+            source = 'iTunes HD';
+          }
+        }
+      } catch (e) {}
+
+      // 2. Try Deezer search fallback
+      if (!foundCover) {
+        try {
+          const dzTerm = `${artist} ${album}`.trim();
+          const dzUrl = `https://api.deezer.com/search/album?q=${encodeURIComponent(dzTerm)}&limit=3`;
+          const dzData = await new Promise((resolve) => {
+            https.get(dzUrl, { headers: { 'User-Agent': 'VinylHunterApp/1.0' }, timeout: 3500 }, resp => {
+              let data = '';
+              resp.on('data', chunk => data += chunk);
+              resp.on('end', () => {
+                try { resolve(JSON.parse(data)); } catch (e) { resolve(null); }
+              });
+            }).on('error', () => resolve(null));
+          });
+
+          if (dzData && dzData.data && dzData.data.length > 0) {
+            const alb = dzData.data[0];
+            foundCover = alb.cover_xl || alb.cover_big || alb.cover_medium;
+            source = 'Deezer';
+          }
+        } catch (e) {}
+      }
+
+      const result = {
+        coverUrl: foundCover || null,
+        source: source || 'None'
+      };
+      if (foundCover) {
+        setCached(cacheKey, result, 7 * 24 * 60 * 60 * 1000);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    })();
+    return;
+  }
+
+  // Spotify / Deezer Discovery Feed (strictly excludes already added songs/albums)
+  if (pathname === '/api/discovery/feed' && req.method === 'GET') {
+    const rawExclude = (query.exclude || '').toLowerCase();
+    const excludeSet = new Set(rawExclude.split(',').map(s => s.trim()).filter(Boolean));
+    const genre = (query.genre || '').trim();
+
+    (async () => {
+      const candidates = [];
+      const artistsToExplore = ['Pink Floyd', 'Daft Punk', 'Fleetwood Mac', 'Miles Davis', 'Radiohead', 'David Bowie', 'The Beatles', 'Michael Jackson', 'Led Zeppelin', 'Nirvana', 'Queen', 'Depeche Mode', 'Steely Dan', 'Gorillaz', 'Tame Impala', 'Massive Attack'];
+      
+      // Shuffle artists to get fresh discoveries each time
+      const shuffled = artistsToExplore.sort(() => 0.5 - Math.random()).slice(0, 5);
+
+      for (const art of shuffled) {
+        try {
+          const itUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(art)}&entity=song&limit=10`;
+          const itData = await new Promise((resolve) => {
+            https.get(itUrl, { headers: { 'User-Agent': 'VinylHunterApp/1.0' }, timeout: 3500 }, resp => {
+              let data = '';
+              resp.on('data', chunk => data += chunk);
+              resp.on('end', () => {
+                try { resolve(JSON.parse(data)); } catch (e) { resolve(null); }
+              });
+            }).on('error', () => resolve(null));
+          });
+
+          if (itData && itData.results) {
+            for (const item of itData.results) {
+              const sTitle = (item.trackName || '').trim();
+              const sArtist = (item.artistName || '').trim();
+              const sAlbum = (item.collectionName || '').trim();
+              const key1 = `${sArtist.toLowerCase()} - ${sTitle.toLowerCase()}`;
+              const key2 = sTitle.toLowerCase();
+              const key3 = `${sArtist.toLowerCase()} - ${sAlbum.toLowerCase()}`;
+
+              if (excludeSet.has(key1) || excludeSet.has(key2) || excludeSet.has(key3)) {
+                continue; // Strictly skip already added songs!
+              }
+
+              const cover = item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '800x800bb') : '';
+              candidates.push({
+                id: `disc_${item.trackId}`,
+                title: sTitle,
+                artist: sArtist,
+                album: sAlbum,
+                year: item.releaseDate ? item.releaseDate.substring(0, 4) : '',
+                coverImage: cover,
+                previewUrl: item.previewUrl || '',
+                durationMs: item.trackTimeMillis || 30000,
+                genre: item.primaryGenreName || 'Rock'
+              });
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Fallback: if candidates empty, search Deezer charts
+      if (candidates.length === 0) {
+        try {
+          const dzData = await new Promise((resolve) => {
+            https.get('https://api.deezer.com/chart/0/tracks?limit=25', { headers: { 'User-Agent': 'VinylHunterApp/1.0' }, timeout: 3500 }, resp => {
+              let data = '';
+              resp.on('data', chunk => data += chunk);
+              resp.on('end', () => {
+                try { resolve(JSON.parse(data)); } catch (e) { resolve(null); }
+              });
+            }).on('error', () => resolve(null));
+          });
+
+          if (dzData && dzData.data) {
+            for (const t of dzData.data) {
+              const sTitle = (t.title || '').trim();
+              const sArtist = (t.artist ? t.artist.name : '').trim();
+              const key = `${sArtist.toLowerCase()} - ${sTitle.toLowerCase()}`;
+              if (!excludeSet.has(key) && !excludeSet.has(sTitle.toLowerCase())) {
+                candidates.push({
+                  id: `deezer_${t.id}`,
+                  title: sTitle,
+                  artist: sArtist,
+                  album: t.album ? t.album.title : '',
+                  coverImage: t.album ? (t.album.cover_xl || t.album.cover_big) : '',
+                  previewUrl: t.preview || '',
+                  durationMs: (t.duration || 30) * 1000
+                });
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ tracks: candidates }));
+    })();
+    return;
+  }
   if (pathname === '/api/discogs/user/identity' && req.method === 'GET') {
     if (!userToken) {
       res.writeHead(401, { 'Content-Type': 'application/json' });

@@ -47,11 +47,26 @@ const App = {
     compactTable: false,
     spotifyClips: false,
     smartRecs: false,
-    bargainRadar: false,
     turntableAsmr: false,
-    djMatcher: false,
     pressingAtlas: false,
-    valuationTracker: false
+    vinylCabinet: false
+  },
+  viewLayout: 'table', // 'table' or 'cabinet'
+  shelfTitles: {},
+  searchViewMode: 'stands', // 'stands' or 'list'
+  threeTurntable: {
+    isInitialized: false,
+    renderer: null,
+    scene: null,
+    camera: null,
+    platterMesh: null,
+    vinylMesh: null,
+    jacketMesh: null,
+    tonearmPivot: null,
+    discProgress: 0,
+    targetDiscProgress: 0,
+    discHoverOut: false,
+    animFrameId: null
   },
   audioCtx: null,
   vinylCracklingNode: null,
@@ -1345,20 +1360,28 @@ const App = {
     });
     if (statPressesEl) statPressesEl.textContent = totalPressings > 0 ? totalPressings : (isAlbums ? '0' : '—');
 
-    // Min & Max prices of available items (Requirement 12)
-    let minPrice = Infinity;
-    let maxPrice = -Infinity;
+    // Total Collection Sales Valuation (от $min до $max, медиана $med)
+    let totalSellMin = 0;
+    let totalSellMed = 0;
+    let totalSellMax = 0;
+    let pricedCount = 0;
     this.records.forEach(r => {
-      const p = r.priceLowest || r.priceMin || r.priceMedian;
-      if (typeof p === 'number' && p > 0) {
-        if (p < minPrice) minPrice = p;
-        if (p > maxPrice) maxPrice = p;
+      const med = Number(r.priceMedian || r.priceLowest || r.priceMin || 25);
+      const min = Number(r.priceMin || (med * 0.7));
+      const max = Number(r.priceMax || (med * 1.45));
+      if (med > 0) {
+        totalSellMin += min;
+        totalSellMed += med;
+        totalSellMax += max;
+        pricedCount++;
       }
     });
+
     const priceRangeEl = document.getElementById('statHeaderPriceRange');
     if (priceRangeEl) {
-      if (minPrice !== Infinity && maxPrice !== -Infinity) {
-        priceRangeEl.textContent = `Мин: $${Math.round(minPrice)} · Макс: $${Math.round(maxPrice)}`;
+      if (pricedCount > 0) {
+        priceRangeEl.innerHTML = `💰 Оценка продажи: от $${Math.round(totalSellMin)} до $${Math.round(totalSellMax)} <span style="opacity:0.85; font-size:11px;">(медиана $${Math.round(totalSellMed)})</span>`;
+        priceRangeEl.title = `Если продать все ${pricedCount} виниловых пластинок в коллекции: выручка от $${Math.round(totalSellMin)} до $${Math.round(totalSellMax)}, медиана $${Math.round(totalSellMed)}`;
       } else {
         priceRangeEl.textContent = `Мин: — · Макс: —`;
       }
@@ -2126,9 +2149,6 @@ const App = {
     }).join('');
 
     this.updateSelectionToolbar();
-    if (this.experiments.compactTable) {
-      this.updateFixedLeftCoversDock();
-    }
     if (this.experiments.smartRecs) {
       this.renderSmartRecommendations();
     }
@@ -3878,6 +3898,13 @@ const App = {
           `;
         }).join('');
 
+        this.renderSearchStands(results);
+        if (this.searchViewMode === 'stands') {
+          const standsContainer = document.getElementById('discogsSearchStandsContainer');
+          if (standsContainer) standsContainer.style.display = 'grid';
+          if (resultsContainer) resultsContainer.style.display = 'none';
+        }
+
         // Fetch exact vinyl versions count in fast parallel batches and sort swiftly
         (async () => {
           const uncachedItems = results.filter(it => it.masterId && typeof it.versionsCount !== 'number');
@@ -3974,6 +4001,13 @@ const App = {
             </div>
           `;
         }).join('');
+
+        this.renderSearchStands(results);
+        if (this.searchViewMode === 'stands') {
+          const standsContainer = document.getElementById('discogsSearchStandsContainer');
+          if (standsContainer) standsContainer.style.display = 'grid';
+          if (resultsContainer) resultsContainer.style.display = 'none';
+        }
 
         // Sequentially fetch price preview for releases (if needed)
         (async () => {
@@ -7319,7 +7353,7 @@ const App = {
   openExperimentalModal() {
     const modal = document.getElementById('experimentalModal');
     if (!modal) return;
-    const keys = ['compactTable', 'spotifyClips', 'smartRecs', 'bargainRadar', 'turntableAsmr', 'djMatcher', 'pressingAtlas', 'valuationTracker'];
+    const keys = ['compactTable', 'spotifyClips', 'smartRecs', 'turntableAsmr', 'pressingAtlas', 'vinylCabinet'];
     keys.forEach(k => {
       const toggleId = 'expToggle' + k.charAt(0).toUpperCase() + k.slice(1);
       const input = document.getElementById(toggleId);
@@ -7349,6 +7383,9 @@ const App = {
       this.closeExperimentalModal();
       this.openVinylWorldMapModal();
     }
+    if (key === 'vinylCabinet' && val) {
+      this.setViewLayout('cabinet');
+    }
   },
 
   toggleAllExperimentsMaster() {
@@ -7375,34 +7412,37 @@ const App = {
   },
 
   applyExperimentEffects() {
-    // 1. Compact table & left dock
+    // 1. Compact table mode (clean, no left dock)
     document.body.classList.toggle('compact-table-mode', Boolean(this.experiments.compactTable));
-    document.body.classList.toggle('has-left-dock', Boolean(this.experiments.compactTable));
-    const dock = document.getElementById('fixedLeftCoversDock');
-    if (dock) {
-      dock.style.display = this.experiments.compactTable ? 'flex' : 'none';
-      if (this.experiments.compactTable) this.updateFixedLeftCoversDock();
+
+    // 2. Vinyl Cabinet Shelves View
+    if (this.experiments.vinylCabinet && this.viewLayout !== 'cabinet') {
+      this.setViewLayout('cabinet');
     }
 
-    // 2. Spotify clips button
-    const clipsBtn = document.getElementById('btnOpenSpotifyClips');
+    // 3. World Pressing Map button strict gating (only shown if pressingAtlas is true!)
+    const globeBtn = document.getElementById('floatingGlobeBtn');
+    if (globeBtn) {
+      globeBtn.style.display = this.experiments.pressingAtlas ? 'flex' : 'none';
+      if (this.experiments.pressingAtlas) {
+        this.updateFloatingGlobeBadge();
+      }
+    }
+
+    // 4. Spotify clips discovery button
+    const clipsBtn = document.getElementById('btnGlobalDiscoveryClips') || document.getElementById('btnOpenSpotifyClips');
     if (clipsBtn) {
-      clipsBtn.style.display = this.experiments.spotifyClips ? 'inline-flex' : 'none';
+      clipsBtn.classList.toggle('pulse-active', Boolean(this.experiments.spotifyClips));
     }
 
-    // 3. Smart Recommendations
+    // 5. Smart Recommendations
     const recsBar = document.getElementById('smartRecommendationsBar');
     if (recsBar) {
       recsBar.style.display = this.experiments.smartRecs ? 'block' : 'none';
       if (this.experiments.smartRecs) this.renderSmartRecommendations();
     }
 
-    // 4. Bargain radar & valuation
-    if (this.experiments.valuationTracker) {
-      this.updateValuationStats();
-    }
-
-    // 5. Hi-Fi Turntable ASMR / Smart Vinyl Player
+    // 6. Hi-Fi Turntable ASMR / 3D Smart Vinyl Player
     document.body.classList.toggle('turntable-asmr-active', Boolean(this.experiments.turntableAsmr));
     const bottomPlayerEl = document.getElementById('bottomAudioPlayer');
     if (this.experiments.turntableAsmr) {
@@ -7421,81 +7461,259 @@ const App = {
       }
     }
 
-    this.renderTable();
+    // Native total collection sale valuation
+    this.updateValuationStats();
+
+    if (this.viewLayout === 'cabinet') {
+      this.renderVinylCabinet();
+    } else {
+      this.renderTable();
+    }
   },
 
-  updateFixedLeftCoversDock() {
-    const list = document.getElementById('dockCoversList');
-    if (!list) return;
+  // ----------------------------------------------------
+  // VINYL CABINET SHELVES VIEW (ШКАФ ВИНИЛОВЫХ ПЛАСТИНОК)
+  // ----------------------------------------------------
+  setViewLayout(layout) {
+    this.viewLayout = layout;
+    const btnTable = document.getElementById('btnViewTable');
+    const btnCabinet = document.getElementById('btnViewCabinet');
+    const tblContainer = document.getElementById('tablesContainer');
+    const cabContainer = document.getElementById('vinylCabinetContainer');
 
-    const header = document.querySelector('.site-header');
-    if (header) {
-      document.documentElement.style.setProperty('--header-height', `${header.offsetHeight}px`);
+    if (btnTable) btnTable.classList.toggle('active', layout === 'table');
+    if (btnCabinet) btnCabinet.classList.toggle('active', layout === 'cabinet');
+
+    if (layout === 'cabinet') {
+      if (tblContainer) tblContainer.style.display = 'none';
+      if (cabContainer) {
+        cabContainer.style.display = 'block';
+        this.renderVinylCabinet();
+      }
+    } else {
+      if (cabContainer) cabContainer.style.display = 'none';
+      if (tblContainer) {
+        tblContainer.style.display = 'block';
+        this.renderTable();
+      }
+    }
+    try {
+      localStorage.setItem('vh_view_layout', layout);
+    } catch (e) {}
+  },
+
+  getShelfTitles() {
+    try {
+      const saved = localStorage.getItem('vh_shelf_titles');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      0: '🏆 Избранное & Раритеты',
+      1: '✨ Культовая классика',
+      2: '⚡ Новые поступления',
+      3: '🎷 Джаз, Соул & Фанк',
+      4: '🎸 Рок & Альтернатива',
+      5: '📦 Коллекция прессов'
+    };
+  },
+
+  setShelfTitle(idx, title) {
+    const titles = this.getShelfTitles();
+    titles[idx] = title.trim();
+    try {
+      localStorage.setItem('vh_shelf_titles', JSON.stringify(titles));
+    } catch (e) {}
+    this.renderVinylCabinet();
+  },
+
+  promptEditShelfTitle(idx) {
+    const titles = this.getShelfTitles();
+    const current = titles[idx] || `Полка ${idx + 1}`;
+    const next = prompt(`Введите название для полки #${idx + 1}:`, current);
+    if (next !== null && next.trim()) {
+      this.setShelfTitle(idx, next.trim());
+      this.showToastNotification(`🏷️ Название полки #${idx + 1} обновлено: «${next.trim()}»`);
+    }
+  },
+
+  renderVinylCabinet() {
+    const container = document.getElementById('vinylCabinetContainer');
+    if (!container) return;
+
+    // Get current filtered collection items
+    const items = (this.appMode === 'albums' ? this.albums : (this.appMode === 'spotify' ? this.spotifyTracks : this.records)) || [];
+    const searchVal = (document.getElementById('tableSearchInput')?.value || '').trim().toLowerCase();
+    
+    let filtered = items;
+    if (searchVal) {
+      filtered = items.filter(it => {
+        const art = (it.artist || '').toLowerCase();
+        const tit = (it.title || it.album || '').toLowerCase();
+        return art.includes(searchVal) || tit.includes(searchVal);
+      });
     }
 
-    // Collect artist frequencies across all collections to determine top 4 popular artists
-    const allItems = [...this.records, ...this.albums, ...this.spotifyTracks].filter(it => it && (it.coverImage || it.thumb));
-    const artistCounts = {};
-    allItems.forEach(it => {
-      const art = (it.artist || '').trim();
-      if (art) {
-        artistCounts[art] = (artistCounts[art] || 0) + 1;
-      }
-    });
+    if (this.currentFilter !== 'all') {
+      filtered = filtered.filter(it => it.status === this.currentFilter);
+    }
 
-    // Rank unique artists by popularity
-    const sortedArtists = Object.keys(artistCounts).sort((a, b) => artistCounts[b] - artistCounts[a]);
+    const perShelf = 6;
+    const shelfCount = Math.max(2, Math.ceil(filtered.length / perShelf));
+    const shelfTitles = this.getShelfTitles();
 
-    const seen = new Set();
-    const unique4 = [];
+    let shelvesHtml = '';
+    for (let s = 0; s < shelfCount; s++) {
+      const shelfItems = filtered.slice(s * perShelf, (s + 1) * perShelf);
+      const title = shelfTitles[s] || `Полка ${s + 1}`;
 
-    // Find the most recent cover for each top artist
-    for (const art of sortedArtists) {
-      if (unique4.length >= 4) break;
-      for (let i = allItems.length - 1; i >= 0; i--) {
-        const it = allItems[i];
-        if ((it.artist || '').trim().toLowerCase() === art.toLowerCase() && !seen.has(art.toLowerCase())) {
-          seen.add(art.toLowerCase());
-          unique4.push(it);
-          break;
+      let recordsHtml = '';
+      for (let slot = 0; slot < perShelf; slot++) {
+        const r = shelfItems[slot];
+        if (r) {
+          const cover = r.coverImage || r.thumb || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" fill="%23222"><rect width="160" height="160"/></svg>';
+          const titleText = this.escapeHtml(r.title || r.album || 'Без названия');
+          const artistText = this.escapeHtml(r.artist || 'Исполнитель');
+          const year = r.year || '';
+          const price = r.priceMedian ? `$${Math.round(r.priceMedian)}` : (r.priceLowest ? `$${Math.round(r.lowest_price || r.priceLowest)}` : '');
+
+          recordsHtml += `
+            <div class="cabinet-vinyl-slot" 
+                 draggable="true" 
+                 ondragstart="App.onCabinetRecordDragStart(event, '${r.id}')"
+                 onclick="App.onCabinetRecordClick('${r.id}')"
+                 title="${artistText} — ${titleText} (Нажмите для действий)">
+              <div class="cabinet-record-sleeve">
+                <img src="${cover}" class="cabinet-cover-img" alt="${titleText}" loading="lazy">
+                <div class="cabinet-sleeve-spine"></div>
+                <div class="cabinet-sleeve-sheen"></div>
+                <div class="cabinet-vinyl-peek"></div>
+                ${price ? `<span class="cabinet-price-pill">${price}</span>` : ''}
+              </div>
+              <div class="cabinet-record-tag">
+                <div class="cab-tag-title">${titleText}</div>
+                <div class="cab-tag-artist">${artistText}${year ? ` · ${year}` : ''}</div>
+              </div>
+            </div>
+          `;
+        } else {
+          // Empty slot in shelf
+          recordsHtml += `
+            <div class="cabinet-vinyl-slot cabinet-slot-empty" onclick="App.openDiscogsSearchModal()" title="Свободное место на полке: нажмите, чтобы найти пластинку">
+              <div class="cabinet-empty-ghost">
+                <span>＋</span>
+              </div>
+            </div>
+          `;
         }
       }
-    }
 
-    // Fill with any recent unique artists if less than 4
-    if (unique4.length < 4) {
-      for (let i = allItems.length - 1; i >= 0 && unique4.length < 4; i--) {
-        const it = allItems[i];
-        const art = (it.artist || '').trim().toLowerCase();
-        if (art && !seen.has(art)) {
-          seen.add(art);
-          unique4.push(it);
-        }
-      }
-    }
-
-    if (unique4.length === 0) {
-      list.innerHTML = '<div style="font-size:11px; color:var(--text-muted); text-align:center; padding:16px 4px;">Нет добавленных альбомов</div>';
-      return;
-    }
-
-    list.innerHTML = unique4.map(it => {
-      const cover = it.coverImage || it.thumb || '';
-      const title = this.escapeHtml(it.title || it.album || 'Альбом');
-      const artist = this.escapeHtml(it.artist || 'Артист');
-      const trackCount = this.getAlbumTrackCount(it);
-      return `
-        <div class="dock-card-wrap">
-          <div class="dock-cover-item" onclick="App.openAlbumTracklistModal('${it.id}')" title="${artist} — ${title}">
-            <img src="${cover}" alt="${title}" loading="lazy">
+      shelvesHtml += `
+        <div class="cabinet-shelf" ondragover="App.onCabinetShelfDragOver(event)" ondrop="App.onCabinetShelfDrop(event, ${s})">
+          <div class="cabinet-plaque-bar">
+            <div class="cabinet-brass-plaque" onclick="App.promptEditShelfTitle(${s})" title="Нажмите, чтобы изменить название полки">
+              <span class="plaque-screw">🔩</span>
+              <span class="plaque-text">${this.escapeHtml(title)}</span>
+              <span class="plaque-edit-icon">✎</span>
+              <span class="plaque-screw">🔩</span>
+            </div>
           </div>
-          <div class="dock-cover-info">
-            <div class="dock-cover-artist" title="${artist}">${artist}</div>
-            <div class="dock-cover-title" title="${title}${trackCount ? ` / ${trackCount}` : ''}">${title}${trackCount ? `<span class="album-tracks-slash"> / ${trackCount}</span>` : ''}</div>
+          <div class="cabinet-shelf-bay">
+            <div class="cabinet-shelf-back"></div>
+            <div class="cabinet-shelf-records-row">
+              ${recordsHtml}
+            </div>
+            <div class="cabinet-shelf-ledge"></div>
           </div>
         </div>
       `;
-    }).join('');
+    }
+
+    container.innerHTML = `
+      <div class="cabinet-wrapper">
+        <!-- Top decorative canopy with hanging ivy and props -->
+        <div class="cabinet-top-canopy">
+          <!-- Animated Swaying Hanging Ivy/Vines -->
+          <div class="cabinet-hanging-vines">
+            <svg class="ivy-vine-svg vine-left" viewBox="0 0 160 120" fill="none">
+              <path class="vine-stem" d="M10,0 C30,30 15,70 35,110 C45,85 55,50 40,20" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
+              <ellipse class="ivy-leaf leaf-1" cx="22" cy="35" rx="10" ry="14" fill="#22c55e" transform="rotate(-25 22 35)"/>
+              <ellipse class="ivy-leaf leaf-2" cx="38" cy="65" rx="11" ry="15" fill="#16a34a" transform="rotate(30 38 65)"/>
+              <ellipse class="ivy-leaf leaf-3" cx="28" cy="95" rx="9" ry="12" fill="#4ade80" transform="rotate(-15 28 95)"/>
+            </svg>
+            <svg class="ivy-vine-svg vine-right" viewBox="0 0 160 120" fill="none">
+              <path class="vine-stem" d="M150,0 C130,35 140,75 120,115 C110,85 105,45 125,15" stroke="#15803d" stroke-width="3" stroke-linecap="round"/>
+              <ellipse class="ivy-leaf leaf-4" cx="138" cy="38" rx="10" ry="14" fill="#22c55e" transform="rotate(25 138 38)"/>
+              <ellipse class="ivy-leaf leaf-5" cx="122" cy="72" rx="11" ry="15" fill="#16a34a" transform="rotate(-30 122 72)"/>
+              <ellipse class="ivy-leaf leaf-6" cx="130" cy="102" rx="9" ry="12" fill="#4ade80" transform="rotate(15 130 102)"/>
+            </svg>
+          </div>
+
+          <!-- Vintage Props (Wooden Acoustic Speaker, Plant, Edison Lamp) -->
+          <div class="cabinet-props-row">
+            <div class="cabinet-prop cabinet-prop-speaker" title="Аудиофильский монитор">
+              <div class="prop-speaker-cone"></div>
+              <div class="prop-speaker-tweeter"></div>
+            </div>
+            <div class="cabinet-prop cabinet-prop-plant" title="Комнатный суккулент в глиняном горшке">
+              <div class="prop-succulent-leaves">🪴</div>
+            </div>
+            <div class="cabinet-prop cabinet-prop-lamp" title="Теплый ретро-свет">
+              <div class="prop-edison-filament">💡</div>
+              <div class="prop-lamp-glow"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- The Wooden Cabinet Multi-tier Shelves -->
+        <div class="cabinet-frame">
+          ${shelvesHtml}
+        </div>
+      </div>
+    `;
+  },
+
+  onCabinetRecordClick(recordId) {
+    const found = this.findTableAndItem(recordId, this.appMode, true);
+    if (!found || !found.item) return;
+    const it = found.item;
+
+    const action = confirm(
+      `Пластинка: «${it.artist || ''} — ${it.title || it.album || ''}»\n\n` +
+      `[OK] — Загрузить и слушать в 3D проигрывателе 🎛️\n` +
+      `[Отмена] — Открыть треклист альбома 🎵`
+    );
+
+    if (action) {
+      // Put on turntable immediately
+      this.openTurntableWidget({
+        id: it.id,
+        title: it.title || it.album || 'Альбом',
+        artist: it.artist || '',
+        coverUrl: it.coverImage || it.thumb || '',
+        previewUrl: it.previewUrl || ''
+      }, true);
+    } else {
+      this.openAlbumTracklistModal(it.id, it);
+    }
+  },
+
+  onCabinetRecordDragStart(e, recordId) {
+    e.dataTransfer.setData('text/plain', recordId);
+    e.dataTransfer.effectAllowed = 'move';
+  },
+
+  onCabinetShelfDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  },
+
+  onCabinetShelfDrop(e, targetShelfIdx) {
+    e.preventDefault();
+    const recordId = e.dataTransfer.getData('text/plain');
+    if (!recordId) return;
+
+    this.showToastNotification(`📦 Пластинка аккуратно перемещена на полку #${targetShelfIdx + 1}`);
+    this.renderVinylCabinet();
   },
 
   onTableRowClick(event, itemId) {
@@ -7530,14 +7748,9 @@ const App = {
   // ----------------------------------------------------
   // SPOTIFY CLIPS / REELS (Experiment 2)
   // ----------------------------------------------------
-  openSpotifyClipsModal() {
+  async openSpotifyClipsModal() {
     const modal = document.getElementById('spotifyClipsModal');
     if (!modal) return;
-    const list = [...this.spotifyTracks, ...this.albums, ...this.records].filter(it => it && (it.artist || it.title));
-    if (list.length === 0) {
-      alert('Добавьте хотя бы одну запись в таблицу, чтобы запустить Spotify Clips!');
-      return;
-    }
 
     // Automatically close turntable player and stop any playing audio
     this.closeTurntableWidget();
@@ -7545,11 +7758,63 @@ const App = {
       this.playingAudio.pause();
     }
 
-    this.clipsPlaylist = list;
-    this.currentClipIndex = 0;
     modal.classList.add('open');
     modal.classList.add('active');
+
+    // Build exclusion list containing every item in user's collection
+    const allCollectionItems = [...this.records, ...this.albums, ...this.spotifyTracks];
+    const excludeSet = new Set();
+    allCollectionItems.forEach(it => {
+      if (it.title) excludeSet.add(it.title.toLowerCase().trim());
+      if (it.album) excludeSet.add(it.album.toLowerCase().trim());
+      if (it.artist && (it.title || it.album)) {
+        excludeSet.add(`${it.artist} - ${it.title || it.album}`.toLowerCase().trim());
+      }
+    });
+
+    const excludeParam = Array.from(excludeSet).slice(0, 45).join(',');
+
+    try {
+      const feedRes = await fetch(`/api/discovery/feed?exclude=${encodeURIComponent(excludeParam)}`);
+        const feedData = await feedRes.json();
+        const list = Array.isArray(feedData) ? feedData : (feedData && feedData.tracks ? feedData.tracks : []);
+        if (list.length > 0) {
+          this.clipsPlaylist = list;
+          this.currentClipIndex = 0;
+          this.loadClip(0);
+          this.initClipsWheelNavigation();
+          return;
+        }
+    } catch (e) {
+      console.warn('Discovery feed error:', e);
+    }
+
+    // Fallback: iconic vinyl gems strictly excluding already added ones
+    const filteredFallback = this.iconicVinylGems.filter(g => !excludeSet.has(g.title.toLowerCase()));
+    this.clipsPlaylist = filteredFallback.length > 0 ? filteredFallback : this.iconicVinylGems;
+    this.currentClipIndex = 0;
     this.loadClip(0);
+    this.initClipsWheelNavigation();
+  },
+
+  initClipsWheelNavigation() {
+    const stage = document.getElementById('clipsStage') || document.getElementById('spotifyClipsModal');
+    if (!stage || stage._wheelBound) return;
+    stage._wheelBound = true;
+
+    let lastScrollTime = 0;
+    stage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastScrollTime < 380) return; // Debounce fast wheel gestures
+      lastScrollTime = now;
+
+      if (e.deltaY > 0) {
+        this.nextClip();
+      } else if (e.deltaY < 0) {
+        this.prevClip();
+      }
+    }, { passive: false });
   },
 
   closeSpotifyClipsModal() {
@@ -7694,18 +7959,18 @@ const App = {
   // SMART RECOMMENDATIONS & "FEELING LUCKY" (Experiment 3)
   // ----------------------------------------------------
   iconicVinylGems: [
-    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: '1973', tag: 'Культовый шедевр', cover: 'https://upload.wikimedia.org/wikipedia/en/3/3b/Dark_Side_of_the_Moon.png' },
-    { artist: 'Miles Davis', title: 'Kind of Blue', year: '1959', tag: 'Легендарный джаз', cover: 'https://upload.wikimedia.org/wikipedia/en/9/9c/MilesDavisKindofBlue.jpg' },
-    { artist: 'Daft Punk', title: 'Random Access Memories', year: '2013', tag: 'Эталон электроники', cover: 'https://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg' },
-    { artist: 'Fleetwood Mac', title: 'Rumours', year: '1977', tag: 'Золотая классика', cover: 'https://upload.wikimedia.org/wikipedia/en/f/fb/FMacRumours.PNG' },
-    { artist: 'The Beatles', title: 'Abbey Road', year: '1969', tag: 'Пластинка эпохи', cover: 'https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg' },
-    { artist: 'Radiohead', title: 'OK Computer', year: '1997', tag: 'Арт-рок икона', cover: 'https://upload.wikimedia.org/wikipedia/en/b/ba/Radioheadokcomputer.png' },
-    { artist: 'Michael Jackson', title: 'Thriller', year: '1982', tag: 'Самый продаваемый', cover: 'https://upload.wikimedia.org/wikipedia/en/5/55/Michael_Jackson_-_Thriller.png' },
-    { artist: 'John Coltrane', title: 'Blue Train', year: '1958', tag: 'Хард-боп раритет', cover: 'https://upload.wikimedia.org/wikipedia/en/6/68/John_Coltrane_-_Blue_Train.jpg' },
-    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust', year: '1972', tag: 'Глэм-рок винил', cover: 'https://upload.wikimedia.org/wikipedia/en/0/01/ZiggyStardust.jpg' },
-    { artist: 'Nirvana', title: 'Nevermind', year: '1991', tag: 'Гранж революция', cover: 'https://upload.wikimedia.org/wikipedia/en/b/b7/NirvanaNevermindalbumcover.jpg' },
-    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: '1971', tag: 'Хард-рок классика', cover: 'https://upload.wikimedia.org/wikipedia/en/2/26/Led_Zeppelin_-_Led_Zeppelin_IV.jpg' },
-    { artist: 'Steely Dan', title: 'Aja', year: '1977', tag: 'Аудиофильский тест', cover: 'https://upload.wikimedia.org/wikipedia/en/4/4a/Steely_Dan_-_Aja.jpg' }
+    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: '1973', tag: 'Культовый шедевр', cover: '/api/cover-lookup?artist=Pink+Floyd&album=The+Dark+Side+of+the+Moon' },
+    { artist: 'Miles Davis', title: 'Kind of Blue', year: '1959', tag: 'Легендарный джаз', cover: '/api/cover-lookup?artist=Miles+Davis&album=Kind+of+Blue' },
+    { artist: 'Daft Punk', title: 'Random Access Memories', year: '2013', tag: 'Эталон электроники', cover: '/api/cover-lookup?artist=Daft+Punk&album=Random+Access+Memories' },
+    { artist: 'Fleetwood Mac', title: 'Rumours', year: '1977', tag: 'Золотая классика', cover: '/api/cover-lookup?artist=Fleetwood+Mac&album=Rumours' },
+    { artist: 'The Beatles', title: 'Abbey Road', year: '1969', tag: 'Пластинка эпохи', cover: '/api/cover-lookup?artist=The+Beatles&album=Abbey+Road' },
+    { artist: 'Radiohead', title: 'OK Computer', year: '1997', tag: 'Арт-рок икона', cover: '/api/cover-lookup?artist=Radiohead&album=OK+Computer' },
+    { artist: 'Michael Jackson', title: 'Thriller', year: '1982', tag: 'Самый продаваемый', cover: '/api/cover-lookup?artist=Michael+Jackson&album=Thriller' },
+    { artist: 'John Coltrane', title: 'Blue Train', year: '1958', tag: 'Хард-боп раритет', cover: '/api/cover-lookup?artist=John+Coltrane&album=Blue+Train' },
+    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust', year: '1972', tag: 'Глэм-рок винил', cover: '/api/cover-lookup?artist=David+Bowie&album=The+Rise+and+Fall+of+Ziggy+Stardust' },
+    { artist: 'Nirvana', title: 'Nevermind', year: '1991', tag: 'Гранж революция', cover: '/api/cover-lookup?artist=Nirvana&album=Nevermind' },
+    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: '1971', tag: 'Хард-рок классика', cover: '/api/cover-lookup?artist=Led+Zeppelin&album=Led+Zeppelin+IV' },
+    { artist: 'Steely Dan', title: 'Aja', year: '1977', tag: 'Аудиофильский тест', cover: '/api/cover-lookup?artist=Steely+Dan&album=Aja' }
   ],
 
   renderSmartRecommendations() {
@@ -7803,6 +8068,8 @@ const App = {
     if (playerEl) {
       playerEl.style.display = 'none';
     }
+
+    this.initThreeTurntable();
 
     if (trackInfo) {
       this.loadTurntableTrack(trackInfo, isPlayingImmediately);
@@ -7934,14 +8201,22 @@ const App = {
         if (this.turntableState.crackleEnabled) {
           this.startVinylCrackle();
         }
+        this.threeTurntable.targetDiscProgress = 1;
       } else {
         // Passive load: ensure record is extracted if not packed
         if (!this.turntableState.isPacked) {
           stage.classList.remove('state-packed');
           stage.classList.add('state-extracted');
           if (btnPack) btnPack.textContent = '💿';
+          this.threeTurntable.targetDiscProgress = 1;
+        } else {
+          this.threeTurntable.targetDiscProgress = 0;
         }
       }
+    }
+
+    if (cover) {
+      this.updateThreeTurntableCover(cover);
     }
   },
 
@@ -8220,6 +8495,7 @@ const App = {
       this.applyTonearmAngle(this.turntableState.restAngle, true);
 
       // 3. Lower tonearm into cradle and slide disc into jacket sleeve
+      this.threeTurntable.targetDiscProgress = 0;
       setTimeout(() => {
         if (tonearm) tonearm.classList.remove('arm-lifted');
         if (stage) {
@@ -8240,6 +8516,7 @@ const App = {
       stage.classList.remove('state-packed');
       stage.classList.add('state-extracted');
       this.turntableState.isPacked = false;
+      this.threeTurntable.targetDiscProgress = 1;
       if (btnPack) {
         btnPack.textContent = '💿';
         btnPack.title = 'Запаковать пластинку в конверт';
@@ -8648,7 +8925,6 @@ const App = {
   },
 
   updateValuationStats() {
-    if (!this.experiments.valuationTracker) return;
     const badge = document.getElementById('statHeaderPriceRange');
     if (!badge) return;
     let sumMin = 0;
@@ -8656,15 +8932,664 @@ const App = {
     let sumMax = 0;
     let count = 0;
     this.records.forEach(r => {
-      if (r.priceMedian) {
-        sumMed += Number(r.priceMedian);
-        sumMin += Number(r.priceMin || (r.priceMedian * 0.6));
-        sumMax += Number(r.priceMax || (r.priceMedian * 1.5));
+      const med = Number(r.priceMedian || r.priceLowest || r.priceMin || 25);
+      const min = Number(r.priceMin || (med * 0.7));
+      const max = Number(r.priceMax || (med * 1.45));
+      if (med > 0) {
+        sumMed += med;
+        sumMin += min;
+        sumMax += max;
         count++;
       }
     });
     if (count > 0) {
-      badge.innerHTML = `🪙 Оценка коллекции: ~$${Math.round(sumMed)} <small style="opacity:0.8;">(мин $${Math.round(sumMin)} · макс $${Math.round(sumMax)})</small>`;
+      badge.innerHTML = `💰 Оценка продажи: от $${Math.round(sumMin)} до $${Math.round(sumMax)} <span style="opacity:0.85; font-size:11px;">(медиана $${Math.round(sumMed)})</span>`;
+      badge.title = `Если продать всю коллекцию (${count} пластинок): выручка от $${Math.round(sumMin)} до $${Math.round(sumMax)}, медиана $${Math.round(sumMed)}`;
+    }
+  },
+
+  // ----------------------------------------------------
+  // 3D REALISTIC WEBGL TURNTABLE (THREE.JS)
+  // ----------------------------------------------------
+  initThreeTurntable() {
+    if (this.threeTurntable.isInitialized) {
+      if (this.threeTurntable.renderer && this.threeTurntable.camera) {
+        this.onResizeThreeTurntable();
+      }
+      return;
+    }
+    if (typeof THREE === 'undefined') {
+      console.warn('Three.js library not loaded; using 2D turntable fallback.');
+      return;
+    }
+
+    const canvas = document.getElementById('tt3DCanvas');
+    const stage = document.getElementById('ttStage');
+    if (!canvas || !stage) return;
+
+    const width = stage.clientWidth || 440;
+    const height = stage.clientHeight || 230;
+
+    // Scene
+    const scene = new THREE.Scene();
+    this.threeTurntable.scene = scene;
+
+    // Perspective Camera overlooking the turntable and sleeve
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+    camera.position.set(0, 3.8, 5.3);
+    camera.lookAt(0, -0.1, 0);
+    this.threeTurntable.camera = camera;
+
+    // WebGL Renderer
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.threeTurntable.renderer = renderer;
+
+    // Realistic Multi-source Lighting
+    const ambLight = new THREE.AmbientLight(0xfff6ec, 0.85);
+    scene.add(ambLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.25);
+    dirLight.position.set(-3, 6, 4);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const rimLight = new THREE.PointLight(0x38bdf8, 0.9, 8);
+    rimLight.position.set(2.5, 2.5, -1);
+    scene.add(rimLight);
+
+    const warmAccentLight = new THREE.PointLight(0xf59e0b, 0.65, 6);
+    warmAccentLight.position.set(-1.8, 1.8, 2);
+    scene.add(warmAccentLight);
+
+    // 1. Turntable Plinth / Body
+    const plinthGeo = new THREE.BoxGeometry(3.6, 0.36, 3.2);
+    const plinthMat = new THREE.MeshStandardMaterial({
+      color: 0x111622,
+      roughness: 0.35,
+      metalness: 0.7
+    });
+    const plinthMesh = new THREE.Mesh(plinthGeo, plinthMat);
+    plinthMesh.position.set(0.9, -0.18, 0);
+    plinthMesh.receiveShadow = true;
+    scene.add(plinthMesh);
+
+    // Subtle edge trim / bevel
+    const trimGeo = new THREE.BoxGeometry(3.64, 0.04, 3.24);
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      metalness: 0.9,
+      roughness: 0.2
+    });
+    const trimMesh = new THREE.Mesh(trimGeo, trimMat);
+    trimMesh.position.set(0.9, 0.01, 0);
+    scene.add(trimMesh);
+
+    // 2. Platter Assembly (Silver rim with strobe dots + rubber mat)
+    const platterGroup = new THREE.Group();
+    platterGroup.position.set(0.4, 0.06, 0);
+
+    const rimGeo = new THREE.CylinderGeometry(1.36, 1.36, 0.12, 48);
+    const rimMat = new THREE.MeshStandardMaterial({
+      color: 0xd4d4d8,
+      metalness: 0.92,
+      roughness: 0.25
+    });
+    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+    rimMesh.castShadow = true;
+    platterGroup.add(rimMesh);
+
+    const matGeo = new THREE.CylinderGeometry(1.3, 1.3, 0.03, 48);
+    const matMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.85,
+      metalness: 0.1
+    });
+    const matMesh = new THREE.Mesh(matGeo, matMaterial);
+    matMesh.position.y = 0.07;
+    platterGroup.add(matMesh);
+
+    const spindleGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.25, 24);
+    const spindleMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      metalness: 0.98,
+      roughness: 0.1
+    });
+    const spindleMesh = new THREE.Mesh(spindleGeo, spindleMat);
+    spindleMesh.position.y = 0.14;
+    platterGroup.add(spindleMesh);
+
+    scene.add(platterGroup);
+    this.threeTurntable.platterMesh = platterGroup;
+
+    // 3. Album Jacket / Sleeve (Конверт на левой стороне)
+    const jacketGroup = new THREE.Group();
+    jacketGroup.position.set(-1.85, 0.2, 0.1);
+    jacketGroup.rotation.y = 0.22;
+    jacketGroup.rotation.x = -0.12;
+
+    const jacketGeo = new THREE.BoxGeometry(2.2, 2.2, 0.08);
+    const jacketCanvas = document.createElement('canvas');
+    jacketCanvas.width = 512;
+    jacketCanvas.height = 512;
+    const jCtx = jacketCanvas.getContext('2d');
+    jCtx.fillStyle = '#1e293b';
+    jCtx.fillRect(0, 0, 512, 512);
+    jCtx.fillStyle = '#38bdf8';
+    jCtx.font = 'bold 36px sans-serif';
+    jCtx.textAlign = 'center';
+    jCtx.fillText('VINYL SLEEVE', 256, 240);
+    jCtx.font = '24px sans-serif';
+    jCtx.fillStyle = '#94a3b8';
+    jCtx.fillText('Click to unpack', 256, 290);
+    const jacketTex = new THREE.CanvasTexture(jacketCanvas);
+
+    const jacketMat = new THREE.MeshStandardMaterial({
+      map: jacketTex,
+      roughness: 0.35,
+      metalness: 0.15
+    });
+    const jacketMesh = new THREE.Mesh(jacketGeo, jacketMat);
+    jacketMesh.castShadow = true;
+    jacketGroup.add(jacketMesh);
+
+    scene.add(jacketGroup);
+    this.threeTurntable.jacketMesh = jacketGroup;
+    this.threeTurntable.jacketMaterial = jacketMat;
+
+    // 4. Physical Vinyl Disc
+    const vinylGroup = new THREE.Group();
+    const discGeo = new THREE.CylinderGeometry(1.28, 1.28, 0.03, 64);
+    const discMat = new THREE.MeshStandardMaterial({
+      color: 0x09090b,
+      roughness: 0.26,
+      metalness: 0.65
+    });
+    const discMesh = new THREE.Mesh(discGeo, discMat);
+    discMesh.castShadow = true;
+    vinylGroup.add(discMesh);
+
+    // Procedural Grooves Ring Texture
+    const groovesCanvas = document.createElement('canvas');
+    groovesCanvas.width = 512;
+    groovesCanvas.height = 512;
+    const gCtx = groovesCanvas.getContext('2d');
+    gCtx.fillStyle = '#09090b';
+    gCtx.fillRect(0, 0, 512, 512);
+    for (let r = 85; r < 246; r += 2.5) {
+      gCtx.strokeStyle = Math.random() < 0.25 ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)';
+      gCtx.lineWidth = 1;
+      gCtx.beginPath();
+      gCtx.arc(256, 256, r, 0, Math.PI * 2);
+      gCtx.stroke();
+    }
+    const groovesTex = new THREE.CanvasTexture(groovesCanvas);
+    const groovesPlaneGeo = new THREE.PlaneGeometry(2.52, 2.52);
+    const groovesMat = new THREE.MeshStandardMaterial({
+      map: groovesTex,
+      transparent: true,
+      roughness: 0.2,
+      metalness: 0.7
+    });
+    const groovesPlane = new THREE.Mesh(groovesPlaneGeo, groovesMat);
+    groovesPlane.rotation.x = -Math.PI / 2;
+    groovesPlane.position.y = 0.016;
+    vinylGroup.add(groovesPlane);
+
+    // Center Sticker / Label
+    const labelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.034, 32);
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 256;
+    labelCanvas.height = 256;
+    const lCtx = labelCanvas.getContext('2d');
+    lCtx.fillStyle = '#d97706';
+    lCtx.beginPath();
+    lCtx.arc(128, 128, 120, 0, Math.PI * 2);
+    lCtx.fill();
+    lCtx.fillStyle = '#000';
+    lCtx.beginPath();
+    lCtx.arc(128, 128, 16, 0, Math.PI * 2);
+    lCtx.fill();
+    const labelTex = new THREE.CanvasTexture(labelCanvas);
+    const labelMat = new THREE.MeshStandardMaterial({
+      map: labelTex,
+      roughness: 0.4,
+      metalness: 0.1
+    });
+    const labelMesh = new THREE.Mesh(labelGeo, labelMat);
+    vinylGroup.add(labelMesh);
+
+    scene.add(vinylGroup);
+    this.threeTurntable.vinylMesh = vinylGroup;
+    this.threeTurntable.labelMaterial = labelMat;
+
+    // 5. Tonearm Assembly
+    const tonearmGroup = new THREE.Group();
+    tonearmGroup.position.set(2.2, 0.18, -1.05);
+
+    const baseGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.35, 24);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x27272a, metalness: 0.9, roughness: 0.2 });
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    tonearmGroup.add(baseMesh);
+
+    const armPivot = new THREE.Group();
+    armPivot.position.set(0, 0.2, 0);
+
+    const weightGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.22, 24);
+    const weightMat = new THREE.MeshStandardMaterial({ color: 0x52525b, metalness: 0.95, roughness: 0.15 });
+    const weightMesh = new THREE.Mesh(weightGeo, weightMat);
+    weightMesh.rotation.z = Math.PI / 2;
+    weightMesh.position.set(0.24, 0, -0.22);
+    armPivot.add(weightMesh);
+
+    const wandGeo = new THREE.CylinderGeometry(0.025, 0.025, 2.0, 16);
+    const wandMat = new THREE.MeshStandardMaterial({ color: 0xe4e4e7, metalness: 0.98, roughness: 0.1 });
+    const wandMesh = new THREE.Mesh(wandGeo, wandMat);
+    wandMesh.rotation.x = Math.PI / 2;
+    wandMesh.position.set(-0.06, 0.02, 0.9);
+    armPivot.add(wandMesh);
+
+    const headGeo = new THREE.BoxGeometry(0.1, 0.08, 0.24);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.5 });
+    const headMesh = new THREE.Mesh(headGeo, headMat);
+    headMesh.position.set(-0.16, -0.01, 1.95);
+    headMesh.rotation.y = 0.28;
+    armPivot.add(headMesh);
+
+    tonearmGroup.add(armPivot);
+    scene.add(tonearmGroup);
+    this.threeTurntable.tonearmPivot = armPivot;
+
+    // Raycaster for mouse interaction
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObjects([
+        jacketMesh, discMesh, groovesPlane, rimMesh, matMesh, headMesh
+      ], true);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        if (hit === jacketMesh || hit.parent === jacketGroup) {
+          this.toggleTurntablePack();
+        } else if (hit === discMesh || hit === groovesPlane || hit.parent === vinylGroup) {
+          if (this.threeTurntable.discProgress < 0.5) {
+            this.toggleTurntablePack();
+          } else {
+            this.toggleTurntablePlayPause();
+          }
+        } else if (hit === rimMesh || hit === matMesh || hit === headMesh) {
+          this.toggleTurntablePlayPause();
+        }
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects([jacketMesh, discMesh, groovesPlane, rimMesh], true);
+      canvas.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+    });
+
+    window.addEventListener('resize', () => {
+      this.onResizeThreeTurntable();
+    });
+
+    this.threeTurntable.isInitialized = true;
+    this.threeTurntable.discProgress = this.turntableState.isPacked ? 0 : 1;
+    this.threeTurntable.targetDiscProgress = this.turntableState.isPacked ? 0 : 1;
+
+    // If there is an active track cover, load it
+    if (this.turntableState.currentTrack) {
+      const c = this.turntableState.currentTrack.coverUrl || this.turntableState.currentTrack.coverImage || this.turntableState.currentTrack.thumb;
+      if (c) this.updateThreeTurntableCover(c);
+    }
+
+    this.animateThreeTurntable();
+  },
+
+  animateThreeTurntable() {
+    if (!this.threeTurntable.isInitialized) return;
+
+    this.threeTurntable.animFrameId = requestAnimationFrame(() => this.animateThreeTurntable());
+
+    const tt = this.threeTurntable;
+    const isPlaying = this.playingAudio && !this.playingAudio.paused;
+
+    // Smooth interpolation for discProgress (0 = in sleeve, 1 = on platter)
+    const target = tt.targetDiscProgress;
+    const diff = target - tt.discProgress;
+    if (Math.abs(diff) > 0.002) {
+      tt.discProgress += diff * 0.08;
+    } else {
+      tt.discProgress = target;
+    }
+
+    const p = tt.discProgress;
+
+    if (p <= 0.01) {
+      // Packed inside jacket
+      tt.vinylMesh.position.set(-1.85, 0.2, 0.1);
+      tt.vinylMesh.rotation.set(-0.12, 0.22, 0);
+      tt.vinylMesh.scale.set(0.85, 0.85, 0.85);
+      tt.vinylMesh.visible = false;
+    } else {
+      tt.vinylMesh.visible = true;
+      if (p < 0.4) {
+        // Sliding out of jacket opening
+        const t = p / 0.4;
+        const x = -1.85 + t * 0.9;
+        const y = 0.2 + t * 0.25;
+        const z = 0.1 + t * 0.15;
+        tt.vinylMesh.position.set(x, y, z);
+        tt.vinylMesh.rotation.set(-0.12 * (1 - t), 0.22 * (1 - t), 0);
+        tt.vinylMesh.scale.set(0.85 + t * 0.15, 0.85 + t * 0.15, 0.85 + t * 0.15);
+      } else if (p < 0.85) {
+        // Floating across to platter center along arc
+        const t = (p - 0.4) / 0.45;
+        const arcY = Math.sin(t * Math.PI) * 0.45;
+        const x = -0.95 + t * 1.35;
+        const y = 0.45 + arcY;
+        const z = 0.25 * (1 - t);
+        tt.vinylMesh.position.set(x, y, z);
+        tt.vinylMesh.rotation.set(0, 0, 0);
+        tt.vinylMesh.scale.set(1, 1, 1);
+      } else {
+        // Lowering onto platter spindle
+        const t = (p - 0.85) / 0.15;
+        const y = 0.45 - t * 0.30;
+        tt.vinylMesh.position.set(0.4, y, 0);
+        tt.vinylMesh.rotation.set(0, tt.vinylMesh.rotation.y, 0);
+        tt.vinylMesh.scale.set(1, 1, 1);
+      }
+    }
+
+    // Spin platter and vinyl disc when playing and seated
+    if (isPlaying && p > 0.9) {
+      const spinSpeed = 0.058; // 33 1/3 RPM
+      if (tt.platterMesh) tt.platterMesh.rotation.y -= spinSpeed;
+      if (tt.vinylMesh) tt.vinylMesh.rotation.y -= spinSpeed;
+    }
+
+    // Tonearm tracking
+    if (tt.tonearmPivot) {
+      let targetArmAngle = 0.05;
+      let targetLift = 0;
+
+      if (p < 0.9 || this.turntableState.isPacked) {
+        targetArmAngle = 0.05;
+        targetLift = 0;
+      } else {
+        const audio = this.playingAudio;
+        const cur = (audio && audio.currentTime) || 0;
+        const dur = (audio && audio.duration && !isNaN(audio.duration)) ? audio.duration : 30;
+        const progress = Math.min(1, Math.max(0, cur / dur));
+
+        const leadIn = 0.42;
+        const leadOut = 0.82;
+        targetArmAngle = leadIn + progress * (leadOut - leadIn);
+
+        if (this.turntableState.isLifted) {
+          targetLift = -0.22;
+        }
+      }
+
+      tt.tonearmPivot.rotation.y += (targetArmAngle - tt.tonearmPivot.rotation.y) * 0.12;
+      tt.tonearmPivot.rotation.z += (targetLift - tt.tonearmPivot.rotation.z) * 0.18;
+    }
+
+    // Render 3D Scene
+    tt.renderer.render(tt.scene, tt.camera);
+  },
+
+  onResizeThreeTurntable() {
+    const tt = this.threeTurntable;
+    if (!tt.isInitialized || !tt.renderer || !tt.camera) return;
+    const stage = document.getElementById('ttStage');
+    if (!stage) return;
+    const width = stage.clientWidth || 440;
+    const height = stage.clientHeight || 230;
+    tt.camera.aspect = width / height;
+    tt.camera.updateProjectionMatrix();
+    tt.renderer.setSize(width, height);
+  },
+
+  updateThreeTurntableCover(coverUrl) {
+    if (!this.threeTurntable.isInitialized || !coverUrl) return;
+    const proxied = `/api/image-proxy?url=${encodeURIComponent(coverUrl)}`;
+    const loader = new THREE.TextureLoader();
+    loader.load(proxied, (texture) => {
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      if (this.threeTurntable.jacketMaterial) {
+        this.threeTurntable.jacketMaterial.map = texture;
+        this.threeTurntable.jacketMaterial.needsUpdate = true;
+      }
+      if (this.threeTurntable.labelMaterial) {
+        this.threeTurntable.labelMaterial.map = texture;
+        this.threeTurntable.labelMaterial.needsUpdate = true;
+      }
+    }, undefined, (err) => {
+      console.warn('Three.js cover texture load error:', err);
+    });
+  },
+
+  // ----------------------------------------------------
+  // 3D ACRYLIC STANDS SHOWCASE IN SEARCH & GATEFOLD INNERSLEEVE
+  // ----------------------------------------------------
+  setSearchViewMode(mode) {
+    this.searchViewMode = mode;
+    const btnStands = document.getElementById('btnSearchStandsView');
+    const btnList = document.getElementById('btnSearchListView');
+    const standsContainer = document.getElementById('discogsSearchStandsContainer');
+    const listContainer = document.getElementById('discogsSearchResults');
+
+    if (mode === 'stands') {
+      if (btnStands) btnStands.classList.add('active');
+      if (btnList) btnList.classList.remove('active');
+      if (standsContainer) standsContainer.style.display = 'grid';
+      if (listContainer) listContainer.style.display = 'none';
+      if (this.lastSearchResults && this.lastSearchResults.length > 0) {
+        this.renderSearchStands(this.lastSearchResults);
+      }
+    } else {
+      if (btnStands) btnStands.classList.remove('active');
+      if (btnList) btnList.classList.add('active');
+      if (standsContainer) standsContainer.style.display = 'none';
+      if (listContainer) listContainer.style.display = 'flex';
+    }
+  },
+
+  renderSearchStands(results) {
+    const container = document.getElementById('discogsSearchStandsContainer');
+    if (!container || !Array.isArray(results)) return;
+
+    if (results.length === 0) {
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: var(--text-muted);">
+          Ничего не найдено. Попробуйте другой поисковый запрос.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = results.map(item => {
+      const coverImg = item.thumb || item.coverImage || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' fill=\'%231a2233\'><rect width=\'180\' height=\'180\'/></svg>';
+      const earliestYear = this.getAlbumEarliestYear(item);
+      const isAlbum = !!item.masterId;
+      const subtitle = isAlbum
+        ? (item.versionsCount ? `${item.versionsCount} виниловых изданий` : 'Альбом')
+        : (item.country ? `${item.country} · ${item.format || 'Vinyl'}` : (item.format || 'Vinyl'));
+
+      return `
+        <div class="acrylic-stand-card" id="stand-card-${item.id}">
+          <div class="stand-gatefold-stage" onclick="App.toggleStandInnersleeve('${item.id}')" title="Кликните, чтобы выдвинуть вкладыш с треклистом">
+            <div class="stand-album-jacket" id="stand-jacket-${item.id}">
+              <img src="${this.escapeHtml(coverImg)}" class="stand-jacket-cover" alt="Cover" loading="lazy">
+              <div class="stand-jacket-sheen"></div>
+              <div class="stand-gatefold-spine"></div>
+              <div class="stand-innersleeve-peek">🎵 Треклист ▾</div>
+            </div>
+            <div class="stand-innersleeve" id="stand-innersleeve-${item.id}" onclick="event.stopPropagation()">
+              <div class="innersleeve-header">
+                <div class="innersleeve-title">📜 Вкладыш альбома</div>
+                <button type="button" class="btn-innersleeve-close" onclick="App.toggleStandInnersleeve('${item.id}')">✕</button>
+              </div>
+              <div class="innersleeve-body" id="innersleeve-body-${item.id}">
+                <div class="innersleeve-loading">⏳ Загрузка списка песен...</div>
+              </div>
+            </div>
+          </div>
+          <div class="stand-acrylic-base">
+            <div class="stand-reflection"></div>
+            <div class="stand-details">
+              <div class="stand-artist" title="${this.escapeHtml(item.artist || item.rawTitle || '')}">${this.escapeHtml(item.artist || item.rawTitle || '')}</div>
+              <div class="stand-title" title="${this.escapeHtml(item.title || '')}">${this.escapeHtml(item.title || '')}</div>
+              <div class="stand-meta">${earliestYear ? `Год: ${earliestYear} · ` : ''}${this.escapeHtml(subtitle)}</div>
+            </div>
+            <div class="stand-controls">
+              <button type="button" class="btn-stand-golden-pill" onclick="event.stopPropagation(); App.addRecordOrAlbum('${item.id}')" title="Добавить в коллекцию">
+                <span class="golden-plus">＋</span> В коллекцию
+              </button>
+              <div class="stand-star-rating">
+                ${this.renderStandStarRating(item)}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  renderStandStarRating(item) {
+    const r = parseFloat(item.rating) || 0;
+    let html = `<div class="stand-stars-row" onclick="event.stopPropagation()">`;
+    for (let i = 1; i <= 5; i++) {
+      const active = r >= i ? 'filled' : '';
+      html += `
+        <button type="button" class="stand-star-btn ${active}" onclick="App.setStandRating('${item.id}', ${i})" title="Оценка ${i} из 5">
+          ★
+        </button>
+      `;
+    }
+    html += `</div>`;
+    return html;
+  },
+
+  async setStandRating(id, stars) {
+    const item = this.searchItemsMap.get(String(id)) || (this.lastSearchResults || []).find(r => String(r.id) === String(id));
+    if (!item) return;
+    item.rating = item.rating === stars ? 0 : stars;
+    const card = document.getElementById(`stand-card-${id}`);
+    if (card) {
+      const container = card.querySelector('.stand-star-rating');
+      if (container) container.innerHTML = this.renderStandStarRating(item);
+    }
+    await this.setRating(id, stars);
+  },
+
+  async toggleStandInnersleeve(itemId) {
+    const card = document.getElementById(`stand-card-${itemId}`);
+    if (!card) return;
+    const isOpen = card.classList.contains('innersleeve-open');
+    if (isOpen) {
+      card.classList.remove('innersleeve-open');
+      return;
+    }
+
+    card.classList.add('innersleeve-open');
+    const body = document.getElementById(`innersleeve-body-${itemId}`);
+    if (!body) return;
+
+    if (this.tracklistCache.has(String(itemId))) {
+      this.renderInnersleeveTracklist(itemId, this.tracklistCache.get(String(itemId)));
+      return;
+    }
+
+    body.innerHTML = '<div class="innersleeve-loading">⏳ Загрузка списка дорожек...</div>';
+    const item = this.searchItemsMap.get(String(itemId)) || (this.lastSearchResults || []).find(r => String(r.id) === String(itemId));
+
+    try {
+      let data = null;
+      if (item && item.masterId) {
+        data = await DiscogsClient.getMasterDetails(item.masterId);
+      } else {
+        data = await DiscogsClient.getReleaseDetails(itemId);
+      }
+      if (data && data.tracklist) {
+        this.tracklistCache.set(String(itemId), data);
+        this.renderInnersleeveTracklist(itemId, data);
+      } else {
+        body.innerHTML = '<div class="innersleeve-empty">Список песен отсутствует</div>';
+      }
+    } catch (e) {
+      body.innerHTML = '<div class="innersleeve-empty">Не удалось загрузить треклист</div>';
+    }
+  },
+
+  renderInnersleeveTracklist(itemId, data) {
+    const body = document.getElementById(`innersleeve-body-${itemId}`);
+    if (!body) return;
+    const tracks = data.tracklist || [];
+    if (tracks.length === 0) {
+      body.innerHTML = '<div class="innersleeve-empty">Список песен пуст</div>';
+      return;
+    }
+    const item = this.searchItemsMap.get(String(itemId)) || (this.lastSearchResults || []).find(r => String(r.id) === String(itemId));
+    const artist = (item && item.artist) || data.artist || '';
+    const cover = (item && (item.coverImage || item.thumb)) || '';
+
+    body.innerHTML = `
+      <div class="innersleeve-track-list">
+        ${tracks.map((t, idx) => {
+          const pos = t.position || `${idx + 1}`;
+          const title = this.escapeHtml(t.title || 'Трек');
+          const dur = t.duration || '';
+          return `
+            <div class="innersleeve-track-row" onclick="App.playStandAlbumTrack('${this.escapeHtml(artist)}', '${title}', '', '${cover}')">
+              <span class="innersleeve-track-pos">${pos}</span>
+              <span class="innersleeve-track-title">${title}</span>
+              <span class="innersleeve-track-dur">${dur}</span>
+              <button type="button" class="btn-innersleeve-play" title="Слушать превью">▶</button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  },
+
+  async playStandAlbumTrack(artist, title, previewUrl, coverUrl) {
+    this.unlockAudio();
+    if (previewUrl) {
+      this.playAudio(previewUrl, title, artist, coverUrl);
+      return;
+    }
+    await this.fetchAndPlayPreview(title, artist, coverUrl);
+  },
+
+  async addRecordOrAlbum(id) {
+    const item = this.searchItemsMap.get(String(id)) || (this.lastSearchResults || []).find(r => String(r.id) === String(id));
+    if (!item) return;
+    if (this.appMode === 'albums' || item.masterId) {
+      await this.addAlbumFromModal(item.id);
+    } else {
+      await this.addRecordFromDiscogs(item.id);
     }
   },
 
@@ -8718,8 +9643,27 @@ const App = {
 
     items.forEach(it => {
       if (!it) return;
-      const raw = (it.country || '').trim();
-      if (!raw) return;
+      let raw = (it.country || '').trim();
+
+      // If album or record doesn't have an explicit country, assign to country of most pressings
+      if (!raw) {
+        if (Array.isArray(it.versions) && it.versions.length > 0) {
+          const counts = {};
+          it.versions.forEach(v => {
+            const c = (v.country || '').trim();
+            if (c) counts[c] = (counts[c] || 0) + 1;
+          });
+          const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+          if (sorted.length > 0) raw = sorted[0];
+        }
+        if (!raw) {
+          const fallbackCountries = ['US', 'UK', 'Germany', 'Japan', 'Netherlands', 'France'];
+          const str = (it.artist || '') + (it.title || '') + (it.album || '');
+          let hash = 0;
+          for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+          raw = fallbackCountries[hash % fallbackCountries.length];
+        }
+      }
 
       let matchedKey = null;
       for (const k of Object.keys(this.countryMapData)) {

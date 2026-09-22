@@ -6,6 +6,7 @@
   <title>VINYL HUNTER — Трекер виниловых пластинок</title>
   <link rel="stylesheet" href="style.css">
   <script src="assets/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
@@ -85,7 +86,7 @@
           <div class="stat-title">ВСЕГО В СПИСКЕ</div>
           <div class="stat-value" id="statTotalCount">0</div>
           <div class="stat-sub">виниловых пластинок</div>
-          <div class="stat-price-range-badge" id="statHeaderPriceRange" title="Минимальная и максимальная цена лотов в продаже">Мин: — · Макс: —</div>
+          <div class="stat-price-range-badge" id="statHeaderPriceRange" title="Потенциальный доход при продаже всей коллекции">💰 Оценка продажи: от $0 до $0 (медиана $0)</div>
         </div>
         <div class="stat-soundwave-decor">
           <span></span><span></span><span></span><span></span><span></span>
@@ -210,14 +211,26 @@
       </div>
 
       <div class="action-buttons">
+        <!-- View Layout Toggle: Table vs Vinyl Cabinet Shelves -->
+        <div class="view-layout-toggle" title="Переключить вид: классическая таблица или деревянный шкаф винила">
+          <button type="button" class="view-layout-btn active" id="btnViewTable" onclick="App.setViewLayout('table')">
+            📋 Таблица
+          </button>
+          <button type="button" class="view-layout-btn" id="btnViewCabinet" onclick="App.setViewLayout('cabinet')">
+            🗄️ Шкаф винила
+          </button>
+        </div>
+
+        <!-- Global Discovery Video Reels Button -->
+        <button type="button" id="btnGlobalDiscoveryClips" class="btn btn-secondary btn-discovery-reels" onclick="App.openSpotifyClipsModal()" title="Лента открытий: новые треки и короткие видеоклипы">
+          <span class="reels-pulse-dot"></span>
+          <span>🎬 Discovery Reels</span>
+        </button>
+
         <button id="btnOpenFiltersModal" class="btn btn-secondary filter-modal-trigger" onclick="App.openFiltersModal()" title="Настроить расширенные фильтры (цены, страны, годы, 💎)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
           <span>Фильтры</span>
           <span id="activeFiltersBadge" class="filter-count-badge" style="display:none;">0</span>
-        </button>
-
-        <button id="btnOpenSpotifyClips" class="btn btn-secondary btn-spotify-clips" onclick="App.openSpotifyClipsModal()" style="display:none;" title="Режим коротких видео Spotify Clips">
-          <span>📹 Clips</span>
         </button>
 
         <select id="tableSortSelect" class="table-sort-select" onchange="App.setSortFromSelect(this.value)" title="Сортировка записей в таблицах">
@@ -282,6 +295,11 @@
       <!-- Tables rendered dynamically by App.renderTables() -->
     </div>
 
+    <!-- Vinyl Cabinet Shelves View (Шкаф виниловых пластинок) -->
+    <div id="vinylCabinetContainer" class="vinyl-cabinet-container" style="display: none;">
+      <!-- Shelves, leaning records, hanging vines & vintage decor rendered dynamically by App.renderVinylCabinet() -->
+    </div>
+
   </main>
 
   <!-- ==========================================
@@ -343,7 +361,28 @@
           </div>
         </div>
 
-        <div id="discogsSearchResults" class="search-results-list">
+        <!-- Search View Mode Bar: 3D Acrylic Stands vs Classic Compact List -->
+        <div class="search-view-mode-bar">
+          <div class="search-view-pills">
+            <button type="button" class="search-view-pill active" id="btnSearchStandsView" onclick="App.setSearchViewMode('stands')">
+              🪞 3D Витрина на подставках
+            </button>
+            <button type="button" class="search-view-pill" id="btnSearchListView" onclick="App.setSearchViewMode('list')">
+              📜 Компактный список
+            </button>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted);">
+            Кликните на альбом для открытия инслива и треклиста
+          </div>
+        </div>
+
+        <!-- 3D Acrylic Stands Showcase Container -->
+        <div id="discogsSearchStandsContainer" class="search-stands-grid">
+          <!-- Stand cards with gatefold + sliding printed innersleeve rendered by App -->
+        </div>
+
+        <!-- Classic List Results Container -->
+        <div id="discogsSearchResults" class="search-results-list" style="display: none;">
           <!-- Results injected here -->
         </div>
       </div>
@@ -355,15 +394,6 @@
       </div>
     </div>
   </div>
-
-  <!-- ==========================================
-       Fixed Left 4 Covers Dock (Experiment 1)
-       ========================================== -->
-  <aside id="fixedLeftCoversDock" class="fixed-left-covers-dock" style="display: none;" title="Топ-4 последних добавленных исполнителей">
-    <div id="dockCoversList" class="dock-covers-list">
-      <!-- 4 covers rendered dynamically -->
-    </div>
-  </aside>
 
   <!-- ==========================================
        Modal: Advanced Filters & Preferences
@@ -487,133 +517,101 @@
           </button>
         </div>
 
-        <div class="exp-features-list">
-          <!-- 1. Compact Table + Left Covers + Preview on click -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">1</span> Компактная таблица + 4 фиксированные обложки слева
-              </div>
-              <div class="exp-card-desc">
-                Сжимает строки таблицы для максимальной информативности, фиксирует слева 4 обложки последних добавленных исполнителей (не скроллятся при прокрутке), а при клике на таблицу проигрывает короткое превью лучшей песни.
-              </div>
+        <div class="exp-features-grid">
+          <!-- 1. 3D WebGL Turntable Player -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">🎛️</div>
+              <div class="exp-card-tag exp-tag-hot">3D WEBGL</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expToggleTurntableAsmr" onchange="App.setExperimentState('turntableAsmr', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
             </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expToggleCompactTable" onchange="App.setExperimentState('compactTable', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
+            <div class="exp-card-title">3D Hi-Fi Проигрыватель с конвертом</div>
+            <div class="exp-card-desc">
+              Реалистичный 3D-проигрыватель 33⅓ RPM на Three.js: интерактивное вынимание пластинки из конверта, подвижный тонарм с трекингом дорожек, вращающийся диск со стробоскопом и аутентичный аналоговый треск ASMR.
+            </div>
           </div>
 
-          <!-- 2. Spotify Short Videos / Clips -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">2</span> Режим коротких видео из Spotify (Clips / Shorts)
-              </div>
-              <div class="exp-card-desc">
-                Вертикальная лента коротких аудио/видео клипов: листайте треки, нажимайте на альбом для мгновенного поиска виниловых изданий или добавляйте треки в вишлист в 1 клик.
-              </div>
+          <!-- 2. Vinyl Cabinet Shelves View -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">🗄️</div>
+              <div class="exp-card-tag exp-tag-new">НОВИНКА</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expToggleVinylCabinet" onchange="App.setExperimentState('vinylCabinet', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
             </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expToggleSpotifyClips" onchange="App.setExperimentState('spotifyClips', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
+            <div class="exp-card-title">Шкаф виниловых пластинок</div>
+            <div class="exp-card-desc">
+              Многоярусный деревянный стеллаж: пластинки стоят под углом по 6 штук на полке, drag-and-drop перетаскивание между полками, кастомные латунные таблички с названиями полок и живые колышущиеся растения.
+            </div>
           </div>
 
-          <!-- 3. Smart Recommendations & "I'm Feeling Lucky" -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">3</span> Умные рекомендации над таблицей + «Мне повезёт 🎲»
-              </div>
-              <div class="exp-card-desc">
-                Красивая лента карточек над таблицей: подбирает исполнителей на основе ваших самых популярных записей, предлагает смежные культовые альбомы и случайные раритеты по кнопке «Мне повезёт».
-              </div>
+          <!-- 3. Pressing World Map & Geography -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">🌍</div>
+              <div class="exp-card-tag exp-tag-geo">ГЕОГРАФИЯ</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expTogglePressingAtlas" onchange="App.setExperimentState('pressingAtlas', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
             </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expToggleSmartRecs" onchange="App.setExperimentState('smartRecs', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
+            <div class="exp-card-title">Атлас географии винила (Earth Map)</div>
+            <div class="exp-card-desc">
+              Интерактивная карта Земли и плавающая кнопка глобуса: отображает ВСЕ добавленные альбомы с привязкой к странам наибольшего тиража прессов (🇯🇵, 🇬🇧, 🇺🇸, 🇩🇪) и сеткой виниловых конвертов при клике.
+            </div>
           </div>
 
-          <!-- 4. Vinyl Bargain Radar -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">4</span> Виниловый радар выгодных цен (Bargain Radar)
-              </div>
-              <div class="exp-card-desc">
-                Интеллектуальный радар цен: автоматически подсвечивает пластинки, доступные на вторичном рынке ниже медианной цены, специальным значком «🔥 ВЫГОДНО».
-              </div>
+          <!-- 4. Spotify Clips / Reels Discovery Feed -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">🎬</div>
+              <div class="exp-card-tag exp-tag-feed">DISCOVERY</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expToggleSpotifyClips" onchange="App.setExperimentState('spotifyClips', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
             </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expToggleBargainRadar" onchange="App.setExperimentState('bargainRadar', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
+            <div class="exp-card-title">Spotify Discovery Reels (Shorts)</div>
+            <div class="exp-card-desc">
+              Вертикальная видео-лента скролла колесиком мыши: кнопки вынесены вправо от видеоряда, система рекомендует свежие треки под ваши вкусы и СТРОГО исключает уже добавленные альбомы из библиотеки.
+            </div>
           </div>
 
-          <!-- 5. Hi-Fi Turntable ASMR -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">5</span> Hi-Fi Виртуальный проигрыватель с треском винила (ASMR)
-              </div>
-              <div class="exp-card-desc">
-                Визуальный 3D-проигрыватель 33⅓ RPM с вращающимся диском, тонармом и переключаемым аутентичным теплым треском виниловой дорожки при прослушивании.
-              </div>
+          <!-- 5. Smart Recommendations & "I'm Feeling Lucky" -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">✨</div>
+              <div class="exp-card-tag">РЕКОМЕНДАЦИИ</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expToggleSmartRecs" onchange="App.setExperimentState('smartRecs', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
             </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expToggleTurntableAsmr" onchange="App.setExperimentState('turntableAsmr', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
+            <div class="exp-card-title">Умные рекомендации + «Мне повезёт 🎲»</div>
+            <div class="exp-card-desc">
+              Элегантная лента над таблицей с надежной каскадной подгрузкой 1000x1000 HD обложек (Spotify, Deezer, iTunes, Discogs) и поиском раритетов по культовым коллекциям.
+            </div>
           </div>
 
-          <!-- 6. DJ Harmonic Matcher -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">6</span> DJ Harmonic Matcher (Сведение по BPM и тональностям)
-              </div>
-              <div class="exp-card-desc">
-                Определяет BPM и тональность треков (Camelot Wheel), позволяя диджеям и меломанам подбирать гармоничные переходы между пластинками в коллекции.
-              </div>
+          <!-- 6. Compact Table Mode -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">⚡</div>
+              <div class="exp-card-tag">ПРОДУКТИВНОСТЬ</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expToggleCompactTable" onchange="App.setExperimentState('compactTable', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
             </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expToggleDjMatcher" onchange="App.setExperimentState('djMatcher', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
-          </div>
-
-          <!-- 7. Pressing World Map & Geography -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">7</span> Атлас географии прессов винила (Pressing Atlas)
-              </div>
-              <div class="exp-card-desc">
-                Визуализирует страны происхождения ваших пластинок (🇯🇵 Япония, 🇬🇧 Великобритания, 🇺🇸 США, 🇩🇪 Германия) и оценивает географическую редкость прессов.
-              </div>
+            <div class="exp-card-title">Компактный режим таблицы</div>
+            <div class="exp-card-desc">
+              Сжатые строки таблицы для максимальной плотности данных: моментальный клик по строке для запуска аудио-превью и мгновенный доступ ко всем колонкам цен и статусов.
             </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expTogglePressingAtlas" onchange="App.setExperimentState('pressingAtlas', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
-          </div>
-
-          <!-- 8. Collection Valuation -->
-          <div class="exp-feature-card">
-            <div class="exp-card-info">
-              <div class="exp-card-title">
-                <span class="exp-badge">8</span> Инвестиционная оценка коллекции (Valuation Tracker)
-              </div>
-              <div class="exp-card-desc">
-                Сводный финансовый виджет: считает общую рыночную стоимость коллекции (минимум, медиана, максимум) и выводит топ-3 самых дорогих «граалей».
-              </div>
-            </div>
-            <label class="exp-toggle-switch">
-              <input type="checkbox" id="expToggleValuationTracker" onchange="App.setExperimentState('valuationTracker', this.checked)">
-              <span class="exp-slider"></span>
-            </label>
           </div>
         </div>
       </div>
@@ -1520,6 +1518,9 @@
 
     <!-- Mechanical Stage with Sleeve + Platter + Tonearm -->
     <div class="tt-stage" id="ttStage">
+      <!-- 3D WebGL Canvas for interactive Three.js turntable -->
+      <canvas id="tt3DCanvas" class="tt-3d-canvas"></canvas>
+
       <!-- Album Sleeve / Jacket (Конверт, кликабельный) -->
       <div class="tt-jacket" id="ttAlbumJacket" onclick="App.toggleTurntablePack()" title="Нажмите, чтобы запаковать/достать пластинку">
         <img id="ttJacketCover" src="" alt="Album Sleeve" class="tt-jacket-img">
@@ -1607,7 +1608,7 @@
   <!-- ==========================================
        Floating Vinyl World Map Button (🌍 Pressing Atlas)
        ========================================== -->
-  <button type="button" id="floatingGlobeBtn" class="floating-globe-btn" onclick="App.openVinylWorldMapModal()" title="География винила (Карта прессов)">
+  <button type="button" id="floatingGlobeBtn" class="floating-globe-btn" onclick="App.openVinylWorldMapModal()" title="География винила (Карта прессов)" style="display: none;">
     <span class="globe-icon">🌍</span>
     <span class="globe-badge" id="globeCountryCountBadge">0</span>
   </button>
