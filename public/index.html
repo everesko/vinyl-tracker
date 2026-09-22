@@ -1387,6 +1387,25 @@
 
           <!-- Right Column: Tracks List -->
           <div class="tracklist-content-col">
+            <!-- Real-time Filter & Manual Tracklist Search Bar -->
+            <div class="tracklist-search-toolbar" id="tracklistSearchToolbar">
+              <div class="tracklist-filter-box">
+                <span class="tracklist-filter-icon">🔍</span>
+                <input type="text" id="tracklistFilterInput" class="tracklist-filter-input" placeholder="Поиск песни в альбоме..." oninput="App.filterAlbumTracklist(this.value)">
+                <button type="button" class="tracklist-clear-btn" id="tracklistFilterClearBtn" onclick="App.clearTracklistFilter()" title="Очистить фильтр">✕</button>
+              </div>
+              <button type="button" class="tracklist-custom-search-toggle" onclick="App.toggleTracklistManualSearch()" title="Поиск треклиста по точному названию или другой версии">
+                ⚙️ Найти вручную
+              </button>
+            </div>
+
+            <div class="tracklist-manual-search-panel" id="tracklistManualSearchPanel" style="display:none;">
+              <input type="text" id="tracklistCustomQueryInput" class="tracklist-manual-query-input" placeholder="Исполнитель и название альбома (напр. Daft Punk - Discovery)...">
+              <button type="button" class="btn btn-sm btn-primary" onclick="App.searchCustomTracklist()" title="Запустить поиск треков">
+                🔍 Найти треки
+              </button>
+            </div>
+
             <div id="tracklistModalLoading" style="text-align: center; padding: 28px; color: var(--text-muted); font-size: 13px;">
               ⏳ Загрузка официального треклиста и аудио-превью...
             </div>
@@ -1411,19 +1430,19 @@
   <div id="chooseTableModal" class="modal-backdrop">
     <div class="modal-dialog" style="max-width: 440px;">
       <div class="modal-header">
-        <div class="modal-title">Выберите таблицу для добавления</div>
-        <button class="modal-close-btn" onclick="App.closeChooseTableModal()" title="Закрыть">✕</button>
+        <div class="modal-title">Выберите таблицу</div>
+        <button class="modal-close-btn" title="Закрыть">✕</button>
       </div>
-      <div class="modal-body">
-        <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px;" id="chooseTablePromptText">
-          В какую из ваших таблиц добавить выбранную запись?
-        </p>
-        <div id="chooseTableList" class="choose-table-list">
-          <!-- Populated dynamically -->
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px;">
+          В какую таблицу вы хотите добавить эту запись?
+        </div>
+        <div id="chooseTableList" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Table choices dynamically rendered -->
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="App.closeChooseTableModal()">Отмена</button>
+        <button class="btn btn-secondary modal-cancel-btn">Отмена</button>
       </div>
     </div>
   </div>
@@ -1478,16 +1497,19 @@
   </div>
 
   <!-- ==========================================
-       Hi-Fi Vinyl Turntable Widget (Bottom-Right Corner)
+       Hi-Fi Vinyl Turntable Widget (Freely Draggable)
        With Sleeve extraction, grooved vinyl, tonearm, scrubber & packaging!
        ========================================== -->
   <div id="vinylTurntableWidget" class="vinyl-turntable-widget" style="display: none;">
-    <div class="tt-header">
-      <div class="tt-track-meta">
-        <span class="tt-indicator-led" id="ttLedIndicator"></span>
-        <div class="tt-title-wrap">
-          <div class="tt-title" id="ttTrackTitle">Vinyl Player Ready</div>
-          <div class="tt-artist" id="ttArtistName">Выберите трек или пластинку</div>
+    <div class="tt-header" id="ttHeader" title="Зажмите и свободно переместите проигрыватель по экрану">
+      <div class="tt-header-left">
+        <span class="tt-drag-handle" title="Переместить проигрыватель">⠿</span>
+        <div class="tt-track-meta">
+          <span class="tt-indicator-led" id="ttLedIndicator"></span>
+          <div class="tt-title-wrap">
+            <div class="tt-title" id="ttTrackTitle">Vinyl Player Ready</div>
+            <div class="tt-artist" id="ttArtistName">Выберите трек или пластинку</div>
+          </div>
         </div>
       </div>
       <div class="tt-header-actions">

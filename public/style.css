@@ -1998,6 +1998,13 @@ body.mode-albums .high-value-badge.active {
   to { transform: translateY(0); }
 }
 
+body.turntable-asmr-active .bottom-audio-player,
+body.turntable-asmr-active #bottomAudioPlayer {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .bottom-player-container {
   max-width: 1440px;
   width: 100%;
@@ -4668,19 +4675,25 @@ body.has-left-dock .bottom-audio-player {
    ==================================================== */
 .vinyl-turntable-widget {
   position: fixed;
-  bottom: 24px;
+  bottom: 84px;
   right: 24px;
   width: 360px;
   background: #0d121d;
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 14px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.15);
-  z-index: 9999;
+  z-index: 10000;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   backdrop-filter: blur(14px);
   animation: ttFadeIn 0.3s ease;
+  touch-action: none;
+}
+.vinyl-turntable-widget.is-dragging {
+  transition: none !important;
+  user-select: none !important;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.9), 0 0 25px rgba(56, 189, 248, 0.3) !important;
 }
 
 @keyframes ttFadeIn {
@@ -4692,9 +4705,36 @@ body.has-left-dock .bottom-audio-player {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  background: rgba(15, 23, 42, 0.85);
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.92);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.tt-header:active,
+.vinyl-turntable-widget.is-dragging .tt-header {
+  cursor: grabbing !important;
+}
+.tt-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.tt-drag-handle {
+  font-size: 14px;
+  color: #64748b;
+  cursor: grab;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+.tt-header:hover .tt-drag-handle {
+  color: #38bdf8;
 }
 .tt-track-meta {
   display: flex;
@@ -4712,7 +4752,7 @@ body.has-left-dock .bottom-audio-player {
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
-.tt-indicator-led.playing {
+.tt-indicator-led.active {
   background: #22c55e;
   box-shadow: 0 0 8px #22c55e;
 }
@@ -4751,6 +4791,92 @@ body.has-left-dock .bottom-audio-player {
 .tt-btn-icon:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
+}
+
+/* Tracklist Search Toolbar & Filter */
+.tracklist-search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tracklist-filter-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.tracklist-filter-box:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+}
+.tracklist-filter-icon {
+  font-size: 12px;
+  color: #64748b;
+}
+.tracklist-filter-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #f1f5f9;
+  font-size: 12px;
+  outline: none;
+}
+.tracklist-filter-input::placeholder {
+  color: #64748b;
+}
+.tracklist-clear-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  display: none;
+}
+.tracklist-clear-btn:hover {
+  color: #ffffff;
+}
+.tracklist-custom-search-toggle {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.tracklist-custom-search-toggle:hover {
+  background: rgba(56, 189, 248, 0.22);
+}
+.tracklist-manual-search-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(2, 6, 23, 0.85);
+  border: 1px dashed rgba(56, 189, 248, 0.4);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+.tracklist-manual-query-input {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 5px 8px;
+  color: #f8fafc;
+  font-size: 12px;
+  outline: none;
+}
+.tracklist-manual-query-input:focus {
+  border-color: #38bdf8;
 }
 
 /* Mechanical Stage: Sleeve + Platter */

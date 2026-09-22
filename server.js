@@ -1026,45 +1026,98 @@ const server = http.createServer(async (req, res) => {
       let coverUrl = (data && data.images && data.images[0] && data.images[0].resource_url) || (data && data.thumb) || '';
       let albumYear = (data && data.year) || '';
 
-      // If Discogs tracklist is empty, immediately fallback to Spotify / Deezer album tracks!
+      // Auto-extract artist & album if title contains separator (e.g. "Artist - Album")
+      if ((!artistName || artistName.toLowerCase() === 'various') && albumTitle.includes(' - ')) {
+        const parts = albumTitle.split(/\s*[-–—]\s*/);
+        if (parts.length >= 2) {
+          artistName = parts[0].trim();
+          albumTitle = parts.slice(1).join(' - ').trim();
+        }
+      }
+
+      const cleanArt = artistName.replace(/\s*\(\d+\)$/, '').trim();
+      const cleanAlbum = albumTitle
+        .replace(/\s*\([^)]*(vinyl|lp|cd|album|single|ep|reissue|remaster|edition|deluxe|version|flac|mp3)[^)]*\)/gi, '')
+        .replace(/\s*\[[^\]]*\]/gi, '')
+        .trim();
+
       let tracklistSource = 'Discogs';
       let discogsNotFound = false;
 
-      if (tracklist.length === 0 && (artistName || albumTitle)) {
+      // STAGE 2: If tracklist is still empty, search Discogs database by text query
+      if (tracklist.length === 0 && cleanAlbum) {
+        try {
+          const dsQuery = cleanArt ? `${cleanArt} ${cleanAlbum}` : cleanAlbum;
+          const dsResp = await discogsRequest(`/database/search?q=${encodeURIComponent(dsQuery)}&type=release&per_page=2`, 'GET', null, null, userToken, 1, true, true);
+          if (dsResp && dsResp.statusCode === 200 && dsResp.data && Array.isArray(dsResp.data.results) && dsResp.data.results[0] && dsResp.data.results[0].id) {
+            const foundRelId = dsResp.data.results[0].id;
+            const relResp = await discogsRequest(`/releases/${foundRelId}`, 'GET', null, null, userToken, 1, true, true);
+            if (relResp && relResp.statusCode === 200 && relResp.data && Array.isArray(relResp.data.tracklist) && relResp.data.tracklist.length > 0) {
+              tracklist = relResp.data.tracklist.map((t, idx) => ({
+                position: t.position || `${idx + 1}`,
+                title: t.title || 'Без названия',
+                duration: t.duration || '',
+                type_: t.type_ || 'track'
+              })).filter(t => t.type_ === 'track' || !t.type_);
+              if (tracklist.length > 0) {
+                if (!coverUrl) coverUrl = (relResp.data.images && relResp.data.images[0] && relResp.data.images[0].resource_url) || relResp.data.thumb || '';
+                if (!albumYear && relResp.data.year) albumYear = relResp.data.year;
+                tracklistSource = 'Discogs Search';
+              }
+            }
+          }
+        } catch (dsErr) {}
+      }
+
+      // STAGE 3: Spotify Album Tracks (Strict then Relaxed query)
+      if (tracklist.length === 0 && (cleanArt || cleanAlbum)) {
         try {
           const spToken = await getSpotifyClientCredentialsToken();
           if (spToken) {
-            const cleanArt = artistName.replace(/\s*\(\d+\)$/, '').trim();
-            const spQuery = cleanArt ? `album:${albumTitle} artist:${cleanArt}` : albumTitle;
-            const spSearchResp = await executeSpotifyHttp(`/v1/search?q=${encodeURIComponent(spQuery)}&type=album&limit=1`, 'GET', null, spToken);
-            const spAlbum = spSearchResp.statusCode === 200 && spSearchResp.data?.albums?.items?.[0];
-            if (spAlbum && spAlbum.id) {
-              if (!coverUrl && spAlbum.images && spAlbum.images[0]) coverUrl = spAlbum.images[0].url;
-              if (!albumYear && spAlbum.release_date) albumYear = spAlbum.release_date.substring(0, 4);
-              const spTracksResp = await executeSpotifyHttp(`/v1/albums/${spAlbum.id}/tracks?limit=50`, 'GET', null, spToken);
-              if (spTracksResp.statusCode === 200 && Array.isArray(spTracksResp.data?.items)) {
-                tracklist = spTracksResp.data.items.map((t, idx) => ({
-                  position: `${t.track_number || idx + 1}`,
-                  title: t.name || 'Без названия',
-                  duration: t.duration_ms ? `${Math.floor(t.duration_ms / 60000)}:${String(Math.floor((t.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
-                  previewUrl: t.preview_url || null,
-                  artist: t.artists ? t.artists.map(a => a.name).join(', ') : cleanArt,
-                  type_: 'track'
-                }));
-                if (tracklist.length > 0) {
-                  tracklistSource = 'Spotify';
-                  discogsNotFound = true;
+            const queries = [];
+            if (cleanArt && cleanAlbum) {
+              queries.push(`album:${cleanAlbum} artist:${cleanArt}`);
+              queries.push(`${cleanArt} ${cleanAlbum}`);
+            } else {
+              queries.push(cleanAlbum || cleanArt);
+            }
+
+            for (const spQuery of queries) {
+              const spSearchResp = await executeSpotifyHttp(`/v1/search?q=${encodeURIComponent(spQuery)}&type=album&limit=1`, 'GET', null, spToken);
+              const spAlbum = spSearchResp.statusCode === 200 && spSearchResp.data?.albums?.items?.[0];
+              if (spAlbum && spAlbum.id) {
+                if (!coverUrl && spAlbum.images && spAlbum.images[0]) coverUrl = spAlbum.images[0].url;
+                if (!albumYear && spAlbum.release_date) albumYear = spAlbum.release_date.substring(0, 4);
+                const spTracksResp = await executeSpotifyHttp(`/v1/albums/${spAlbum.id}/tracks?limit=50`, 'GET', null, spToken);
+                if (spTracksResp.statusCode === 200 && Array.isArray(spTracksResp.data?.items) && spTracksResp.data.items.length > 0) {
+                  tracklist = spTracksResp.data.items.map((t, idx) => ({
+                    position: `${t.track_number || idx + 1}`,
+                    title: t.name || 'Без названия',
+                    duration: t.duration_ms ? `${Math.floor(t.duration_ms / 60000)}:${String(Math.floor((t.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '',
+                    previewUrl: t.preview_url || null,
+                    artist: t.artists ? t.artists.map(a => a.name).join(', ') : cleanArt,
+                    type_: 'track'
+                  }));
+                  if (tracklist.length > 0) {
+                    tracklistSource = 'Spotify';
+                    discogsNotFound = true;
+                    break;
+                  }
                 }
               }
             }
           }
         } catch (spErr) {}
+      }
 
-        // Deezer fallback if Spotify didn't find album tracks
-        if (tracklist.length === 0) {
-          try {
-            const cleanArt = artistName.replace(/\s*\(\d+\)$/, '').trim();
-            const dzQuery = cleanArt ? `${cleanArt} ${albumTitle}` : albumTitle;
+      // STAGE 4: Deezer Album Search Fallback
+      if (tracklist.length === 0 && (cleanArt || cleanAlbum)) {
+        try {
+          const dzQueries = [];
+          if (cleanArt && cleanAlbum) dzQueries.push(`${cleanArt} ${cleanAlbum}`);
+          dzQueries.push(cleanAlbum || cleanArt);
+
+          for (const dzQuery of dzQueries) {
             const dzSearch = await new Promise(resolve => {
               https.get(`https://api.deezer.com/search/album?q=${encodeURIComponent(dzQuery)}&limit=1`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
                 let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
@@ -1077,7 +1130,7 @@ const server = http.createServer(async (req, res) => {
                   let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
                 }).on('error', () => resolve(null));
               });
-              if (dzDetail && dzDetail.tracks && Array.isArray(dzDetail.tracks.data)) {
+              if (dzDetail && dzDetail.tracks && Array.isArray(dzDetail.tracks.data) && dzDetail.tracks.data.length > 0) {
                 if (!coverUrl) coverUrl = dzDetail.cover_xl || dzDetail.cover_medium || '';
                 if (!albumYear && dzDetail.release_date) albumYear = dzDetail.release_date.substring(0, 4);
                 tracklist = dzDetail.tracks.data.map((t, idx) => ({
@@ -1091,24 +1144,93 @@ const server = http.createServer(async (req, res) => {
                 if (tracklist.length > 0) {
                   tracklistSource = 'Deezer';
                   discogsNotFound = true;
+                  break;
                 }
               }
             }
-          } catch (dzErr) {}
-        }
+          }
+        } catch (dzErr) {}
+      }
+
+      // STAGE 5: Apple / iTunes Album Search & Complete Track Lookup (100% Reliable!)
+      if (tracklist.length === 0 && (cleanArt || cleanAlbum)) {
+        try {
+          const itQuery = cleanArt ? `${cleanArt} ${cleanAlbum}` : cleanAlbum;
+          const itSearch = await new Promise(resolve => {
+            https.get(`https://itunes.apple.com/search?term=${encodeURIComponent(itQuery)}&entity=album&limit=3`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+              let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+            }).on('error', () => resolve(null));
+          });
+          const itCollection = itSearch && Array.isArray(itSearch.results) && itSearch.results.find(r => r.wrapperType === 'collection');
+          if (itCollection && itCollection.collectionId) {
+            const itLookup = await new Promise(resolve => {
+              https.get(`https://itunes.apple.com/lookup?id=${itCollection.collectionId}&entity=song&limit=100`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+                let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+              }).on('error', () => resolve(null));
+            });
+            if (itLookup && Array.isArray(itLookup.results)) {
+              const songItems = itLookup.results.filter(r => r.wrapperType === 'track');
+              if (songItems.length > 0) {
+                if (!coverUrl && itCollection.artworkUrl100) coverUrl = itCollection.artworkUrl100.replace('100x100bb', '1000x1000bb');
+                if (!albumYear && itCollection.releaseDate) albumYear = itCollection.releaseDate.substring(0, 4);
+                tracklist = songItems.map((s, idx) => ({
+                  position: `${s.trackNumber || idx + 1}`,
+                  title: s.trackName || 'Без названия',
+                  duration: s.trackTimeMillis ? `${Math.floor(s.trackTimeMillis / 60000)}:${String(Math.floor((s.trackTimeMillis % 60000) / 1000)).padStart(2, '0')}` : '',
+                  previewUrl: s.previewUrl || null,
+                  artist: s.artistName || cleanArt,
+                  type_: 'track'
+                }));
+                if (tracklist.length > 0) {
+                  tracklistSource = 'iTunes';
+                  discogsNotFound = true;
+                }
+              }
+            }
+          }
+        } catch (itErr) {}
+      }
+
+      // STAGE 6: Song-level Search Fallback (for EPs, compilations, or singles)
+      if (tracklist.length === 0 && (cleanArt || cleanAlbum)) {
+        try {
+          const songTerm = cleanArt ? `${cleanArt} ${cleanAlbum}` : cleanAlbum;
+          const itSongs = await new Promise(resolve => {
+            https.get(`https://itunes.apple.com/search?term=${encodeURIComponent(songTerm)}&entity=song&limit=30`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+              let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+            }).on('error', () => resolve(null));
+          });
+          if (itSongs && Array.isArray(itSongs.results)) {
+            const tracks = itSongs.results.filter(r => r.wrapperType === 'track');
+            if (tracks.length > 0) {
+              tracklist = tracks.map((s, idx) => ({
+                position: `${s.trackNumber || idx + 1}`,
+                title: s.trackName || 'Без названия',
+                duration: s.trackTimeMillis ? `${Math.floor(s.trackTimeMillis / 60000)}:${String(Math.floor((s.trackTimeMillis % 60000) / 1000)).padStart(2, '0')}` : '',
+                previewUrl: s.previewUrl || null,
+                artist: s.artistName || cleanArt,
+                type_: 'track'
+              }));
+              if (tracklist.length > 0) {
+                tracklistSource = 'iTunes Songs';
+                discogsNotFound = true;
+              }
+            }
+          }
+        } catch (e) {}
       }
 
       const result = {
         id: id || (data && data.id),
         type,
         title: albumTitle,
-        artist: artistName.replace(/\s*\(\d+\)$/, ''),
+        artist: cleanArt,
         year: albumYear,
         cover: coverUrl,
         tracklist,
         source: tracklistSource,
         discogsNotFound,
-        notice: discogsNotFound ? 'В Discogs треклист не найден — загружен оригинальный треклист Spotify/Deezer' : null
+        notice: discogsNotFound ? `Треклист загружен из музыкальной базы ${tracklistSource}` : null
       };
 
       if (tracklist.length > 0) {

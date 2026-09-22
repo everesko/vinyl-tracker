@@ -41,6 +41,8 @@ const App = {
   lazyPriceQueue: [],
   isProcessingPriceQueue: false,
   tracklistCache: new Map(),
+  searchItemsMap: new Map(),
+  currentModalAlbumItem: null,
   experiments: {
     compactTable: false,
     spotifyClips: false,
@@ -157,6 +159,7 @@ const App = {
 
     this.render();
     this.initTurntableDragging();
+    this.initTurntableWidgetDragging();
   },
 
   handleOAuthCallback() {
@@ -987,13 +990,14 @@ const App = {
         }).join('');
 
       } else if (this.appMode === 'albums') {
+        results.forEach(it => this.searchItemsMap.set(String(it.id), it));
         // ALBUMS MODE: show albums with version counts
         itemsContainer.innerHTML = results.map(item => {
           const cover = item.thumb || item.coverImage;
           return `
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-top:1px solid rgba(255,255,255,0.04);">
               <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id})" style="width:34px; height:34px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${item.id}')" style="width:34px; height:34px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   ${cover ? `<img src="${this.escapeHtml(cover)}" style="width:34px; height:34px; border-radius:3px; object-fit:cover;">` : '<div style="width:34px; height:34px; background:#222; border-radius:3px;"></div>'}
                 </div>
                 <div style="min-width:0;">
@@ -1001,13 +1005,13 @@ const App = {
                     ${this.escapeHtml(item.artist || item.rawTitle)}
                   </div>
                   <div style="font-size:11px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id})" title="Нажмите, чтобы открыть треклист и слушать">${this.escapeHtml(item.title || '')}</a> ${item.year ? `(${item.year})` : ''} 
+                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal('${item.id}')" title="Нажмите, чтобы открыть треклист и слушать">${this.escapeHtml(item.title || '')}</a> ${item.year ? `(${item.year})` : ''} 
                     <span id="companionVersCount-${item.id}" style="color:var(--accent-theme); font-weight:600; font-size:10.5px;"></span>
                   </div>
                 </div>
               </div>
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal(${item.id})" title="Посмотреть список песен и прослушать">🎵 ▶</button>
+                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal('${item.id}')" title="Посмотреть список песен и прослушать">🎵 ▶</button>
                 <button class="btn btn-sm btn-primary" onclick="App.addAlbumFromCompanion(${item.id})">
                   + В альбомы
                 </button>
@@ -1028,13 +1032,14 @@ const App = {
         });
 
       } else {
+        results.forEach(it => this.searchItemsMap.set(String(it.id), it));
         // RELEASES MODE
         itemsContainer.innerHTML = results.map(item => {
           const cover = item.thumb || item.coverImage;
           return `
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-top:1px solid rgba(255,255,255,0.04);">
               <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id})" style="width:34px; height:34px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${item.id}')" style="width:34px; height:34px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   ${cover ? `<img src="${this.escapeHtml(cover)}" style="width:34px; height:34px; border-radius:3px; object-fit:cover;">` : '<div style="width:34px; height:34px; background:#222; border-radius:3px;"></div>'}
                 </div>
                 <div style="min-width:0;">
@@ -1042,12 +1047,12 @@ const App = {
                     ${this.escapeHtml(item.artist || item.rawTitle)}
                   </div>
                   <div style="font-size:11px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id})" title="Нажмите, чтобы открыть треклист и слушать">${this.escapeHtml(item.title || '')}</a> ${item.year ? `(${item.year})` : ''} ${item.country ? `[${item.country}]` : ''}
+                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal('${item.id}')" title="Нажмите, чтобы открыть треклист и слушать">${this.escapeHtml(item.title || '')}</a> ${item.year ? `(${item.year})` : ''} ${item.country ? `[${item.country}]` : ''}
                   </div>
                 </div>
               </div>
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal(${item.id})" title="Посмотреть список песен и прослушать">🎵 ▶</button>
+                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal('${item.id}')" title="Посмотреть список песен и прослушать">🎵 ▶</button>
                 <button class="btn btn-sm btn-primary" onclick="App.addRecordFromCompanion(${item.id})">
                   + Добавить
                 </button>
@@ -3518,8 +3523,11 @@ const App = {
           return;
         }
 
+        tracks.forEach(item => {
+          this.searchItemsMap.set(String(item.id), item);
+          this.searchItemsMap.set('sp-' + String(item.id), item);
+        });
         resultsContainer.innerHTML = banner + tracks.map(item => {
-          const safeItemJson = this.escapeHtml(JSON.stringify(item));
           return `
             <div class="search-card" style="display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid rgba(255,255,255,0.06);">
               <div style="display:flex; align-items:center; gap:12px; min-width:0;">
@@ -3531,7 +3539,7 @@ const App = {
               </div>
               <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
                 ${item.previewUrl ? `<button class="btn btn-sm btn-secondary" onclick="App.playAudio('${this.escapeHtml(item.previewUrl)}', '${this.escapeHtml(item.title)}', '${this.escapeHtml(item.artist)}', '${this.escapeHtml(item.coverImage || '')}', this)">▶</button>` : ''}
-                <button class="btn btn-sm btn-primary" onclick="App.openAlbumTracklistModal('sp-${item.id}', ${safeItemJson})">🎵 Треклист</button>
+                <button class="btn btn-sm btn-primary" onclick="App.openAlbumTracklistModal('sp-${item.id}')">🎵 Треклист</button>
                 <button class="btn btn-sm btn-secondary" onclick="App.transferSpotifyAlbumToSearch('${this.escapeHtml(item.artist).replace(/'/g, "\\'")}', '${this.escapeHtml(item.album || item.title).replace(/'/g, "\\'")}')">💽 Винил</button>
               </div>
             </div>
@@ -3579,12 +3587,12 @@ const App = {
           `;
         }
 
+        discogsResults.forEach(item => this.searchItemsMap.set(String(item.id), item));
         const dColHtml = discogsResults.length === 0 ? '<div style="color:var(--text-muted); text-align:center; padding:20px;">Ничего не найдено в Discogs</div>' : discogsResults.map(item => {
           const coverImg = item.thumb || item.coverImage;
           const libInfo = this.isAlbumInLibrary(item);
           const inLib = libInfo.inLibrary;
           const isMaster = !!item.masterId;
-          const safeItemJson = JSON.stringify(item).replace(/"/g, '&quot;');
           const isChecked = this.selectedSearchAlbumIds.has(String(item.id));
           const earliestYear = this.getAlbumEarliestYear(item);
           const trackCount = this.getAlbumTrackCount(item);
@@ -3594,13 +3602,13 @@ const App = {
                 <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                   <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
                 </label>
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:38px; height:38px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${item.id}')" style="width:38px; height:38px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || ''}" style="width:38px; height:38px; border-radius:4px; object-fit:cover; background:#222; flex-shrink:0;">
                 </div>
                 <div class="search-meta" style="min-width:0;">
                   <div class="search-artist" style="font-size:11.5px; color:#cbd5e1; font-weight:600;">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                   <div class="search-title" style="font-size:12.5px; font-weight:700;">
-                    <a href="javascript:void(0)" class="dual-album-link" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="color:#ffffff; text-decoration:none;">${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span></a>
+                    <a href="javascript:void(0)" class="dual-album-link" onclick="App.openAlbumTracklistModal('${item.id}')" style="color:#ffffff; text-decoration:none;">${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span></a>
                   </div>
                   <div class="search-tags" style="font-size:10.5px; color:#94a3b8;">
                     <span id="searchYear-${item.id}" style="${earliestYear ? '' : 'display:none;'} color:#cbd5e1;">Год: ${this.escapeHtml(earliestYear)} • </span>
@@ -3745,6 +3753,10 @@ const App = {
 
       if (isSpotify) {
         // SPOTIFY TRACK SEARCH RESULTS (Shows song, its parent album, and one-click transfer to Discogs vinyl search)
+        results.forEach(item => {
+          this.searchItemsMap.set(String(item.id), item);
+          this.searchItemsMap.set('sp-' + String(item.id), item);
+        });
         resultsContainer.innerHTML = artistBannerHtml + results.map(item => {
           const coverImg = item.coverImage;
           const playBtn = item.previewUrl
@@ -3755,7 +3767,6 @@ const App = {
           const tableName = libInfo.table ? libInfo.table.name : 'песен';
           const isNowPlaying = this.isAudioPlayingForAlbum(item);
           const link = item.spotifyUrl || item.externalUrl || (item.id ? `https://open.spotify.com/track/${item.id}` : null);
-          const safeItemJson = JSON.stringify(item).replace(/"/g, '&quot;');
           const transferArtist = (item.artist || '').replace(/'/g, "\\'");
           const transferAlbum = (item.album || item.title || '').replace(/'/g, "\\'");
 
@@ -3765,7 +3776,7 @@ const App = {
                  data-artist="${this.escapeHtml(item.artist || '')}"
                  data-album="${this.escapeHtml(item.album || item.title || '')}"
                  data-item-id="${this.escapeHtml(item.id)}"
-                 onmouseenter="App.prefetchAlbumTracklist(${safeItemJson})">
+                 onmouseenter="App.prefetchAlbumTracklist('sp-${item.id}')">
               <div class="sp-card-main">
                 <div class="sp-album-cover-wrap" onclick="App.transferSpotifyAlbumToSearch('${transferArtist}', '${transferAlbum}')" title="Нажмите, чтобы искать винилы альбома «${this.escapeHtml(item.album || item.title)}» на Discogs">
                   <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'64\' height=\'64\' fill=\'%231ed760\'><rect width=\'64\' height=\'64\'/></svg>'}" class="sp-album-cover" alt="Track Cover" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'64\' height=\'64\' fill=\'%231ed760\'><rect width=\'64\' height=\'64\'/></svg>'">
@@ -3792,7 +3803,7 @@ const App = {
                 <button type="button" class="sp-btn sp-btn-transfer" onclick="App.transferSpotifyAlbumToSearch('${transferArtist}', '${transferAlbum}')" title="Искать винилы альбома «${this.escapeHtml(item.album || item.title)}» на Discogs">
                   💽 Найти винилы ↗
                 </button>
-                <button type="button" class="sp-btn sp-btn-tracklist" onclick="App.openAlbumTracklistModal('sp-${item.id}', ${safeItemJson})" title="Посмотреть треклист альбома">
+                <button type="button" class="sp-btn sp-btn-tracklist" onclick="App.openAlbumTracklistModal('sp-${item.id}')" title="Посмотреть треклист альбома">
                   🎵 Треклист
                 </button>
                 <button class="sp-btn ${alreadyAdded ? 'sp-btn-added' : 'sp-btn-add'}" id="modalBtnAddTrack-${item.id}" onclick="App.addSpotifyTrackFromData('${this.escapeHtml(item.id)}')" ${alreadyAdded ? 'disabled' : ''}>
@@ -3805,9 +3816,9 @@ const App = {
 
       } else if (this.appMode === 'albums') {
         // ALBUMS SEARCH RESULTS (each album once, sorted by library then editions count)
+        results.forEach(item => this.searchItemsMap.set(String(item.id), item));
         resultsContainer.innerHTML = artistBannerHtml + results.map(item => {
           const coverImg = item.thumb || item.coverImage;
-          const safeItemJson = JSON.stringify(item).replace(/"/g, '&quot;');
           const libInfo = this.isAlbumInLibrary(item);
           const inLib = libInfo.inLibrary;
           const tableName = libInfo.table ? libInfo.table.name : 'альбомов';
@@ -3827,18 +3838,18 @@ const App = {
                  data-artist="${this.escapeHtml(item.artist || item.rawTitle || '')}"
                  data-album="${this.escapeHtml(item.title || '')}"
                  data-item-id="${this.escapeHtml(item.id)}"
-                 onmouseenter="App.prefetchAlbumTracklist(${safeItemJson})">
+                 onmouseenter="App.prefetchAlbumTracklist('${item.id}')">
               <div class="search-result-left">
                 <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                   <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
                 </label>
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${item.id}')" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Album">
                 </div>
                 <div class="search-meta">
                   <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                   <div class="search-title">
-                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Нажмите, чтобы открыть треклист и слушать">
+                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal('${item.id}')" title="Нажмите, чтобы открыть треклист и слушать">
                       ${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span>
                     </a>
                   </div>
@@ -3854,7 +3865,7 @@ const App = {
                 <button type="button" class="btn-search-versions-toggle" onclick="event.stopPropagation(); App.toggleSearchVersionsDrawer('${item.id}', '${item.masterId || ''}')" title="Посмотреть список вариантов прессов прямо здесь">
                   💽 Издания ▾
                 </button>
-                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Посмотреть список песен и прослушать">
+                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal('${item.id}')" title="Посмотреть список песен и прослушать">
                   🎵 Треклист ▶
                 </button>
                 <button class="btn btn-sm ${inLib ? 'btn-secondary sp-btn-added' : 'btn-primary'}" id="modalBtnAddAlbum-${item.id}" onclick="App.addAlbumFromModal(${item.id})" ${inLib ? 'disabled' : ''}>
@@ -3906,9 +3917,9 @@ const App = {
 
       } else {
         // RELEASES SEARCH RESULTS
+        results.forEach(item => this.searchItemsMap.set(String(item.id), item));
         resultsContainer.innerHTML = artistBannerHtml + results.map(item => {
           const coverImg = item.thumb || item.coverImage;
-          const safeItemJson = JSON.stringify(item).replace(/"/g, '&quot;');
           const libInfo = this.isAlbumInLibrary(item);
           const inLib = libInfo.inLibrary;
           const tableName = libInfo.table ? libInfo.table.name : 'релизов';
@@ -3923,18 +3934,18 @@ const App = {
                  data-artist="${this.escapeHtml(item.artist || item.rawTitle || '')}"
                  data-album="${this.escapeHtml(item.title || '')}"
                  data-item-id="${this.escapeHtml(item.id)}"
-                 onmouseenter="App.prefetchAlbumTracklist(${safeItemJson})">
+                 onmouseenter="App.prefetchAlbumTracklist('${item.id}')">
               <div class="search-result-left">
                 <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                   <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
                 </label>
-                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+                <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${item.id}')" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                   <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Vinyl">
                 </div>
                 <div class="search-meta">
                   <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                   <div class="search-title">
-                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Нажмите, чтобы открыть треклист и слушать">
+                    <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal('${item.id}')" title="Нажмите, чтобы открыть треклист и слушать">
                       ${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span>
                     </a>
                   </div>
@@ -3949,7 +3960,7 @@ const App = {
                 </div>
               </div>
               <div class="search-result-right" style="display:flex; align-items:center; gap:8px;">
-                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Посмотреть список песен и прослушать">
+                <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal('${item.id}')" title="Посмотреть список песен и прослушать">
                   🎵 Треклист ▶
                 </button>
                 <div class="search-price-preview" id="price-preview-${item.id}">
@@ -4081,9 +4092,9 @@ const App = {
         </div>
       `;
 
+      results.forEach(item => this.searchItemsMap.set(String(item.id), item));
       const cardsHtml = results.map(item => {
         const coverImg = item.thumb || item.coverImage;
-        const safeItemJson = JSON.stringify(item).replace(/"/g, '&quot;');
         const libInfo = this.isAlbumInLibrary(item);
         const inLib = libInfo.inLibrary;
         const tableName = libInfo.table ? libInfo.table.name : 'альбомов';
@@ -4103,18 +4114,18 @@ const App = {
                data-artist="${this.escapeHtml(item.artist || item.rawTitle || '')}"
                data-album="${this.escapeHtml(item.title || '')}"
                data-item-id="${this.escapeHtml(item.id)}"
-               onmouseenter="App.prefetchAlbumTracklist(${safeItemJson})">
+               onmouseenter="App.prefetchAlbumTracklist('${item.id}')">
             <div class="search-result-left">
               <label class="search-item-checkbox-wrap" onclick="event.stopPropagation()" title="${inLib ? 'Уже в коллекции' : 'Выбрать для мультидобавления'}">
                 <input type="checkbox" class="search-item-checkbox" data-id="${item.id}" ${inLib ? 'disabled' : ''} ${isChecked ? 'checked' : ''} onchange="App.onSearchItemCheckboxChange('${item.id}', this.checked)">
               </label>
-              <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
+              <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${item.id}')" style="width:48px; height:48px; cursor:pointer; flex-shrink:0;" title="Нажмите, чтобы открыть треклист и слушать">
                 <img src="${coverImg || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\' fill=\'%23222\'><rect width=\'48\' height=\'48\'/></svg>'}" class="search-cover" alt="Album">
               </div>
               <div class="search-meta">
                 <div class="search-artist">${this.escapeHtml(item.artist || item.rawTitle)}</div>
                 <div class="search-title">
-                  <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Нажмите, чтобы открыть треклист и слушать">
+                  <a href="javascript:void(0)" class="search-clickable-album" onclick="App.openAlbumTracklistModal('${item.id}')" title="Нажмите, чтобы открыть треклист и слушать">
                     ${this.escapeHtml(item.title || '')}<span class="album-tracks-slash" id="titleTracksSlash-${item.id}" title="Песен в альбоме">${trackCount ? ` / ${trackCount}` : ''}</span>
                   </a>
                 </div>
@@ -4127,7 +4138,7 @@ const App = {
               </div>
             </div>
             <div class="search-result-right" style="display:flex; align-items:center; gap:8px;">
-              <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal(${item.id}, ${safeItemJson})" title="Посмотреть список песен и прослушать">
+              <button type="button" class="search-tracklist-btn" onclick="App.openAlbumTracklistModal('${item.id}')" title="Посмотреть список песен и прослушать">
                 🎵 Треклист ▶
               </button>
               <button class="btn btn-sm ${inLib ? 'btn-secondary sp-btn-added' : 'btn-primary'}" id="modalBtnAddAlbum-${item.id}" onclick="App.addAlbumFromModal(${item.id})" ${inLib ? 'disabled' : ''}>
@@ -4630,6 +4641,7 @@ const App = {
     this.currentAudioTrackTitle = title;
     this.currentAudioArtist = artist;
     this.currentAudioAlbumTitle = album;
+    this.currentAudioCoverUrl = coverUrl;
     this.currentAudioBtnId = btnElementOrId;
 
     const playerEl = document.getElementById('bottomAudioPlayer');
@@ -4642,7 +4654,11 @@ const App = {
     const currentTimeEl = document.getElementById('playerCurrentTime');
     const durationTimeEl = document.getElementById('playerDurationTime');
 
-    if (playerEl) playerEl.style.display = 'block';
+    if (this.experiments.turntableAsmr) {
+      if (playerEl) playerEl.style.display = 'none';
+    } else {
+      if (playerEl) playerEl.style.display = 'block';
+    }
     if (trackCoverEl) {
       trackCoverEl.src = coverUrl || '';
       trackCoverEl.style.display = coverUrl ? 'block' : 'none';
@@ -4952,7 +4968,12 @@ const App = {
     }
   },
 
-  prefetchAlbumTracklist(item) {
+  prefetchAlbumTracklist(itemOrId) {
+    let item = itemOrId;
+    if (typeof itemOrId === 'string' || typeof itemOrId === 'number') {
+      const sId = String(itemOrId);
+      item = (this.searchItemsMap && (this.searchItemsMap.get(sId) || this.searchItemsMap.get(sId.replace('sp-', '')))) || null;
+    }
     if (!item || (!item.id && !item.masterId && !item.discogsId && !item.spotifyId)) return;
     const cacheKey = item.masterId || item.discogsId || item.id;
     const nameKey = (item.artist && (item.album || item.title))
@@ -5032,7 +5053,21 @@ const App = {
     if (!data || !data.tracklist || data.tracklist.length === 0) {
       if (listEl) {
         listEl.style.display = 'block';
-        listEl.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-muted);">К сожалению, треклист для этого релиза не найден в базе Discogs.</div>';
+        const searchedQuery = [item.artist, item.album || item.title].filter(Boolean).join(' - ');
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:28px 16px; color:var(--text-muted);">
+            <div style="font-size:28px; margin-bottom:8px;">🎵</div>
+            <div style="font-size:14px; color:var(--text-primary); font-weight:600; margin-bottom:6px;">
+              Треклист автоматически не определился
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary); max-width:380px; margin:0 auto 14px auto;">
+              Вы можете запустить ручной поиск по исполнителю и названию альбома или ввести альтернативное название издания:
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="App.toggleTracklistManualSearch(true)" style="padding:6px 14px; font-size:12px;">
+              ⚙️ Найти вручную «${this.escapeHtml(searchedQuery || 'альбом')}»
+            </button>
+          </div>
+        `;
       }
       return;
     }
@@ -5065,11 +5100,12 @@ const App = {
 
     const artistName = data.artist || item.artist || '';
 
-    const isSpotifyFallback = Boolean(data.discogsNotFound || data.source === 'Spotify');
-    const fallbackBanner = isSpotifyFallback ? `
-      <div class="spotify-fallback-notice" style="background:rgba(30, 215, 96, 0.12); border:1px solid rgba(30, 215, 96, 0.35); border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:11.5px; color:#a7f3d0; display:flex; align-items:center; gap:8px;">
-        <span style="font-size:14px;">🟢</span>
-        <span>${this.escapeHtml(data.message || 'Треклист на Discogs отсутствовал — автоматически загружен оригинальный треклист из Spotify')}</span>
+    const isFallback = Boolean(data.source && data.source !== 'Discogs');
+    const sourceLabel = data.source || (data.discogsNotFound ? 'Spotify' : 'Discogs');
+    const fallbackBanner = isFallback ? `
+      <div class="spotify-fallback-notice" style="background:rgba(56, 189, 248, 0.12); border:1px solid rgba(56, 189, 248, 0.35); border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:11.5px; color:#bae6fd; display:flex; align-items:center; gap:8px;">
+        <span style="font-size:14px;">ℹ️</span>
+        <span>${this.escapeHtml(data.message || `Оригинальный треклист альбома успешно загружен из базы ${sourceLabel}`)}</span>
       </div>
     ` : '';
 
@@ -5099,10 +5135,156 @@ const App = {
       }).join('');
       listEl.style.display = 'block';
     }
+
+    // Re-apply any existing active filter
+    const filterInput = document.getElementById('tracklistFilterInput');
+    if (filterInput && filterInput.value) {
+      this.filterAlbumTracklist(filterInput.value);
+    }
+  },
+
+  filterAlbumTracklist(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#tracklistModalList .tracklist-item-row');
+    const clearBtn = document.getElementById('tracklistFilterClearBtn');
+    if (clearBtn) {
+      clearBtn.style.display = q ? 'inline-block' : 'none';
+    }
+    let visibleCount = 0;
+    rows.forEach(row => {
+      if (!q) {
+        row.style.display = 'flex';
+        visibleCount++;
+        return;
+      }
+      const titleEl = row.querySelector('.tracklist-title-text');
+      const artistEl = row.querySelector('.album-track-artist');
+      const posEl = row.querySelector('.tracklist-pos-badge');
+      const text = `${titleEl ? titleEl.textContent : ''} ${artistEl ? artistEl.textContent : ''} ${posEl ? posEl.textContent : ''}`.toLowerCase();
+      const match = text.includes(q);
+      row.style.display = match ? 'flex' : 'none';
+      if (match) visibleCount++;
+    });
+
+    let noResultsEl = document.getElementById('tracklistFilterNoResults');
+    if (visibleCount === 0 && q) {
+      if (!noResultsEl) {
+        noResultsEl = document.createElement('div');
+        noResultsEl.id = 'tracklistFilterNoResults';
+        noResultsEl.style.cssText = 'text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;';
+        noResultsEl.innerHTML = `Песня не найдена по запросу «<b>${this.escapeHtml(q)}</b>».<br><a href="javascript:void(0)" onclick="App.toggleTracklistManualSearch(true)" style="color:var(--accent-theme); font-weight:600; text-decoration:underline; display:inline-block; margin-top:8px;">Попробовать найти вручную другую версию альбома ⚙️</a>`;
+        const listEl = document.getElementById('tracklistModalList');
+        if (listEl) listEl.appendChild(noResultsEl);
+      } else {
+        noResultsEl.style.display = 'block';
+        noResultsEl.innerHTML = `Песня не найдена по запросу «<b>${this.escapeHtml(q)}</b>».<br><a href="javascript:void(0)" onclick="App.toggleTracklistManualSearch(true)" style="color:var(--accent-theme); font-weight:600; text-decoration:underline; display:inline-block; margin-top:8px;">Попробовать найти вручную другую версию альбома ⚙️</a>`;
+      }
+    } else if (noResultsEl) {
+      noResultsEl.style.display = 'none';
+    }
+  },
+
+  clearTracklistFilter() {
+    const input = document.getElementById('tracklistFilterInput');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('tracklistFilterClearBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    const noResultsEl = document.getElementById('tracklistFilterNoResults');
+    if (noResultsEl) noResultsEl.style.display = 'none';
+    const rows = document.querySelectorAll('#tracklistModalList .tracklist-item-row');
+    rows.forEach(row => row.style.display = 'flex');
+  },
+
+  toggleTracklistManualSearch(forceOpen = false) {
+    const panel = document.getElementById('tracklistManualSearchPanel');
+    if (!panel) return;
+    if (forceOpen) {
+      panel.style.display = 'flex';
+    } else {
+      panel.style.display = panel.style.display === 'none' || !panel.style.display ? 'flex' : 'none';
+    }
+    if (panel.style.display === 'flex') {
+      const input = document.getElementById('tracklistCustomQueryInput');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }
+  },
+
+  async searchCustomTracklist() {
+    const input = document.getElementById('tracklistCustomQueryInput');
+    if (!input) return;
+    const query = (input.value || '').trim();
+    if (!query) {
+      this.showToastNotification('Введите название альбома или исполнителя');
+      return;
+    }
+
+    const loadingEl = document.getElementById('tracklistModalLoading');
+    const listEl = document.getElementById('tracklistModalList');
+    if (loadingEl) {
+      loadingEl.style.display = 'block';
+      loadingEl.textContent = `⏳ Поиск треков для «${query}» во всех базах...`;
+    }
+    if (listEl) listEl.style.display = 'none';
+
+    let artist = '';
+    let album = query;
+    if (query.includes(' - ')) {
+      const parts = query.split(' - ');
+      artist = parts[0].trim();
+      album = parts.slice(1).join(' - ').trim();
+    } else if (this.currentModalAlbumItem && this.currentModalAlbumItem.artist) {
+      artist = this.currentModalAlbumItem.artist;
+    }
+
+    try {
+      const url = `/api/discogs/tracklist?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      const data = res.ok ? await res.json() : null;
+
+      if (data && data.tracklist && data.tracklist.length > 0) {
+        this.saveTracklistToCache(query.toLowerCase(), data);
+        if (artist && album) {
+          this.saveTracklistToCache(`${artist.toLowerCase()}:::${album.toLowerCase()}`, data);
+        }
+        this.renderTracklistData(data, this.currentModalAlbumItem || { artist, album });
+        this.showToastNotification(`✅ Найдено треков: ${data.tracklist.length} (${data.source || 'База'})`);
+      } else {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (listEl) {
+          listEl.style.display = 'block';
+          listEl.innerHTML = `
+            <div style="text-align:center; padding:28px 16px; color:var(--text-muted);">
+              <div style="font-size:28px; margin-bottom:8px;">🔍</div>
+              <div style="font-size:14px; color:var(--text-primary); font-weight:600; margin-bottom:6px;">
+                Треклист по запросу «${this.escapeHtml(query)}» не найден
+              </div>
+              <div style="font-size:12px; color:var(--text-secondary); max-width:380px; margin:0 auto 14px auto;">
+                Попробуйте указать только имя исполнителя и главное название альбома без переизданий или скобок (напр. «Queen - News of the World»).
+              </div>
+            </div>
+          `;
+        }
+      }
+    } catch (err) {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (listEl) {
+        listEl.style.display = 'block';
+        listEl.innerHTML = `<div style="text-align:center; padding:24px; color:#f87171;">Ошибка поиска треклиста: ${this.escapeHtml(err.message)}</div>`;
+      }
+    }
   },
 
   async openAlbumTracklistModal(itemId, fallbackObj = null) {
     let item = (fallbackObj && typeof fallbackObj === 'object') ? fallbackObj : null;
+    if (!item && this.searchItemsMap) {
+      item = this.searchItemsMap.get(String(itemId)) || null;
+      if (!item && String(itemId).startsWith('sp-')) {
+        item = this.searchItemsMap.get(String(itemId).replace('sp-', '')) || null;
+      }
+    }
     if (!item) {
       const found = this.findTableAndItem(itemId, this.appMode, true);
       if (found) item = found.item;
@@ -5118,10 +5300,44 @@ const App = {
     if (!item && (typeof itemId === 'number' || /^\d+$/.test(String(itemId)))) {
       item = { id: itemId, artist: '', title: '' };
     }
-    if (!item) return;
+    if (!item) {
+      item = { id: itemId, artist: '', title: String(itemId) };
+    }
+
+    // Split "Artist - Album" if artist is empty but title or album has " - "
+    if (!item.artist && (item.title || item.album)) {
+      const raw = item.title || item.album || '';
+      if (raw.includes(' - ')) {
+        const parts = raw.split(' - ');
+        item.artist = parts[0].trim();
+        item.album = parts.slice(1).join(' - ').trim();
+      }
+    }
+
+    this.currentModalAlbumItem = item;
 
     const modal = document.getElementById('albumTracklistModal');
     if (!modal) return;
+
+    // Reset filter and manual search bar
+    this.clearTracklistFilter();
+    const manualPanel = document.getElementById('tracklistManualSearchPanel');
+    if (manualPanel) manualPanel.style.display = 'none';
+
+    const customQueryInput = document.getElementById('tracklistCustomQueryInput');
+    if (customQueryInput) {
+      const defaultQuery = [item.artist, item.album || item.title].filter(Boolean).join(' - ');
+      customQueryInput.value = defaultQuery;
+      if (!customQueryInput._hasEnterListener) {
+        customQueryInput._hasEnterListener = true;
+        customQueryInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            this.searchCustomTracklist();
+          }
+        });
+      }
+    }
 
     const modalCover = document.getElementById('tracklistModalCover');
     const largeCover = document.getElementById('tracklistModalLargeCover');
@@ -5233,19 +5449,23 @@ const App = {
       const rawSpId = item.spotifyId || (strId.startsWith('sp-') ? strId.replace('sp-', '') : '');
       const reqs = [];
 
-      // Concurrent fetch: 1. Discogs tracklist (server falls back to Spotify/Deezer automatically)
-      if (queryId || (item.artist && (item.album || item.title))) {
+      const qArtist = item.artist || '';
+      const qAlbum = item.album || item.title || '';
+      const qFull = [qArtist, qAlbum].filter(Boolean).join(' - ');
+
+      // Concurrent fetch: 1. Discogs tracklist (server falls back to Spotify/Deezer/iTunes automatically)
+      if (queryId || (qArtist && qAlbum) || qFull) {
         reqs.push(
-          fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`)
+          fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}&q=${encodeURIComponent(qFull)}`)
             .then(r => r.ok ? r.json() : null)
             .catch(() => null)
         );
       }
 
       // Concurrent fetch: 2. Spotify album tracks directly
-      if (rawSpId || (item.artist && (item.album || item.title))) {
+      if (rawSpId || (qArtist && qAlbum)) {
         reqs.push(
-          fetch(`/api/spotify/album/tracks?id=${encodeURIComponent(rawSpId || '')}&artist=${encodeURIComponent(item.artist || '')}&album=${encodeURIComponent(item.album || item.title || '')}`)
+          fetch(`/api/spotify/album/tracks?id=${encodeURIComponent(rawSpId || '')}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}`)
             .then(r => r.ok ? r.json() : null)
             .catch(() => null)
         );
@@ -5515,6 +5735,7 @@ const App = {
   closeAlbumTracklistModal() {
     this.clearTrackVideo();
     this.setCoverPulsing(false);
+    this.clearTracklistFilter();
     const modal = document.getElementById('albumTracklistModal');
     if (modal) {
       modal.classList.remove('open');
@@ -7029,6 +7250,25 @@ const App = {
       this.updateValuationStats();
     }
 
+    // 5. Hi-Fi Turntable ASMR / Smart Vinyl Player
+    document.body.classList.toggle('turntable-asmr-active', Boolean(this.experiments.turntableAsmr));
+    const bottomPlayerEl = document.getElementById('bottomAudioPlayer');
+    if (this.experiments.turntableAsmr) {
+      if (bottomPlayerEl) bottomPlayerEl.style.display = 'none';
+      if (this.playingAudio && !this.playingAudio.paused) {
+        this.openTurntableWidget({
+          title: this.currentAudioTrackTitle || 'Аудио-трек',
+          artist: this.currentAudioArtist || '',
+          coverUrl: this.currentAudioCoverUrl || ''
+        });
+      }
+    } else {
+      this.closeTurntableWidget();
+      if (this.playingAudio && !this.playingAudio.paused) {
+        if (bottomPlayerEl) bottomPlayerEl.style.display = 'block';
+      }
+    }
+
     this.renderTable();
   },
 
@@ -7407,6 +7647,11 @@ const App = {
     widget.style.display = 'flex';
     this.turntableState.isOpen = true;
 
+    const playerEl = document.getElementById('bottomAudioPlayer');
+    if (playerEl) {
+      playerEl.style.display = 'none';
+    }
+
     if (trackInfo) {
       this.loadTurntableTrack(trackInfo);
     }
@@ -7642,6 +7887,113 @@ const App = {
     };
 
     tonearm.addEventListener('pointerdown', onPointerDown);
+  },
+
+  initTurntableWidgetDragging() {
+    const widget = document.getElementById('vinylTurntableWidget');
+    const header = document.getElementById('ttHeader') || (widget && widget.querySelector('.tt-header'));
+    if (!widget || !header) return;
+
+    // Restore saved coordinates if valid
+    const restorePosition = () => {
+      try {
+        const saved = localStorage.getItem('turntable_widget_pos');
+        if (saved) {
+          const pos = JSON.parse(saved);
+          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
+            const pad = 10;
+            const maxLeft = Math.max(pad, window.innerWidth - (widget.offsetWidth || 360) - pad);
+            const maxTop = Math.max(pad, window.innerHeight - (widget.offsetHeight || 380) - pad);
+            const left = Math.max(pad, Math.min(maxLeft, pos.left));
+            const top = Math.max(pad, Math.min(maxTop, pos.top));
+            widget.style.left = `${left}px`;
+            widget.style.top = `${top}px`;
+            widget.style.right = 'auto';
+            widget.style.bottom = 'auto';
+          }
+        }
+      } catch (e) {}
+    };
+
+    restorePosition();
+
+    // Adjust position on viewport resize so widget never stays outside screen
+    window.addEventListener('resize', () => {
+      if (widget.style.left && widget.style.left !== 'auto') {
+        const pad = 10;
+        const curLeft = parseInt(widget.style.left, 10) || 0;
+        const curTop = parseInt(widget.style.top, 10) || 0;
+        const maxLeft = Math.max(pad, window.innerWidth - (widget.offsetWidth || 360) - pad);
+        const maxTop = Math.max(pad, window.innerHeight - (widget.offsetHeight || 380) - pad);
+        widget.style.left = `${Math.max(pad, Math.min(maxLeft, curLeft))}px`;
+        widget.style.top = `${Math.max(pad, Math.min(maxTop, curTop))}px`;
+      }
+    });
+
+    let isPointerDown = false;
+    let shiftX = 0;
+    let shiftY = 0;
+
+    const onPointerDown = (e) => {
+      // Ignore clicks on header buttons or links (close, pack, etc.)
+      if (e.target.closest('button, input, a, .tt-btn-icon')) {
+        return;
+      }
+      e.preventDefault();
+      isPointerDown = true;
+      widget.classList.add('is-dragging');
+
+      const rect = widget.getBoundingClientRect();
+      shiftX = e.clientX - rect.left;
+      shiftY = e.clientY - rect.top;
+
+      window.addEventListener('pointermove', onPointerMove, { passive: false });
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    };
+
+    const onPointerMove = (e) => {
+      if (!isPointerDown) return;
+      e.preventDefault();
+
+      const pad = 8;
+      const widgetWidth = widget.offsetWidth || 360;
+      const widgetHeight = widget.offsetHeight || 380;
+      const maxLeft = Math.max(pad, window.innerWidth - widgetWidth - pad);
+      const maxTop = Math.max(pad, window.innerHeight - widgetHeight - pad);
+
+      let newLeft = e.clientX - shiftX;
+      let newTop = e.clientY - shiftY;
+
+      newLeft = Math.max(pad, Math.min(maxLeft, newLeft));
+      newTop = Math.max(pad, Math.min(maxTop, newTop));
+
+      widget.style.left = `${newLeft}px`;
+      widget.style.top = `${newTop}px`;
+      widget.style.right = 'auto';
+      widget.style.bottom = 'auto';
+    };
+
+    const onPointerUp = () => {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      widget.classList.remove('is-dragging');
+
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+
+      // Save position to localStorage
+      try {
+        const left = parseInt(widget.style.left, 10);
+        const top = parseInt(widget.style.top, 10);
+        if (!isNaN(left) && !isNaN(top)) {
+          localStorage.setItem('turntable_widget_pos', JSON.stringify({ left, top }));
+        }
+      } catch (e) {}
+    };
+
+    header.addEventListener('pointerdown', onPointerDown);
   },
 
   onTurntableDiscClick(event) {
