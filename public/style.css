@@ -777,7 +777,73 @@ body.mode-spotify .versions-table td {
   white-space: nowrap;
 }
 
-/* Interactive Editions Badge (Album Mode) */
+/* Interactive Editions Count Badge (Number in its own column) */
+.cell-versions-count {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.editions-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.22) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  padding: 4px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.editions-count-badge:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.28) 0%, rgba(14, 165, 233, 0.48) 100%);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1.5px) scale(1.05);
+}
+
+.editions-count-badge:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.editions-count-icon {
+  font-size: 13px;
+  display: inline-block;
+  line-height: 1;
+  transition: transform 0.3s ease;
+}
+
+.editions-count-badge:hover .editions-count-icon {
+  transform: rotate(45deg);
+}
+
+.editions-count-num {
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+.editions-count-badge.is-zero {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.editions-count-badge.is-zero:hover {
+  background: rgba(148, 163, 184, 0.15);
+  border-color: #94a3b8;
+  box-shadow: none;
+}
+
 .editions-badge-btn {
   display: inline-flex;
   align-items: center;
@@ -5400,288 +5466,75 @@ body.has-left-dock .bottom-audio-player {
 }
 
 /* ====================================================
-   FLOATING GLOBE BUTTON & VINYL PRESSING WORLD MAP (Experiment 7)
+   LUXURY VIEW SLIDER SWITCH (Таблица vs Шкаф винила)
    ==================================================== */
-.floating-globe-btn {
-  position: fixed;
-  left: 24px;
-  bottom: 24px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #0284c7, #0f172a);
-  border: 2px solid rgba(56, 189, 248, 0.6);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.75), 0 0 16px rgba(56, 189, 248, 0.35);
-  display: flex;
+.view-slider-wrapper {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 85;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-body.has-left-dock .floating-globe-btn {
-  left: 235px;
-}
-.floating-globe-btn:hover {
-  transform: scale(1.1) translateY(-3px);
-  border-color: #38bdf8;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.85), 0 0 24px rgba(56, 189, 248, 0.65);
-}
-.floating-globe-btn .globe-icon {
-  font-size: 26px;
-  display: inline-block;
-  transition: transform 0.3s ease;
-}
-.floating-globe-btn:hover .globe-icon {
-  transform: rotate(20deg) scale(1.1);
-}
-.floating-globe-btn .globe-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: #f59e0b;
-  color: #000000;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 10px;
-  border: 2px solid #0f172a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
-.world-map-modal-dialog {
-  max-width: 1080px;
-  width: 95%;
-  height: 86vh;
-  background: #090e17;
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  border-radius: 18px;
-  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.9), 0 0 32px rgba(56, 189, 248, 0.25);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+.view-slider-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  padding: 3px;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.2);
+  user-select: none;
 }
 
-.world-map-stats-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 20px;
-  background: rgba(15, 23, 42, 0.6);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 12px;
+.view-slider-opt {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  border: none;
   color: #94a3b8;
-  flex-wrap: wrap;
-}
-.world-map-stat-item {
-  display: flex;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 24px;
+  cursor: pointer;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.world-map-stat-item strong {
-  color: #38bdf8;
-  font-weight: 700;
+  transition: color 0.25s ease;
+  white-space: nowrap;
 }
 
-.world-map-content-split {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
-}
-@media (max-width: 768px) {
-  .world-map-content-split {
-    flex-direction: column;
-  }
+.view-slider-opt.active {
+  color: #ffffff;
 }
 
-.world-map-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  background: #050a14;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 12px;
-}
-.world-map-svg {
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
-  display: block;
-}
-.map-land {
-  transition: all 0.2s ease;
+.view-slider-opt:hover {
+  color: #f1f5f9;
 }
 
-.world-map-pins-layer {
+.view-slider-thumb {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  top: 3px;
+  left: 3px;
+  height: calc(100% - 6px);
+  width: calc(50% - 3px);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, rgba(14, 165, 233, 0.55) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  border-radius: 24px;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  z-index: 1;
   pointer-events: none;
 }
 
-.world-map-pin {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(15, 23, 42, 0.92);
-  border: 1.5px solid #38bdf8;
-  color: #ffffff;
-  padding: 3px 8px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), 0 0 12px rgba(56, 189, 248, 0.4);
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  white-space: nowrap;
-  user-select: none;
-  pointer-events: auto;
-  z-index: 10;
-}
-.world-map-pin:hover, .world-map-pin.active {
-  transform: translate(-50%, -50%) scale(1.18);
-  background: #0284c7;
-  border-color: #facc15;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.9), 0 0 20px rgba(250, 204, 21, 0.6);
-  z-index: 20;
-}
-.world-map-pin .pin-flag {
-  font-size: 13px;
-}
-.world-map-pin .pin-count {
-  background: #38bdf8;
-  color: #090e17;
-  padding: 1px 5px;
-  border-radius: 10px;
-  font-size: 10px;
-  font-weight: 900;
-}
-.world-map-pin:hover .pin-count, .world-map-pin.active .pin-count {
-  background: #facc15;
-}
-
-.world-map-details-panel {
-  width: 320px;
-  background: rgba(13, 20, 33, 0.96);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-@media (max-width: 768px) {
-  .world-map-details-panel {
-    width: 100%;
-    height: 40%;
-    border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-  }
-}
-.map-details-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 30px 20px;
-  text-align: center;
-}
-.map-details-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.map-details-header {
-  padding: 14px 16px;
-  background: rgba(0, 0, 0, 0.35);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-.map-details-flag {
-  font-size: 24px;
-}
-.map-details-country-name {
-  font-size: 14px;
-  font-weight: 800;
-  color: #ffffff;
-}
-.map-details-count {
-  font-size: 11px;
-  color: #38bdf8;
-  font-weight: 600;
-}
-.map-details-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.map-record-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  padding: 8px 10px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-.map-record-item:hover {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.4);
-  transform: translateX(3px);
-}
-.map-record-cover {
-  width: 42px;
-  height: 42px;
-  border-radius: 6px;
-  object-fit: cover;
-  background: #1e293b;
-  flex-shrink: 0;
-}
-.map-record-meta {
-  flex: 1;
-  min-width: 0;
-}
-.map-record-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.map-record-artist {
-  font-size: 11px;
-  color: #cbd5e1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.map-record-sub {
-  font-size: 10px;
-  color: #94a3b8;
-  margin-top: 2px;
+.view-slider-pill.cabinet-active .view-slider-thumb {
+  transform: translateX(100%);
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.35) 0%, rgba(180, 83, 9, 0.65) 100%);
+  border-color: rgba(245, 158, 11, 0.8);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 /* ====================================================
-   3D WEBGL TURNTABLE CANVAS (THREE.JS)
+   MECHANICAL 2D VINYL TURNTABLE STAGE
    ==================================================== */
 .vinyl-turntable-widget {
   width: 440px !important;
@@ -5694,21 +5547,9 @@ body.has-left-dock .floating-globe-btn {
   overflow: hidden !important;
 }
 
-.tt-3d-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 5;
-  display: block;
-  pointer-events: auto;
-}
-
-/* When 3D canvas is present, hide the 2D elements cleanly */
 .tt-stage #ttAlbumJacket,
 .tt-stage #ttDeck {
-  display: none !important;
+  display: block !important;
 }
 
 /* ====================================================
@@ -5920,12 +5761,15 @@ body.has-left-dock .floating-globe-btn {
 }
 
 .cabinet-shelf-records-row {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-  padding: 10px 0 16px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 16px 20px 22px;
   z-index: 2;
-  align-items: end;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 /* Vinyl Records Leaning at Real Angles on Wooden Ledges */
@@ -5934,35 +5778,37 @@ body.has-left-dock .floating-globe-btn {
   flex-direction: column;
   align-items: center;
   cursor: pointer;
-  perspective: 700px;
-  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.cabinet-vinyl-slot:hover {
-  transform: translateY(-8px) scale(1.05);
-  z-index: 10;
+  perspective: 800px;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), z-index 0.2s ease;
 }
 
 .cabinet-record-sleeve {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 148px;
+  height: 148px;
   border-radius: 4px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.75);
-  transform-origin: bottom center;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: -4px 10px 22px rgba(0, 0, 0, 0.8), inset 0 0 1px rgba(255, 255, 255, 0.2);
+  transform-origin: bottom left;
+  transform: rotateZ(-4.5deg) skewY(-1deg);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
 }
 
-/* Alternate organic leaning angles for authentic collection look */
-.cabinet-vinyl-slot:nth-child(1) .cabinet-record-sleeve { transform: rotate(-3.5deg); }
-.cabinet-vinyl-slot:nth-child(2) .cabinet-record-sleeve { transform: rotate(2deg); }
-.cabinet-vinyl-slot:nth-child(3) .cabinet-record-sleeve { transform: rotate(-1.5deg); }
-.cabinet-vinyl-slot:nth-child(4) .cabinet-record-sleeve { transform: rotate(4deg); }
-.cabinet-vinyl-slot:nth-child(5) .cabinet-record-sleeve { transform: rotate(-2.5deg); }
-.cabinet-vinyl-slot:nth-child(6) .cabinet-record-sleeve { transform: rotate(1.5deg); }
+.cabinet-vinyl-slot:nth-child(even) .cabinet-record-sleeve {
+  transform: rotateZ(-5.5deg) skewY(-1.2deg);
+}
+
+.cabinet-vinyl-slot:nth-child(3n) .cabinet-record-sleeve {
+  transform: rotateZ(-4deg) skewY(-0.8deg);
+}
+
+.cabinet-vinyl-slot:hover {
+  z-index: 30;
+}
 
 .cabinet-vinyl-slot:hover .cabinet-record-sleeve {
-  transform: rotate(0deg) scale(1.04) !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.9), 0 0 16px rgba(56, 189, 248, 0.4);
+  transform: rotateZ(0deg) translateY(-14px) scale(1.08) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(56, 189, 248, 0.45);
 }
 
 .cabinet-cover-img {

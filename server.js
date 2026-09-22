@@ -1559,11 +1559,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Cover Artwork Cascade Lookup (Spotify -> Deezer -> iTunes 1000x1000 -> Discogs)
-  if (pathname === '/api/cover-lookup' && req.method === 'GET') {
+  // Cover Artwork Cascade Lookup & Direct Image Endpoint
+  if ((pathname === '/api/cover-lookup' || pathname === '/api/cover-image') && (req.method === 'GET' || req.method === 'HEAD')) {
     const artist = (query.artist || '').trim();
     const album = (query.album || query.title || '').trim();
+    const isImageDirect = pathname === '/api/cover-image' || query.redirect === '1' || query.redirect === 'true';
+
     if (!artist && !album) {
+      if (isImageDirect) {
+        res.writeHead(302, { 'Location': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" fill="%231a2233"><rect width="140" height="140"/></svg>' });
+        res.end();
+        return;
+      }
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'artist or album parameter required' }));
       return;
@@ -1572,9 +1579,17 @@ const server = http.createServer(async (req, res) => {
     const cacheKey = `cover_lookup:${artist.toLowerCase()}:${album.toLowerCase()}`;
     const cached = getCached(cacheKey);
     if (cached) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(cached));
-      return;
+      if (isImageDirect) {
+        if (cached.coverUrl) {
+          res.writeHead(302, { 'Location': cached.coverUrl, 'Cache-Control': 'public, max-age=604800' });
+          res.end();
+          return;
+        }
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(cached));
+        return;
+      }
     }
 
     (async () => {
@@ -1634,6 +1649,18 @@ const server = http.createServer(async (req, res) => {
       if (foundCover) {
         setCached(cacheKey, result, 7 * 24 * 60 * 60 * 1000);
       }
+
+      if (isImageDirect) {
+        if (foundCover) {
+          res.writeHead(302, { 'Location': foundCover, 'Cache-Control': 'public, max-age=604800' });
+          res.end();
+          return;
+        }
+        res.writeHead(302, { 'Location': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" fill="%231a2233"><rect width="140" height="140"/></svg>' });
+        res.end();
+        return;
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     })();

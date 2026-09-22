@@ -211,14 +211,17 @@
       </div>
 
       <div class="action-buttons">
-        <!-- View Layout Toggle: Table vs Vinyl Cabinet Shelves -->
-        <div class="view-layout-toggle" title="Переключить вид: классическая таблица или деревянный шкаф винила">
-          <button type="button" class="view-layout-btn active" id="btnViewTable" onclick="App.setViewLayout('table')">
-            📋 Таблица
-          </button>
-          <button type="button" class="view-layout-btn" id="btnViewCabinet" onclick="App.setViewLayout('cabinet')">
-            🗄️ Шкаф винила
-          </button>
+        <!-- Luxury View Slider: Table vs Vinyl Cabinet Shelves (Ползунок-переключатель) -->
+        <div class="view-slider-wrapper" title="Переключить вид: классическая таблица или деревянный шкаф винила">
+          <div class="view-slider-pill" id="viewSliderPill">
+            <button type="button" class="view-slider-opt active" id="btnOptTable" onclick="App.setViewLayout('table')">
+              <span class="slider-icon">📋</span> <span class="slider-label">Таблица</span>
+            </button>
+            <button type="button" class="view-slider-opt" id="btnOptCabinet" onclick="App.setViewLayout('cabinet')">
+              <span class="slider-icon">🪵</span> <span class="slider-label">Шкаф винила</span>
+            </button>
+            <div class="view-slider-thumb" id="viewSliderThumb"></div>
+          </div>
         </div>
 
         <!-- Global Discovery Video Reels Button -->
@@ -1513,15 +1516,13 @@
       </div>
       <div class="tt-header-actions">
         <button type="button" class="tt-btn-icon" id="ttBtnPack" onclick="App.toggleTurntablePack()" title="Запаковать / Достать пластинку">📦</button>
-        <button type="button" class="tt-btn-icon" onclick="App.closeTurntableWidget()" title="Свернуть проигрыватель">🗕</button>
-        <button type="button" class="tt-btn-icon" onclick="App.stopAndCloseTurntableWidget()" title="Остановить и закрыть">✕</button>
+        <button type="button" class="tt-btn-icon" onclick="App.stopAndCloseTurntableWidget()" title="Остановить звук и свернуть">🗕</button>
+        <button type="button" class="tt-btn-icon" onclick="App.stopAndCloseTurntableWidget()" title="Остановить звук и закрыть">✕</button>
       </div>
     </div>
 
-    <!-- Mechanical Stage with Sleeve + Platter + Tonearm -->
+    <!-- Mechanical 2D Stage with Sleeve + Platter + Tonearm -->
     <div class="tt-stage" id="ttStage">
-      <!-- 3D WebGL Canvas for interactive Three.js turntable -->
-      <canvas id="tt3DCanvas" class="tt-3d-canvas"></canvas>
 
       <!-- Album Sleeve / Jacket (Конверт, кликабельный) -->
       <div class="tt-jacket" id="ttAlbumJacket" onclick="App.toggleTurntablePack()" title="Нажмите, чтобы запаковать/достать пластинку">
@@ -1609,14 +1610,6 @@
   </div>
 
   <!-- ==========================================
-       Floating Vinyl World Map Button (🌍 Pressing Atlas)
-       ========================================== -->
-  <button type="button" id="floatingGlobeBtn" class="floating-globe-btn" onclick="App.openVinylWorldMapModal()" title="География винила (Карта прессов)" style="display: none;">
-    <span class="globe-icon">🌍</span>
-    <span class="globe-badge" id="globeCountryCountBadge">0</span>
-  </button>
-
-  <!-- ==========================================
        Floating Player Launcher Icon (Right-Bottom)
        Always visible floating button to toggle player widget!
        ========================================== -->
@@ -1629,107 +1622,6 @@
     </div>
     <span class="floating-player-badge" id="floatingPlayerBadge">▶</span>
   </button>
-
-  <!-- ==========================================
-       Modal: Vinyl Pressing World Map & Geography
-       ========================================== -->
-  <div id="vinylWorldMapModal" class="modal-backdrop">
-    <div class="world-map-modal-dialog">
-      <div class="modal-header">
-        <div class="modal-title" style="display:flex; align-items:center; gap:10px;">
-          <span style="font-size:24px;">🌍</span>
-          <div>
-            <div style="font-size:16px; font-weight:800;">Атлас географии винила (Pressing Atlas)</div>
-            <div style="font-size:12px; color:var(--text-secondary); font-weight:400; margin-top:2px;">Страны издания ваших пластинок с интерактивными метками и списками</div>
-          </div>
-        </div>
-        <button class="modal-close-btn" onclick="App.closeVinylWorldMapModal()" title="Закрыть">✕</button>
-      </div>
-
-      <!-- Quick summary stats bar -->
-      <div class="world-map-stats-bar" id="worldMapStatsBar">
-        <!-- populated dynamically -->
-      </div>
-
-      <div class="world-map-content-split">
-        <!-- SVG Map Container with country pins -->
-        <div class="world-map-stage" id="worldMapStage">
-          <!-- Stylized vector World Map SVG -->
-          <svg class="world-map-svg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <radialGradient id="oceanGrad" cx="50%" cy="50%" r="75%">
-                <stop offset="0%" stop-color="#0a1222"/>
-                <stop offset="100%" stop-color="#050a14"/>
-              </radialGradient>
-              <linearGradient id="landGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#1e293b"/>
-                <stop offset="100%" stop-color="#0f172a"/>
-              </linearGradient>
-            </defs>
-            <!-- Ocean background -->
-            <rect width="1000" height="500" fill="url(#oceanGrad)" rx="12"/>
-            <!-- Grid lines / Graticule -->
-            <path d="M 0,125 L 1000,125 M 0,250 L 1000,250 M 0,375 L 1000,375 M 250,0 L 250,500 M 500,0 L 500,500 M 750,0 L 750,500" stroke="rgba(56, 189, 248, 0.07)" stroke-width="1" fill="none" stroke-dasharray="4,4"/>
-            <!-- Simplified, recognizable Continental Landmasses -->
-            <!-- North America -->
-            <path class="map-land" d="M 120,60 Q 180,50 240,65 Q 280,80 270,120 Q 230,135 250,180 Q 220,230 180,240 Q 150,220 130,170 Q 110,130 90,90 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
-            <!-- Greenland -->
-            <path class="map-land" d="M 330,40 Q 370,45 360,75 Q 330,95 315,70 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.2"/>
-            <!-- Central America / Caribbean -->
-            <path class="map-land" d="M 180,240 Q 210,260 225,295 Q 215,310 195,275 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.2"/>
-            <!-- South America -->
-            <path class="map-land" d="M 270,290 Q 350,300 370,360 Q 350,440 280,480 Q 260,430 250,360 Q 250,310 270,290 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
-            <!-- Europe -->
-            <path class="map-land" d="M 460,110 Q 520,95 560,125 Q 550,175 490,195 Q 450,180 440,150 Q 450,125 460,110 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1.5"/>
-            <!-- British Isles -->
-            <path class="map-land" d="M 440,120 Q 460,115 455,145 Q 435,150 440,120 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
-            <!-- Africa -->
-            <path class="map-land" d="M 470,205 Q 560,200 580,270 Q 550,380 490,410 Q 450,330 450,260 Q 450,220 470,205 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
-            <!-- Eurasia / Russia / Northern Asia -->
-            <path class="map-land" d="M 560,105 Q 700,75 880,95 Q 890,150 820,180 Q 750,220 630,210 Q 570,180 560,105 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1.5"/>
-            <!-- East Asia / China / India -->
-            <path class="map-land" d="M 640,210 Q 780,210 830,260 Q 770,330 700,340 Q 660,270 640,210 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
-            <!-- Japan archipelago -->
-            <path class="map-land" d="M 855,170 Q 875,175 870,210 Q 850,220 855,170 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.5"/>
-            <!-- Australia & New Zealand -->
-            <path class="map-land" d="M 770,360 Q 880,350 890,420 Q 840,460 780,440 Q 750,400 770,360 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5"/>
-            <path class="map-land" d="M 915,420 Q 930,430 920,460 Q 905,450 915,420 Z" fill="url(#landGrad)" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.2"/>
-          </svg>
-
-          <!-- Interactive Glowing Country Pins placed dynamically via % coordinates -->
-          <div id="worldMapPinsLayer" class="world-map-pins-layer">
-            <!-- Rendered dynamically by App.renderWorldMapPins() -->
-          </div>
-        </div>
-
-        <!-- Country Vinyl List Sidebar -->
-        <div class="world-map-details-panel" id="worldMapDetailsPanel">
-          <div class="map-details-empty" id="mapDetailsEmpty">
-            <span style="font-size:32px;">👈</span>
-            <div style="font-weight:700; color:#f8fafc; margin-top:8px;">Выберите страну на карте</div>
-            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Нажмите на метку любой страны, чтобы увидеть все ваши виниловые пластинки из этой страны</div>
-          </div>
-          <div class="map-details-content" id="mapDetailsContent" style="display: none;">
-            <div class="map-details-header">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="map-details-flag" id="mapDetailsFlag">🏳️</span>
-                <div>
-                  <div class="map-details-country-name" id="mapDetailsCountryName">—</div>
-                  <div class="map-details-count" id="mapDetailsCount">0 пластинок</div>
-                </div>
-              </div>
-              <button type="button" class="btn btn-sm btn-secondary" id="mapFilterTableBtn" onclick="App.applyMapCountryFilterToTable()" title="Отфильтровать главную таблицу по этой стране">
-                🔍 В таблицу
-              </button>
-            </div>
-            <div class="map-details-list" id="mapDetailsList">
-              <!-- Rendered list of records -->
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <script src="discogs-client.js"></script>
   <script src="spotify-client.js"></script>

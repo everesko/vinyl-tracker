@@ -48,7 +48,6 @@ const App = {
     spotifyClips: false,
     smartRecs: false,
     turntableAsmr: false,
-    pressingAtlas: false,
     vinylCabinet: false
   },
   viewLayout: 'table', // 'table' or 'cabinet'
@@ -2154,7 +2153,6 @@ const App = {
       this.renderSmartRecommendations();
     }
     this.updateActiveFiltersBadge();
-    this.updateFloatingGlobeBadge();
   },
 
   getTableHeadHtml(tableId, isAllSelected) {
@@ -2203,8 +2201,8 @@ const App = {
           <th class="sortable" onclick="App.setSort('year')">
             Год выпуска${this.getSortIndicator('year')}
           </th>
-          <th class="sortable" onclick="App.setSort('versionsCount')">
-            Виниловые издания${this.getSortIndicator('versionsCount')}
+          <th class="sortable cell-versions-count" onclick="App.setSort('versionsCount')" title="Сортировать по количеству виниловых изданий">
+            Виниловых изданий${this.getSortIndicator('versionsCount')}
           </th>
           <th class="sortable" onclick="App.setSort('rating')">
             Оценка${this.getSortIndicator('rating')}
@@ -2447,9 +2445,8 @@ const App = {
     const discogsLink = a.uri || `https://www.discogs.com/master/${a.masterId}`;
 
     const trackCount = this.getAlbumTrackCount(a);
-    const countText = a.versionsCount !== null && a.versionsCount !== undefined
-      ? `${a.versionsCount} виниловых изданий`
-      : 'Посмотреть издания';
+    const countVal = (typeof a.versionsCount === 'number') ? a.versionsCount : (a.versionsCount ? Number(a.versionsCount) : null);
+    const displayCount = countVal !== null && !isNaN(countVal) ? countVal : (a.masterId ? '—' : '1');
 
     return `
       <tr id="record-row-${a.id}" class="record-row ${isSelected ? 'selected-row' : ''}" onclick="App.onTableRowClick(event, '${a.id}')">
@@ -2471,9 +2468,10 @@ const App = {
         <td>
           ${a.year ? `<span class="meta-badge">${this.escapeHtml(a.year)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
         </td>
-        <td>
-          <button class="editions-badge-btn" onclick="App.openMasterVersionsModal(${a.masterId}, '${this.escapeHtml(a.artist)}', '${this.escapeHtml(a.title)}', '${a.year || ''}', '${this.escapeHtml(coverUrl || '')}')" title="Нажмите, чтобы открыть все виниловые прессы этого альбома">
-            💿 ${countText} 🔍
+        <td class="cell-versions-count">
+          <button type="button" class="editions-count-badge ${countVal === 0 ? 'is-zero' : ''}" onclick="App.openMasterVersionsModal(${a.masterId}, '${this.escapeHtml(a.artist)}', '${this.escapeHtml(a.title)}', '${a.year || ''}', '${this.escapeHtml(coverUrl || '')}')" title="Виниловых изданий: ${displayCount}. Нажмите, чтобы открыть все прессы на Discogs">
+            <span class="editions-count-icon">💿</span>
+            <span class="editions-count-num">${displayCount}</span>
           </button>
         </td>
         <td>
@@ -4972,14 +4970,24 @@ const App = {
   stopAudio() {
     this.pauseAudio();
     if (this.playingAudio) {
-      try { this.playingAudio.currentTime = 0; } catch (e) {}
+      try { this.playingAudio.pause(); this.playingAudio.currentTime = 0; } catch (e) {}
     }
     if (this.audioElement) {
-      try { this.audioElement.currentTime = 0; } catch (e) {}
+      try { this.audioElement.pause(); this.audioElement.currentTime = 0; } catch (e) {}
     }
     if (this.clipsAudio) {
-      try { this.clipsAudio.currentTime = 0; } catch (e) {}
+      try { this.clipsAudio.pause(); this.clipsAudio.currentTime = 0; } catch (e) {}
     }
+
+    try {
+      document.querySelectorAll('audio, video').forEach(el => {
+        try {
+          el.pause();
+          el.currentTime = 0;
+        } catch (e) {}
+      });
+    } catch (e) {}
+    this.stopVinylCrackle();
 
     // Reset scrubbers & time labels in both players
     const curTime = document.getElementById('playerCurrentTime');
@@ -4992,11 +5000,19 @@ const App = {
     const ttFill = document.getElementById('ttScrubberFill');
     if (ttFill) ttFill.style.width = '0%';
 
-    // Reset tonearm back to rest cradle
+    // Reset tonearm back to rest cradle and stop platter
     if (this.turntableState) {
-      this.applyTonearmAngle(this.turntableState.restAngle || 0, true);
+      this.turntableState.isPlaying = false;
+      this.applyTonearmAngle(this.turntableState.restAngle || -16, true);
       const tonearm = document.getElementById('ttTonearm');
-      if (tonearm) tonearm.classList.remove('arm-lifted');
+      if (tonearm) {
+        tonearm.classList.remove('arm-lifted');
+        tonearm.classList.remove('is-dragging');
+      }
+      const platter = document.getElementById('ttPlatter');
+      if (platter) platter.classList.remove('is-spinning');
+      const ttPlayIcon = document.getElementById('ttPlayIcon');
+      if (ttPlayIcon) ttPlayIcon.textContent = '▶';
     }
 
     this.updateFloatingPlayerButtonUI();
@@ -7461,7 +7477,7 @@ const App = {
   openExperimentalModal() {
     const modal = document.getElementById('experimentalModal');
     if (!modal) return;
-    const keys = ['compactTable', 'spotifyClips', 'smartRecs', 'turntableAsmr', 'pressingAtlas', 'vinylCabinet'];
+    const keys = ['compactTable', 'spotifyClips', 'smartRecs', 'turntableAsmr', 'vinylCabinet'];
     keys.forEach(k => {
       const toggleId = 'expToggle' + k.charAt(0).toUpperCase() + k.slice(1);
       const input = document.getElementById(toggleId);
@@ -7487,10 +7503,6 @@ const App = {
     } catch (e) {}
     this.updateMasterToggleBtnState();
     this.applyExperimentEffects();
-    if (key === 'pressingAtlas' && val) {
-      this.closeExperimentalModal();
-      this.openVinylWorldMapModal();
-    }
     if (key === 'vinylCabinet' && val) {
       this.setViewLayout('cabinet');
     }
@@ -7526,15 +7538,6 @@ const App = {
     // 2. Vinyl Cabinet Shelves View
     if (this.experiments.vinylCabinet && this.viewLayout !== 'cabinet') {
       this.setViewLayout('cabinet');
-    }
-
-    // 3. World Pressing Map button strict gating (only shown if pressingAtlas is true!)
-    const globeBtn = document.getElementById('floatingGlobeBtn');
-    if (globeBtn) {
-      globeBtn.style.display = this.experiments.pressingAtlas ? 'flex' : 'none';
-      if (this.experiments.pressingAtlas) {
-        this.updateFloatingGlobeBadge();
-      }
     }
 
     // 4. Spotify clips discovery button
@@ -7584,11 +7587,19 @@ const App = {
   // ----------------------------------------------------
   setViewLayout(layout) {
     this.viewLayout = layout;
-    const btnTable = document.getElementById('btnViewTable');
-    const btnCabinet = document.getElementById('btnViewCabinet');
+    const btnTable = document.getElementById('btnViewTable') || document.getElementById('btnOptTable');
+    const btnCabinet = document.getElementById('btnViewCabinet') || document.getElementById('btnOptCabinet');
+    const optTable = document.getElementById('btnOptTable');
+    const optCabinet = document.getElementById('btnOptCabinet');
+    const sliderPill = document.getElementById('viewSliderPill');
     const tblContainer = document.getElementById('tablesContainer');
     const cabContainer = document.getElementById('vinylCabinetContainer');
 
+    if (sliderPill) {
+      sliderPill.classList.toggle('cabinet-active', layout === 'cabinet');
+    }
+    if (optTable) optTable.classList.toggle('active', layout === 'table');
+    if (optCabinet) optCabinet.classList.toggle('active', layout === 'cabinet');
     if (btnTable) btnTable.classList.toggle('active', layout === 'table');
     if (btnCabinet) btnCabinet.classList.toggle('active', layout === 'cabinet');
 
@@ -7648,8 +7659,21 @@ const App = {
     const container = document.getElementById('vinylCabinetContainer');
     if (!container) return;
 
-    // Get current filtered collection items
-    const items = (this.appMode === 'albums' ? this.albums : (this.appMode === 'spotify' ? this.spotifyTracks : this.records)) || [];
+    // Automatically gather all vinyl albums & releases from all tables
+    const albumItems = (this.getAllItemsInMode('albums') || []).length > 0 ? this.getAllItemsInMode('albums') : (this.albums || []);
+    const releaseItems = (this.getAllItemsInMode('releases') || []).length > 0 ? this.getAllItemsInMode('releases') : (this.records || []);
+    const seen = new Set();
+    const allVinylItems = [];
+    [...albumItems, ...releaseItems].forEach(it => {
+      if (!it) return;
+      const key = `${(it.artist || '').toLowerCase().trim()}:::${(it.title || it.album || '').toLowerCase().trim()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        allVinylItems.push(it);
+      }
+    });
+
+    const items = allVinylItems;
     const searchVal = (document.getElementById('tableSearchInput')?.value || '').trim().toLowerCase();
     
     let filtered = items;
@@ -8067,18 +8091,18 @@ const App = {
   // SMART RECOMMENDATIONS & "FEELING LUCKY" (Experiment 3)
   // ----------------------------------------------------
   iconicVinylGems: [
-    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: '1973', tag: 'Культовый шедевр', cover: '/api/cover-lookup?artist=Pink+Floyd&album=The+Dark+Side+of+the+Moon' },
-    { artist: 'Miles Davis', title: 'Kind of Blue', year: '1959', tag: 'Легендарный джаз', cover: '/api/cover-lookup?artist=Miles+Davis&album=Kind+of+Blue' },
-    { artist: 'Daft Punk', title: 'Random Access Memories', year: '2013', tag: 'Эталон электроники', cover: '/api/cover-lookup?artist=Daft+Punk&album=Random+Access+Memories' },
-    { artist: 'Fleetwood Mac', title: 'Rumours', year: '1977', tag: 'Золотая классика', cover: '/api/cover-lookup?artist=Fleetwood+Mac&album=Rumours' },
-    { artist: 'The Beatles', title: 'Abbey Road', year: '1969', tag: 'Пластинка эпохи', cover: '/api/cover-lookup?artist=The+Beatles&album=Abbey+Road' },
-    { artist: 'Radiohead', title: 'OK Computer', year: '1997', tag: 'Арт-рок икона', cover: '/api/cover-lookup?artist=Radiohead&album=OK+Computer' },
-    { artist: 'Michael Jackson', title: 'Thriller', year: '1982', tag: 'Самый продаваемый', cover: '/api/cover-lookup?artist=Michael+Jackson&album=Thriller' },
-    { artist: 'John Coltrane', title: 'Blue Train', year: '1958', tag: 'Хард-боп раритет', cover: '/api/cover-lookup?artist=John+Coltrane&album=Blue+Train' },
-    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust', year: '1972', tag: 'Глэм-рок винил', cover: '/api/cover-lookup?artist=David+Bowie&album=The+Rise+and+Fall+of+Ziggy+Stardust' },
-    { artist: 'Nirvana', title: 'Nevermind', year: '1991', tag: 'Гранж революция', cover: '/api/cover-lookup?artist=Nirvana&album=Nevermind' },
-    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: '1971', tag: 'Хард-рок классика', cover: '/api/cover-lookup?artist=Led+Zeppelin&album=Led+Zeppelin+IV' },
-    { artist: 'Steely Dan', title: 'Aja', year: '1977', tag: 'Аудиофильский тест', cover: '/api/cover-lookup?artist=Steely+Dan&album=Aja' }
+    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: '1973', tag: 'Культовый шедевр', cover: '/api/cover-image?artist=Pink+Floyd&album=The+Dark+Side+of+the+Moon' },
+    { artist: 'Miles Davis', title: 'Kind of Blue', year: '1959', tag: 'Легендарный джаз', cover: '/api/cover-image?artist=Miles+Davis&album=Kind+of+Blue' },
+    { artist: 'Daft Punk', title: 'Random Access Memories', year: '2013', tag: 'Эталон электроники', cover: '/api/cover-image?artist=Daft+Punk&album=Random+Access+Memories' },
+    { artist: 'Fleetwood Mac', title: 'Rumours', year: '1977', tag: 'Золотая классика', cover: '/api/cover-image?artist=Fleetwood+Mac&album=Rumours' },
+    { artist: 'The Beatles', title: 'Abbey Road', year: '1969', tag: 'Пластинка эпохи', cover: '/api/cover-image?artist=The+Beatles&album=Abbey+Road' },
+    { artist: 'Radiohead', title: 'OK Computer', year: '1997', tag: 'Арт-рок икона', cover: '/api/cover-image?artist=Radiohead&album=OK+Computer' },
+    { artist: 'Michael Jackson', title: 'Thriller', year: '1982', tag: 'Самый продаваемый', cover: '/api/cover-image?artist=Michael+Jackson&album=Thriller' },
+    { artist: 'John Coltrane', title: 'Blue Train', year: '1958', tag: 'Хард-боп раритет', cover: '/api/cover-image?artist=John+Coltrane&album=Blue+Train' },
+    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust', year: '1972', tag: 'Глэм-рок винил', cover: '/api/cover-image?artist=David+Bowie&album=The+Rise+and+Fall+of+Ziggy+Stardust' },
+    { artist: 'Nirvana', title: 'Nevermind', year: '1991', tag: 'Гранж революция', cover: '/api/cover-image?artist=Nirvana&album=Nevermind' },
+    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: '1971', tag: 'Хард-рок классика', cover: '/api/cover-image?artist=Led+Zeppelin&album=Led+Zeppelin+IV' },
+    { artist: 'Steely Dan', title: 'Aja', year: '1977', tag: 'Аудиофильский тест', cover: '/api/cover-image?artist=Steely+Dan&album=Aja' }
   ],
 
   renderSmartRecommendations() {
@@ -8105,7 +8129,7 @@ const App = {
         title: `Дискография ${topArtist}`,
         tag: `🔥 Топ артист (${artistCounts[topArtist]} шт.)`,
         isArtistQuery: true,
-        cover: artistCover || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\' fill=\'%231a2233\'><rect width=\'140\' height=\'140\'/></svg>'
+        cover: artistCover || `/api/cover-image?artist=${encodeURIComponent(topArtist)}`
       });
     }
 
@@ -8114,15 +8138,18 @@ const App = {
     });
 
     container.innerHTML = recs.map(r => {
-      const coverUrl = r.cover || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\' fill=\'%231a2233\'><rect width=\'140\' height=\'140\'/></svg>';
+      const coverUrl = r.cover || `/api/cover-image?artist=${encodeURIComponent(r.artist)}&album=${encodeURIComponent(r.isArtistQuery ? '' : r.title)}`;
+      const safeArtist = this.escapeHtml(r.artist);
+      const safeTitle = this.escapeHtml(r.title);
+      const queryTitle = r.isArtistQuery ? '' : safeTitle;
       return `
         <div class="rec-album-card">
-          <img src="${coverUrl}" class="rec-card-cover" alt="${this.escapeHtml(r.title)}" loading="lazy" onclick="App.searchRecommendedVinyl('${this.escapeHtml(r.artist)}', '${this.escapeHtml(r.isArtistQuery ? '' : r.title)}')">
+          <img src="${coverUrl}" class="rec-card-cover" alt="${safeTitle}" loading="lazy" onerror="if (!this.dataset.err) { this.dataset.err='1'; this.src='/api/cover-image?artist='+encodeURIComponent('${safeArtist}')+'&album='+encodeURIComponent('${queryTitle}'); }" onclick="App.searchRecommendedVinyl('${safeArtist}', '${queryTitle}')">
           <span class="rec-card-badge">${this.escapeHtml(r.tag)}</span>
-          <div class="rec-card-title" title="${this.escapeHtml(r.title)}">${this.escapeHtml(r.title)}</div>
-          <div class="rec-card-artist" title="${this.escapeHtml(r.artist)}">${this.escapeHtml(r.artist)}${r.year ? ` · ${r.year}` : ''}</div>
+          <div class="rec-card-title" title="${safeTitle}">${safeTitle}</div>
+          <div class="rec-card-artist" title="${safeArtist}">${safeArtist}${r.year ? ` · ${r.year}` : ''}</div>
           <div class="rec-card-actions">
-            <button type="button" class="btn btn-sm btn-primary" style="font-size:11px; padding:4px 8px; width:100%; border-radius:6px; font-weight:700;" onclick="App.searchRecommendedVinyl('${this.escapeHtml(r.artist)}', '${this.escapeHtml(r.isArtistQuery ? '' : r.title)}')">
+            <button type="button" class="btn btn-sm btn-primary" style="font-size:11px; padding:4px 8px; width:100%; border-radius:6px; font-weight:700;" onclick="App.searchRecommendedVinyl('${safeArtist}', '${queryTitle}')">
               💽 Найти винил
             </button>
           </div>
@@ -8177,14 +8204,13 @@ const App = {
       playerEl.style.display = 'none';
     }
 
-    this.initThreeTurntable();
-
     if (trackInfo) {
       this.loadTurntableTrack(trackInfo, isPlayingImmediately);
     }
   },
 
   closeTurntableWidget() {
+    this.stopAudio();
     const widget = document.getElementById('vinylTurntableWidget');
     if (widget) {
       widget.style.display = 'none';
@@ -9709,260 +9735,6 @@ const App = {
     } else {
       await this.addRecordFromDiscogs(item.id);
     }
-  },
-
-  // ----------------------------------------------------
-  // VINYL PRESSING WORLD MAP & GEOGRAPHY (Experiment 7)
-  // ----------------------------------------------------
-  countryMapData: {
-    'US': { name: 'США', flag: '🇺🇸', x: 20, y: 34 },
-    'USA': { name: 'США', flag: '🇺🇸', x: 20, y: 34 },
-    'United States': { name: 'США', flag: '🇺🇸', x: 20, y: 34 },
-    'UK': { name: 'Великобритания', flag: '🇬🇧', x: 45, y: 27 },
-    'Great Britain': { name: 'Великобритания', flag: '🇬🇧', x: 45, y: 27 },
-    'United Kingdom': { name: 'Великобритания', flag: '🇬🇧', x: 45, y: 27 },
-    'Japan': { name: 'Япония', flag: '🇯🇵', x: 86, y: 38 },
-    'Germany': { name: 'Германия', flag: '🇩🇪', x: 50, y: 28 },
-    'France': { name: 'Франция', flag: '🇫🇷', x: 47, y: 33 },
-    'Netherlands': { name: 'Нидерланды', flag: '🇳🇱', x: 48.5, y: 28 },
-    'Holland': { name: 'Нидерланды', flag: '🇳🇱', x: 48.5, y: 28 },
-    'Canada': { name: 'Канада', flag: '🇨🇦', x: 19, y: 23 },
-    'Italy': { name: 'Италия', flag: '🇮🇹', x: 51, y: 36 },
-    'Spain': { name: 'Испания', flag: '🇪🇸', x: 45, y: 37 },
-    'Sweden': { name: 'Швеция', flag: '🇸🇪', x: 52, y: 20 },
-    'Norway': { name: 'Норвегия', flag: '🇳🇴', x: 49, y: 19 },
-    'Russia': { name: 'Россия', flag: '🇷🇺', x: 67, y: 23 },
-    'USSR': { name: 'СССР', flag: '🇷🇺', x: 67, y: 23 },
-    'СССР': { name: 'СССР', flag: '🇷🇺', x: 67, y: 23 },
-    'Россия': { name: 'Россия', flag: '🇷🇺', x: 67, y: 23 },
-    'Australia': { name: 'Австралия', flag: '🇦🇺', x: 83, y: 80 },
-    'Brazil': { name: 'Бразилия', flag: '🇧🇷', x: 32, y: 70 },
-    'Mexico': { name: 'Мексика', flag: '🇲🇽', x: 17, y: 44 },
-    'Poland': { name: 'Польша', flag: '🇵🇱', x: 53, y: 27 },
-    'Czech Republic': { name: 'Чехия', flag: '🇨🇿', x: 51.5, y: 29 },
-    'Czechoslovakia': { name: 'Чехословакия', flag: '🇨🇿', x: 51.5, y: 29 },
-    'Austria': { name: 'Австрия', flag: '🇦🇹', x: 51.5, y: 32 },
-    'Belgium': { name: 'Бельгия', flag: '🇧🇪', x: 47.5, y: 29 },
-    'Switzerland': { name: 'Швейцария', flag: '🇨🇭', x: 49, y: 32 },
-    'Greece': { name: 'Греция', flag: '🇬🇷', x: 54, y: 38 },
-    'Finland': { name: 'Финляндия', flag: '🇫🇮', x: 55, y: 19 },
-    'Ireland': { name: 'Ирландия', flag: '🇮🇪', x: 43, y: 27 },
-    'Europe': { name: 'Европа', flag: '🇪🇺', x: 48, y: 30 },
-    'Europe, UK & US': { name: 'Европа & США', flag: '🇪🇺', x: 48, y: 30 },
-    'USA, Canada & Europe': { name: 'США & Европа', flag: '🌎', x: 33, y: 29 },
-    'Worldwide': { name: 'Весь мир', flag: '🌐', x: 50, y: 50 }
-  },
-  selectedMapCountry: null,
-  mapCountryGroups: {},
-
-  getCollectionCountriesMap() {
-    const groups = {};
-    const items = [...this.records, ...this.albums];
-
-    items.forEach(it => {
-      if (!it) return;
-      let raw = (it.country || '').trim();
-
-      // If album or record doesn't have an explicit country, assign to country of most pressings
-      if (!raw) {
-        if (Array.isArray(it.versions) && it.versions.length > 0) {
-          const counts = {};
-          it.versions.forEach(v => {
-            const c = (v.country || '').trim();
-            if (c) counts[c] = (counts[c] || 0) + 1;
-          });
-          const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-          if (sorted.length > 0) raw = sorted[0];
-        }
-        if (!raw) {
-          const fallbackCountries = ['US', 'UK', 'Germany', 'Japan', 'Netherlands', 'France'];
-          const str = (it.artist || '') + (it.title || '') + (it.album || '');
-          let hash = 0;
-          for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
-          raw = fallbackCountries[hash % fallbackCountries.length];
-        }
-      }
-
-      let matchedKey = null;
-      for (const k of Object.keys(this.countryMapData)) {
-        if (raw.toLowerCase() === k.toLowerCase() || raw.toLowerCase().includes(k.toLowerCase())) {
-          matchedKey = k;
-          break;
-        }
-      }
-
-      const key = matchedKey || raw;
-      if (!groups[key]) {
-        const info = this.countryMapData[key] || {
-          name: raw,
-          flag: '🌐',
-          x: 50 + (Math.sin(raw.length * 7) * 20),
-          y: 45 + (Math.cos(raw.length * 5) * 16)
-        };
-        groups[key] = {
-          key,
-          name: info.name || raw,
-          flag: info.flag || '🌐',
-          x: info.x,
-          y: info.y,
-          items: []
-        };
-      }
-      groups[key].items.push(it);
-    });
-
-    return groups;
-  },
-
-  updateFloatingGlobeBadge() {
-    const badge = document.getElementById('globeCountryCountBadge');
-    if (!badge) return;
-    const groups = this.getCollectionCountriesMap();
-    const count = Object.keys(groups).length;
-    badge.textContent = count;
-  },
-
-  openVinylWorldMapModal() {
-    const modal = document.getElementById('vinylWorldMapModal');
-    if (!modal) return;
-    modal.classList.add('open');
-    modal.classList.add('active');
-    this.renderWorldMapData();
-  },
-
-  closeVinylWorldMapModal() {
-    const modal = document.getElementById('vinylWorldMapModal');
-    if (modal) {
-      modal.classList.remove('open');
-      modal.classList.remove('active');
-    }
-  },
-
-  renderWorldMapData() {
-    this.mapCountryGroups = this.getCollectionCountriesMap();
-    const groups = this.mapCountryGroups;
-    const keys = Object.keys(groups);
-
-    // Update stats bar
-    const statsBar = document.getElementById('worldMapStatsBar');
-    if (statsBar) {
-      if (keys.length === 0) {
-        statsBar.innerHTML = '<span style="color:var(--text-muted);">В вашей коллекции пока не указаны страны издания. Добавьте пластинки из Discogs!</span>';
-      } else {
-        const sorted = [...keys].sort((a, b) => groups[b].items.length - groups[a].items.length);
-        const topCountry = groups[sorted[0]];
-        const rarestCountry = groups[sorted[sorted.length - 1]];
-        const totalItemsWithCountry = keys.reduce((sum, k) => sum + groups[k].items.length, 0);
-
-        statsBar.innerHTML = `
-          <div class="world-map-stat-item">🌐 Всего стран: <strong>${keys.length}</strong></div>
-          <div class="world-map-stat-item">📦 Пластинок с географией: <strong>${totalItemsWithCountry} шт.</strong></div>
-          <div class="world-map-stat-item">🏆 Главная страна: <strong>${topCountry.flag} ${this.escapeHtml(topCountry.name)} (${topCountry.items.length} шт.)</strong></div>
-          ${rarestCountry && rarestCountry !== topCountry ? `<div class="world-map-stat-item">💎 Редкий пресс: <strong>${rarestCountry.flag} ${this.escapeHtml(rarestCountry.name)} (${rarestCountry.items.length} шт.)</strong></div>` : ''}
-        `;
-      }
-    }
-
-    // Render interactive country pins on map layer
-    const layer = document.getElementById('worldMapPinsLayer');
-    if (layer) {
-      layer.innerHTML = keys.map(k => {
-        const g = groups[k];
-        return `
-          <div class="world-map-pin ${this.selectedMapCountry === k ? 'active' : ''}" 
-               style="left: ${g.x}%; top: ${g.y}%;" 
-               onclick="App.selectMapCountry('${this.escapeHtml(k)}')" 
-               title="${this.escapeHtml(g.name)}: ${g.items.length} пластинок">
-            <span class="pin-flag">${g.flag}</span>
-            <span class="pin-count">${g.items.length}</span>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // Default selection: select top country if none selected
-    if (keys.length > 0 && !this.selectedMapCountry) {
-      const sorted = [...keys].sort((a, b) => groups[b].items.length - groups[a].items.length);
-      this.selectMapCountry(sorted[0]);
-    } else if (this.selectedMapCountry && groups[this.selectedMapCountry]) {
-      this.selectMapCountry(this.selectedMapCountry);
-    }
-  },
-
-  selectMapCountry(countryKey) {
-    this.selectedMapCountry = countryKey;
-    const group = this.mapCountryGroups[countryKey];
-    if (!group) return;
-
-    // Highlight active pin
-    document.querySelectorAll('.world-map-pin').forEach(pin => {
-      const t = pin.getAttribute('title') || '';
-      pin.classList.toggle('active', t.startsWith(group.name));
-    });
-
-    const empty = document.getElementById('mapDetailsEmpty');
-    const content = document.getElementById('mapDetailsContent');
-    const flagEl = document.getElementById('mapDetailsFlag');
-    const nameEl = document.getElementById('mapDetailsCountryName');
-    const countEl = document.getElementById('mapDetailsCount');
-    const listEl = document.getElementById('mapDetailsList');
-
-    if (empty) empty.style.display = 'none';
-    if (content) content.style.display = 'flex';
-    if (flagEl) flagEl.textContent = group.flag;
-    if (nameEl) nameEl.textContent = group.name;
-    if (countEl) countEl.textContent = `${group.items.length} пластинок в коллекции`;
-
-    if (listEl) {
-      const placeholder = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="%23222"><rect width="42" height="42"/></svg>';
-      listEl.innerHTML = group.items.map(it => {
-        const cover = it.coverImage || it.thumb || placeholder;
-        const title = this.escapeHtml(it.title || it.album || 'Альбом');
-        const artist = this.escapeHtml(it.artist || 'Исполнитель');
-        const year = it.year || '';
-        const format = it.format || 'Vinyl';
-        return `
-          <div class="map-record-item" onclick="App.openAlbumTracklistModal('${it.id}')" title="Нажмите, чтобы открыть треклист">
-            <img src="${cover}" class="map-record-cover" alt="Cover" loading="lazy">
-            <div class="map-record-meta">
-              <div class="map-record-title">${title}</div>
-              <div class="map-record-artist">${artist}</div>
-              <div class="map-record-sub">${year ? `Год: ${year} · ` : ''}${format}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-  },
-
-  applyMapCountryFilterToTable() {
-    if (!this.selectedMapCountry) return;
-    const group = this.mapCountryGroups[this.selectedMapCountry];
-    const countryName = group ? (group.key || group.name) : this.selectedMapCountry;
-    this.closeVinylWorldMapModal();
-
-    // Check matching country checkboxes in filters
-    let matchedAny = false;
-    document.querySelectorAll('input[name="f_country"]').forEach(cb => {
-      const match = cb.value.toLowerCase().includes(countryName.toLowerCase()) || countryName.toLowerCase().includes(cb.value.toLowerCase());
-      cb.checked = match;
-      if (match) matchedAny = true;
-    });
-
-    if (matchedAny) {
-      this.onCountryFilterChange();
-      this.showToastNotification(`🌍 Фильтр: показаны пластинки из «${group ? group.name : countryName}»`);
-    } else {
-      const searchInput = document.getElementById('tableSearchInput');
-      if (searchInput) {
-        searchInput.value = countryName;
-        this.onSearchInput();
-        this.showToastNotification(`🌍 Поиск по стране: «${countryName}»`);
-      }
-    }
-
-    const tableEl = document.getElementById('recordsTable') || document.getElementById('recordsTableContainer');
-    if (tableEl) tableEl.scrollIntoView({ behavior: 'smooth' });
   },
 
   escapeHtml(str) {
