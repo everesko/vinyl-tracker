@@ -2755,6 +2755,23 @@ body.turntable-asmr-active #bottomAudioPlayer {
   box-shadow: 0 3px 12px rgba(30, 215, 96, 0.4);
 }
 
+.tracklist-add-track-btn {
+  padding: 5px 14px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  border-radius: 9999px !important;
+  white-space: nowrap !important;
+  min-width: 135px !important;
+  text-align: center !important;
+  letter-spacing: 0.2px !important;
+  transition: all 0.2s ease !important;
+}
+
+.tracklist-add-track-btn:hover {
+  transform: translateY(-1px) scale(1.02) !important;
+  box-shadow: 0 4px 14px rgba(30, 215, 96, 0.45) !important;
+}
+
 .sp-btn-added {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-muted);

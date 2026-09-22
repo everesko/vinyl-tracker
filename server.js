@@ -973,16 +973,31 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/discogs/tracklist' && req.method === 'GET') {
     const id = (query.id || '').trim();
     const type = query.type || 'release'; // 'release' or 'master'
-    const qArtist = (query.artist || '').trim();
-    const qAlbum = (query.album || query.title || '').trim();
+    let qArtist = (query.artist || '').trim();
+    let qAlbum = (query.album || query.title || '').trim();
+    const qGeneral = (query.q || '').trim();
 
-    if (!id && !qAlbum) {
+    if (!qAlbum && qGeneral) {
+      if (qGeneral.includes(' - ')) {
+        const parts = qGeneral.split(' - ');
+        if (!qArtist) qArtist = parts[0].trim();
+        qAlbum = parts.slice(1).join(' - ').trim();
+      } else {
+        qAlbum = qGeneral;
+      }
+    } else if (qAlbum && qAlbum.includes(' - ') && !qArtist) {
+      const parts = qAlbum.split(' - ');
+      qArtist = parts[0].trim();
+      qAlbum = parts.slice(1).join(' - ').trim();
+    }
+
+    if (!id && !qAlbum && !qGeneral) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'id or album parameter is required' }));
       return;
     }
 
-    const cacheKey = `tracklist:${type}:${id}:${qArtist}:${qAlbum}`;
+    const cacheKey = `tracklist:${type}:${id}:${qArtist}:${qAlbum}:${qGeneral}`;
     const cached = getCached(cacheKey) || (id ? getCached(`tracklist:${type}:${id}`) : null);
     if (cached && Array.isArray(cached.tracklist) && cached.tracklist.length > 0) {
       res.writeHead(200, { 'Content-Type': 'application/json', 'X-Cache': 'HIT' });
@@ -1114,37 +1129,56 @@ const server = http.createServer(async (req, res) => {
       if (tracklist.length === 0 && (cleanArt || cleanAlbum)) {
         try {
           const dzQueries = [];
-          if (cleanArt && cleanAlbum) dzQueries.push(`${cleanArt} ${cleanAlbum}`);
-          dzQueries.push(cleanAlbum || cleanArt);
+          if (cleanArt && cleanAlbum) {
+            dzQueries.push(`artist:"${cleanArt}" album:"${cleanAlbum}"`);
+            dzQueries.push(`${cleanArt} ${cleanAlbum}`);
+            dzQueries.push(`artist:"${cleanArt}"`);
+          }
+          if (cleanAlbum) dzQueries.push(cleanAlbum);
+          if (cleanArt && !cleanAlbum) dzQueries.push(`artist:"${cleanArt}"`);
+
+          const normTargetAlbum = (cleanAlbum || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
 
           for (const dzQuery of dzQueries) {
             const dzSearch = await new Promise(resolve => {
-              https.get(`https://api.deezer.com/search/album?q=${encodeURIComponent(dzQuery)}&limit=1`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+              https.get(`https://api.deezer.com/search/album?q=${encodeURIComponent(dzQuery)}&limit=10`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
                 let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
               }).on('error', () => resolve(null));
             });
-            if (dzSearch && dzSearch.data && dzSearch.data[0] && dzSearch.data[0].id) {
-              const foundDzId = dzSearch.data[0].id;
-              const dzDetail = await new Promise(resolve => {
-                https.get(`https://api.deezer.com/album/${foundDzId}`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
-                  let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
-                }).on('error', () => resolve(null));
-              });
-              if (dzDetail && dzDetail.tracks && Array.isArray(dzDetail.tracks.data) && dzDetail.tracks.data.length > 0) {
-                if (!coverUrl) coverUrl = dzDetail.cover_xl || dzDetail.cover_medium || '';
-                if (!albumYear && dzDetail.release_date) albumYear = dzDetail.release_date.substring(0, 4);
-                tracklist = dzDetail.tracks.data.map((t, idx) => ({
-                  position: `${t.track_position || idx + 1}`,
-                  title: t.title || 'Без названия',
-                  duration: `${Math.floor((t.duration || 0) / 60)}:${String((t.duration || 0) % 60).padStart(2, '0')}`,
-                  previewUrl: t.preview || null,
-                  artist: t.artist ? t.artist.name : cleanArt,
-                  type_: 'track'
-                }));
-                if (tracklist.length > 0) {
-                  tracklistSource = 'Deezer';
-                  discogsNotFound = true;
-                  break;
+            if (dzSearch && Array.isArray(dzSearch.data) && dzSearch.data.length > 0) {
+              let matchedAlbum = null;
+              if (normTargetAlbum) {
+                matchedAlbum = dzSearch.data.find(a => {
+                  const na = (a.title || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+                  return na.includes(normTargetAlbum) || normTargetAlbum.includes(na);
+                }) || dzSearch.data[0];
+              } else {
+                matchedAlbum = dzSearch.data[0];
+              }
+
+              if (matchedAlbum && matchedAlbum.id) {
+                const foundDzId = matchedAlbum.id;
+                const dzDetail = await new Promise(resolve => {
+                  https.get(`https://api.deezer.com/album/${foundDzId}`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+                    let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+                  }).on('error', () => resolve(null));
+                });
+                if (dzDetail && dzDetail.tracks && Array.isArray(dzDetail.tracks.data) && dzDetail.tracks.data.length > 0) {
+                  if (!coverUrl) coverUrl = dzDetail.cover_xl || dzDetail.cover_medium || '';
+                  if (!albumYear && dzDetail.release_date) albumYear = dzDetail.release_date.substring(0, 4);
+                  tracklist = dzDetail.tracks.data.map((t, idx) => ({
+                    position: `${t.track_position || idx + 1}`,
+                    title: t.title || 'Без названия',
+                    duration: `${Math.floor((t.duration || 0) / 60)}:${String((t.duration || 0) % 60).padStart(2, '0')}`,
+                    previewUrl: t.preview || null,
+                    artist: t.artist ? t.artist.name : (cleanArt || artistName),
+                    type_: 'track'
+                  }));
+                  if (tracklist.length > 0) {
+                    tracklistSource = 'Deezer';
+                    discogsNotFound = true;
+                    break;
+                  }
                 }
               }
             }
@@ -1155,35 +1189,56 @@ const server = http.createServer(async (req, res) => {
       // STAGE 5: Apple / iTunes Album Search & Complete Track Lookup (100% Reliable!)
       if (tracklist.length === 0 && (cleanArt || cleanAlbum)) {
         try {
-          const itQuery = cleanArt ? `${cleanArt} ${cleanAlbum}` : cleanAlbum;
-          const itSearch = await new Promise(resolve => {
-            https.get(`https://itunes.apple.com/search?term=${encodeURIComponent(itQuery)}&entity=album&limit=3`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
-              let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
-            }).on('error', () => resolve(null));
-          });
-          const itCollection = itSearch && Array.isArray(itSearch.results) && itSearch.results.find(r => r.wrapperType === 'collection');
-          if (itCollection && itCollection.collectionId) {
-            const itLookup = await new Promise(resolve => {
-              https.get(`https://itunes.apple.com/lookup?id=${itCollection.collectionId}&entity=song&limit=100`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+          const itQueries = [];
+          if (cleanArt && cleanAlbum) itQueries.push(`${cleanArt} ${cleanAlbum}`);
+          if (cleanAlbum) itQueries.push(cleanAlbum);
+          if (cleanArt) itQueries.push(cleanArt);
+
+          const normTarget = (cleanAlbum || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+
+          for (const itQuery of itQueries) {
+            const itSearch = await new Promise(resolve => {
+              https.get(`https://itunes.apple.com/search?term=${encodeURIComponent(itQuery)}&entity=album&limit=10`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
                 let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
               }).on('error', () => resolve(null));
             });
-            if (itLookup && Array.isArray(itLookup.results)) {
-              const songItems = itLookup.results.filter(r => r.wrapperType === 'track');
-              if (songItems.length > 0) {
-                if (!coverUrl && itCollection.artworkUrl100) coverUrl = itCollection.artworkUrl100.replace('100x100bb', '1000x1000bb');
-                if (!albumYear && itCollection.releaseDate) albumYear = itCollection.releaseDate.substring(0, 4);
-                tracklist = songItems.map((s, idx) => ({
-                  position: `${s.trackNumber || idx + 1}`,
-                  title: s.trackName || 'Без названия',
-                  duration: s.trackTimeMillis ? `${Math.floor(s.trackTimeMillis / 60000)}:${String(Math.floor((s.trackTimeMillis % 60000) / 1000)).padStart(2, '0')}` : '',
-                  previewUrl: s.previewUrl || null,
-                  artist: s.artistName || cleanArt,
-                  type_: 'track'
-                }));
-                if (tracklist.length > 0) {
-                  tracklistSource = 'iTunes';
-                  discogsNotFound = true;
+            if (itSearch && Array.isArray(itSearch.results) && itSearch.results.length > 0) {
+              const collections = itSearch.results.filter(r => r.wrapperType === 'collection');
+              let itCollection = null;
+              if (normTarget) {
+                itCollection = collections.find(c => {
+                  const nc = (c.collectionName || '').toLowerCase().replace(/[^a-z0-9а-яё]/gi, '');
+                  return nc.includes(normTarget) || normTarget.includes(nc);
+                }) || collections[0];
+              } else {
+                itCollection = collections[0];
+              }
+
+              if (itCollection && itCollection.collectionId) {
+                const itLookup = await new Promise(resolve => {
+                  https.get(`https://itunes.apple.com/lookup?id=${itCollection.collectionId}&entity=song&limit=100`, { headers: { 'User-Agent': 'VinylHunterApp/1.0' } }, resp => {
+                    let d = ''; resp.on('data', c => d += c); resp.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(null); } });
+                  }).on('error', () => resolve(null));
+                });
+                if (itLookup && Array.isArray(itLookup.results)) {
+                  const songItems = itLookup.results.filter(r => r.wrapperType === 'track');
+                  if (songItems.length > 0) {
+                    if (!coverUrl && itCollection.artworkUrl100) coverUrl = itCollection.artworkUrl100.replace('100x100bb', '1000x1000bb');
+                    if (!albumYear && itCollection.releaseDate) albumYear = itCollection.releaseDate.substring(0, 4);
+                    tracklist = songItems.map((s, idx) => ({
+                      position: `${s.trackNumber || idx + 1}`,
+                      title: s.trackName || 'Без названия',
+                      duration: s.trackTimeMillis ? `${Math.floor(s.trackTimeMillis / 60000)}:${String(Math.floor((s.trackTimeMillis % 60000) / 1000)).padStart(2, '0')}` : '',
+                      previewUrl: s.previewUrl || null,
+                      artist: s.artistName || cleanArt || artistName,
+                      type_: 'track'
+                    }));
+                    if (tracklist.length > 0) {
+                      tracklistSource = 'iTunes';
+                      discogsNotFound = true;
+                      break;
+                    }
+                  }
                 }
               }
             }
@@ -1388,6 +1443,60 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ found: false, error: err.message }));
+    }
+    return;
+  }
+
+  // Audio Streaming Proxy (pipes remote audio previews through local server to bypass CORS / adblocker / CDN restrictions)
+  if (pathname === '/api/audio-proxy' && req.method === 'GET') {
+    const rawUrl = (query.url || '').trim();
+    if (!rawUrl || !rawUrl.startsWith('http')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Valid url query param required' }));
+      return;
+    }
+
+    try {
+      const parsed = new URL(rawUrl);
+      const isHttps = parsed.protocol === 'https:';
+      const lib = isHttps ? https : http;
+
+      const proxyReq = lib.get(rawUrl, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': 'audio/*, */*'
+        }
+      }, (proxyRes) => {
+        if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
+          // Follow redirect through proxy
+          res.writeHead(302, { 'Location': `/api/audio-proxy?url=${encodeURIComponent(proxyRes.headers.location)}` });
+          res.end();
+          return;
+        }
+
+        const headers = {
+          'Content-Type': proxyRes.headers['content-type'] || 'audio/mpeg',
+          'Access-Control-Allow-Origin': '*',
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=86400'
+        };
+        if (proxyRes.headers['content-length']) {
+          headers['Content-Length'] = proxyRes.headers['content-length'];
+        }
+        res.writeHead(proxyRes.statusCode || 200, headers);
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on('error', (err) => {
+        console.warn('Audio proxy request failed:', err.message);
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to stream audio preview' }));
+        }
+      });
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid URL' }));
     }
     return;
   }
