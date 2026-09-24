@@ -130,17 +130,19 @@ const App = {
     await this.loadAlbums();
     await this.loadSpotifyTracks();
 
-    await FirebaseSync.init((updatedRecords) => {
-      if (updatedRecords && Array.isArray(updatedRecords) && updatedRecords.length > 0) {
-        if (!this.tables.releases || this.tables.releases.length === 0) {
-          this.tables.releases = this.normalizeTables(updatedRecords, 'releases', 'Основная коллекция');
-        } else {
-          this.tables.releases[0].items = updatedRecords;
+    if (FirebaseSync.getConfig()) {
+      await FirebaseSync.init((updatedRecords) => {
+        if (updatedRecords && Array.isArray(updatedRecords) && updatedRecords.length > 0) {
+          if (!this.tables.releases || this.tables.releases.length === 0) {
+            this.tables.releases = this.normalizeTables(updatedRecords, 'releases', 'Основная коллекция');
+          } else {
+            this.tables.releases[0].items = updatedRecords;
+          }
+          this.syncLegacyArrays();
+          if (this.appMode === 'releases') this.render();
         }
-        this.syncLegacyArrays();
-        if (this.appMode === 'releases') this.render();
-      }
-    });
+      });
+    }
 
     // 2. Intelligently determine active app mode
     const savedMode = localStorage.getItem('vinyl_app_mode');
@@ -364,12 +366,24 @@ const App = {
     } catch (e) {}
 
     let localData = null;
+    let localUpdatedAt = 0;
     try {
       const localTbl = localStorage.getItem('vinyl_releases_tables');
       if (localTbl) localData = JSON.parse(localTbl);
+      localUpdatedAt = parseInt(localStorage.getItem('vinyl_releases_updated_at') || '0', 10);
     } catch (e) {}
 
-    if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
+    const serverUpdatedAt = (serverData && serverData.updatedAt) ? serverData.updatedAt : 0;
+
+    if (localUpdatedAt > serverUpdatedAt && localData) {
+      this.tables.releases = this.normalizeTables(localData, 'releases', 'Основная коллекция');
+      fetch('/api/storage/records?type=release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({ tables: this.tables.releases, userAction: true, forceSave: true, updatedAt: localUpdatedAt })
+      }).catch(() => {});
+    } else if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
       this.tables.releases = this.normalizeTables(serverData, 'releases', 'Основная коллекция');
     } else if (localData) {
       this.tables.releases = this.normalizeTables(localData, 'releases', 'Основная коллекция');
@@ -398,12 +412,24 @@ const App = {
     } catch (e) {}
 
     let localData = null;
+    let localUpdatedAt = 0;
     try {
       const localTbl = localStorage.getItem('vinyl_albums_tables');
       if (localTbl) localData = JSON.parse(localTbl);
+      localUpdatedAt = parseInt(localStorage.getItem('vinyl_albums_updated_at') || '0', 10);
     } catch (e) {}
 
-    if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
+    const serverUpdatedAt = (serverData && serverData.updatedAt) ? serverData.updatedAt : 0;
+
+    if (localUpdatedAt > serverUpdatedAt && localData) {
+      this.tables.albums = this.normalizeTables(localData, 'albums', 'Каталог альбомов');
+      fetch('/api/storage/records?type=album', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({ tables: this.tables.albums, userAction: true, forceSave: true, updatedAt: localUpdatedAt })
+      }).catch(() => {});
+    } else if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
       this.tables.albums = this.normalizeTables(serverData, 'albums', 'Каталог альбомов');
     } else if (localData) {
       this.tables.albums = this.normalizeTables(localData, 'albums', 'Каталог альбомов');
@@ -432,12 +458,24 @@ const App = {
     } catch (e) {}
 
     let localData = null;
+    let localUpdatedAt = 0;
     try {
       const localTbl = localStorage.getItem('vinyl_spotify_tables');
       if (localTbl) localData = JSON.parse(localTbl);
+      localUpdatedAt = parseInt(localStorage.getItem('vinyl_spotify_updated_at') || '0', 10);
     } catch (e) {}
 
-    if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
+    const serverUpdatedAt = (serverData && serverData.updatedAt) ? serverData.updatedAt : 0;
+
+    if (localUpdatedAt > serverUpdatedAt && localData) {
+      this.tables.spotify = this.normalizeTables(localData, 'spotify', 'Мой треклист');
+      fetch('/api/storage/records?type=spotify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({ tables: this.tables.spotify, userAction: true, forceSave: true, updatedAt: localUpdatedAt })
+      }).catch(() => {});
+    } else if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
       this.tables.spotify = this.normalizeTables(serverData, 'spotify', 'Мой треклист');
     } else if (localData) {
       this.tables.spotify = this.normalizeTables(localData, 'spotify', 'Мой треклист');
@@ -491,37 +529,29 @@ const App = {
   saveModeTables(mode = this.appMode) {
     this.syncLegacyArrays();
     const tables = this.tables[mode] || [];
-    if (mode === 'releases') {
-      try {
-        localStorage.setItem('vinyl_releases_tables', JSON.stringify(tables));
-        fetch('/api/storage/records?type=release', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tables, userAction: true, forceSave: true })
-        }).catch(() => {});
-        FirebaseSync.saveLocalRecords(this.records);
-      } catch (e) {}
-    } else if (mode === 'albums') {
-      try {
-        localStorage.setItem('vinyl_albums_tables', JSON.stringify(tables));
-        fetch('/api/storage/records?type=album', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tables, userAction: true, forceSave: true })
-        }).catch(() => {});
+    const now = Date.now();
+    const typeParam = mode === 'releases' ? 'release' : (mode === 'albums' ? 'album' : 'spotify');
+
+    try {
+      localStorage.setItem(`vinyl_${mode}_tables`, JSON.stringify(tables));
+      localStorage.setItem(`vinyl_${mode}_updated_at`, String(now));
+
+      fetch(`/api/storage/records?type=${typeParam}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({ tables, userAction: true, forceSave: true, updatedAt: now })
+      }).catch(() => {});
+
+      if (mode === 'releases') {
+        localStorage.setItem('vinyl_records_local', JSON.stringify(this.records));
+      } else if (mode === 'albums') {
         localStorage.setItem('vinyl_albums_local', JSON.stringify(this.albums));
-      } catch (e) {}
-    } else if (mode === 'spotify') {
-      try {
-        localStorage.setItem('vinyl_spotify_tables', JSON.stringify(tables));
-        fetch('/api/storage/records?type=spotify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tables, userAction: true, forceSave: true })
-        }).catch(() => {});
+      } else if (mode === 'spotify') {
         localStorage.setItem('vinyl_spotify_tracks_local', JSON.stringify(this.spotifyTracks));
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
+
     this.updateModeToggleBadges();
   },
 

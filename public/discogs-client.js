@@ -197,60 +197,51 @@ const DiscogsClient = {
       }
     };
 
-    // 1. Add targeted / artist masters first (most relevant albums)
-    for (const item of rawTargetedMasters) {
-      addMasterItem(item);
-    }
-    for (const item of rawArtistMasters) {
-      addMasterItem(item);
-    }
+    // Process master and release items from search results
+    for (const item of rawResults) {
+      if (item.type === 'master' || item.master_id) {
+        addMasterItem(item);
+      } else {
+        let artist = '';
+        let title = item.title || '';
+        if (item.title && item.title.includes(' - ')) {
+          const parts = item.title.split(' - ');
+          artist = parts[0].trim();
+          title = parts.slice(1).join(' - ').trim();
+        }
 
-    // 2. Add keyword masters
-    for (const item of rawKeywordMasters) {
-      addMasterItem(item);
-    }
+        const cleanArtist = artist.replace(/\s*\(\d+\)$/, '').replace(/\*+$/, '').trim();
+        const cleanTitle = title.replace(/\s*\([^)]*\)$/, '').trim();
+        const dedupeKey = `${cleanArtist.toLowerCase()} - ${cleanTitle.toLowerCase()}`;
 
-    // 3. Add releases that have no master or were not included in masters
-    for (const item of rawReleases) {
-      let artist = '';
-      let title = item.title || '';
-      if (item.title && item.title.includes(' - ')) {
-        const parts = item.title.split(' - ');
-        artist = parts[0].trim();
-        title = parts.slice(1).join(' - ').trim();
-      }
-
-      const cleanArtist = artist.replace(/\s*\(\d+\)$/, '').replace(/\*+$/, '').trim();
-      const cleanTitle = title.replace(/\s*\([^)]*\)$/, '').trim();
-      const dedupeKey = `${cleanArtist.toLowerCase()} - ${cleanTitle.toLowerCase()}`;
-
-      if (!seenAlbums.has(dedupeKey)) {
-        seenAlbums.add(dedupeKey);
-        const formatStr = Array.isArray(item.format) ? item.format.join(', ') : (item.format || 'Vinyl');
-        results.push({
-          id: item.master_id || item.id,
-          masterId: item.master_id || null,
-          releaseId: item.id,
-          isReleaseOnly: !item.master_id,
-          artist: cleanArtist || artist,
-          title: cleanTitle || title,
-          rawTitle: item.title,
-          year: item.year || '',
-          country: item.country || '',
-          format: formatStr,
-          thumb: item.thumb || '',
-          coverImage: item.cover_image || item.thumb || '',
-          uri: item.uri ? `https://www.discogs.com${item.uri}` : `https://www.discogs.com/release/${item.id}`,
-          versionsCount: item.master_id ? (typeof item.versionsCount === 'number' ? item.versionsCount : null) : 1,
-          community: item.community || {},
-          num_for_sale: item.num_for_sale !== undefined ? item.num_for_sale : null
-        });
+        if (!seenAlbums.has(dedupeKey)) {
+          seenAlbums.add(dedupeKey);
+          const formatStr = Array.isArray(item.format) ? item.format.join(', ') : (item.format || 'Vinyl');
+          results.push({
+            id: item.master_id || item.id,
+            masterId: item.master_id || null,
+            releaseId: item.id,
+            isReleaseOnly: !item.master_id,
+            artist: cleanArtist || artist,
+            title: cleanTitle || title,
+            rawTitle: item.title,
+            year: item.year || '',
+            country: item.country || '',
+            format: formatStr,
+            thumb: item.thumb || '',
+            coverImage: item.cover_image || item.thumb || '',
+            uri: item.uri ? `https://www.discogs.com${item.uri}` : `https://www.discogs.com/release/${item.id}`,
+            versionsCount: item.master_id ? (typeof item.versionsCount === 'number' ? item.versionsCount : null) : 1,
+            community: item.community || {},
+            num_for_sale: item.num_for_sale !== undefined ? item.num_for_sale : null
+          });
+        }
       }
     }
 
     const output = {
       results,
-      pagination: dFirst?.pagination || dSecond?.pagination || {}
+      pagination: data.pagination || {}
     };
 
     clientMemoryCache.set(cacheKey, output);

@@ -3178,7 +3178,10 @@ async function fetchYouTubeVideoInfo(artist, title) {
           res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('404 Not Found');
         } else {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.writeHead(200, { 
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          });
           res.end(content);
         }
       });
@@ -3193,7 +3196,13 @@ async function fetchYouTubeVideoInfo(artist, title) {
         res.writeHead(500);
         res.end('Internal Server Error');
       } else {
-        res.writeHead(200, { 'Content-Type': contentType });
+        const headers = { 'Content-Type': contentType };
+        if (ext === '.js' || ext === '.css' || ext === '.html' || ext === '.json') {
+          headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+          headers['Pragma'] = 'no-cache';
+          headers['Expires'] = '0';
+        }
+        res.writeHead(200, headers);
         res.end(content);
       }
     });
