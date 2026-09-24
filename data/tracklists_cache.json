@@ -400,5 +400,260 @@
     "source": "Discogs",
     "discogsNotFound": false,
     "notice": null
+  },
+  "tracklist:master:13814:::": {
+    "id": "13814",
+    "type": "master",
+    "title": "Nevermind",
+    "artist": "Nirvana",
+    "year": 1991,
+    "cover": "https://i.discogs.com/os3Gm61mroiZvEw2bIGtNDf0RXydEx8PRmIk-YYwBSU/rs:fit/g:sm/q:90/h:600/w:594/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4MTMw/MDYtMTQzNjgxNDc2/Mi05NjgxLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Smells Like Teen Spirit",
+        "duration": "5:00",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "In Bloom",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Come As You Are",
+        "duration": "3:38",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Breed",
+        "duration": "3:03",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Lithium",
+        "duration": "4:16",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Polly",
+        "duration": "2:56",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Territorial Pissings",
+        "duration": "2:22",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Drain You",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Lounge Act",
+        "duration": "2:35",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Stay Away",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "On A Plain",
+        "duration": "3:12",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Something In The Way",
+        "duration": "3:43",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:13814": {
+    "id": "13814",
+    "type": "master",
+    "title": "Nevermind",
+    "artist": "Nirvana",
+    "year": 1991,
+    "cover": "https://i.discogs.com/os3Gm61mroiZvEw2bIGtNDf0RXydEx8PRmIk-YYwBSU/rs:fit/g:sm/q:90/h:600/w:594/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4MTMw/MDYtMTQzNjgxNDc2/Mi05NjgxLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Smells Like Teen Spirit",
+        "duration": "5:00",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "In Bloom",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Come As You Are",
+        "duration": "3:38",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Breed",
+        "duration": "3:03",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Lithium",
+        "duration": "4:16",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Polly",
+        "duration": "2:56",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Territorial Pissings",
+        "duration": "2:22",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Drain You",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Lounge Act",
+        "duration": "2:35",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Stay Away",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "On A Plain",
+        "duration": "3:12",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Something In The Way",
+        "duration": "3:43",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:nirvana:::nevermind": {
+    "id": "13814",
+    "type": "master",
+    "title": "Nevermind",
+    "artist": "Nirvana",
+    "year": 1991,
+    "cover": "https://i.discogs.com/os3Gm61mroiZvEw2bIGtNDf0RXydEx8PRmIk-YYwBSU/rs:fit/g:sm/q:90/h:600/w:594/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4MTMw/MDYtMTQzNjgxNDc2/Mi05NjgxLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Smells Like Teen Spirit",
+        "duration": "5:00",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "In Bloom",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Come As You Are",
+        "duration": "3:38",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Breed",
+        "duration": "3:03",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Lithium",
+        "duration": "4:16",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Polly",
+        "duration": "2:56",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Territorial Pissings",
+        "duration": "2:22",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Drain You",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Lounge Act",
+        "duration": "2:35",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Stay Away",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "On A Plain",
+        "duration": "3:12",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Something In The Way",
+        "duration": "3:43",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
   }
 }

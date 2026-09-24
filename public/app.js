@@ -45,26 +45,10 @@ const App = {
   currentModalAlbumItem: null,
   experiments: {
     compactTable: false,
-    smartRecs: false,
-    turntableAsmr: false
+    smartRecs: false
   },
   searchViewMode: 'stands', // 'stands' or 'list'
-  threeTurntable: {
-    isInitialized: false,
-    renderer: null,
-    scene: null,
-    camera: null,
-    platterMesh: null,
-    vinylMesh: null,
-    jacketMesh: null,
-    tonearmPivot: null,
-    discProgress: 0,
-    targetDiscProgress: 0,
-    discHoverOut: false,
-    animFrameId: null
-  },
   audioCtx: null,
-  vinylCracklingNode: null,
 
   async init() {
     this.handleOAuthCallback();
@@ -3867,8 +3851,6 @@ const App = {
       });
 
       this.lastSearchResults = results;
-      // Pre-warm tracklist cache for top results immediately
-      results.slice(0, 5).forEach(it => this.prefetchAlbumTracklist(it));
 
       if (isSpotify) {
         // SPOTIFY TRACK SEARCH RESULTS (Shows song, its parent album, and one-click transfer to Discogs vinyl search)
@@ -4003,43 +3985,8 @@ const App = {
           if (resultsContainer) resultsContainer.style.display = 'none';
         }
 
-        // Fetch exact vinyl versions count in fast parallel batches and sort swiftly
-        (async () => {
-          const uncachedItems = results.filter(it => it.masterId && typeof it.versionsCount !== 'number');
-          const masterIds = uncachedItems.map(it => it.masterId);
+        // Versions counts available on-demand via drawer
 
-          const chunkSize = 10;
-          for (let i = 0; i < masterIds.length; i += chunkSize) {
-            const chunk = masterIds.slice(i, i + chunkSize);
-            const batchCounts = await DiscogsClient.getBatchMasterVersionsCounts(chunk);
-
-            for (const item of results) {
-              if (item.masterId && batchCounts[item.masterId] !== undefined) {
-                item.versionsCount = batchCounts[item.masterId];
-              } else if (!item.masterId && typeof item.versionsCount !== 'number') {
-                item.versionsCount = 1;
-              }
-
-              if (typeof item.versionsCount === 'number') {
-                const countEl = document.getElementById(`modalAlbumVersCount-${item.id}`);
-                const card = document.getElementById(`search-item-${item.id}`);
-                if (countEl) {
-                  if (item.versionsCount === 0) {
-                    countEl.textContent = '🚫 Нет виниловых изданий';
-                    countEl.className = 'versions-badge versions-badge-zero';
-                    if (card) card.classList.add('search-item-no-sale');
-                  } else {
-                    countEl.textContent = `💽 ${this.formatVinylVersions(item.versionsCount)}`;
-                    countEl.className = 'versions-badge';
-                    if (card) card.classList.remove('search-item-no-sale');
-                  }
-                }
-              }
-            }
-
-            this.resortDiscogsSearchResults();
-          }
-        })();
 
       } else {
         // RELEASES SEARCH RESULTS
@@ -4107,31 +4054,8 @@ const App = {
           if (resultsContainer) resultsContainer.style.display = 'none';
         }
 
-        // Sequentially fetch price preview for releases (if needed)
-        (async () => {
-          for (const item of results.slice(0, 10)) {
-            try {
-              const stats = await DiscogsClient.getPriceStats(item.id);
-              if (stats) {
-                const pricePreviewEl = document.getElementById(`price-preview-${item.id}`);
-                if (pricePreviewEl && (stats.min || stats.lowest_price)) {
-                  const p = stats.min || stats.lowest_price;
-                  const cur = stats.currency || 'USD';
-                  const curSym = cur === 'EUR' ? '€' : (cur === 'GBP' ? '£' : '$');
-                  if (stats.median && p < stats.median) {
-                    const discount = Math.round(((stats.median - p) / stats.median) * 100);
-                    pricePreviewEl.innerHTML = `<span class="prominent-deal-banner" title="Цена ${curSym}${p.toFixed(2)} на ${discount}% ниже рынка"><span class="deal-fire">🔥 ВЫГОДА</span> <span class="deal-save">-${discount}%</span> от ${curSym}${p.toFixed(2)}</span>`;
-                  } else {
-                    pricePreviewEl.innerHTML = `<span style="color:#38bdf8; font-weight:700;">от ${curSym}${p.toFixed(2)}${stats.median ? ` <span style="color:#94a3b8; font-weight:500;">(рынок ${curSym}${stats.median.toFixed(2)})</span>` : ''}</span>`;
-                  }
-                }
-              }
-            } catch (e) {
-              console.warn('Failed to load stats for release', item.id, e);
-            }
-            await new Promise(r => setTimeout(r, 150));
-          }
-        })();
+        // Price preview available on-demand via button
+
       }
 
     } catch (err) {
@@ -4848,16 +4772,7 @@ const App = {
     const currentTimeEl = document.getElementById('playerCurrentTime');
     const durationTimeEl = document.getElementById('playerDurationTime');
 
-    if (this.experiments.turntableAsmr) {
-      if (playerEl) playerEl.style.display = 'none';
-      this.openTurntableWidget({
-        title: title || 'Аудио-трек',
-        artist: artist || '',
-        coverUrl: coverUrl || ''
-      }, true);
-    } else {
-      if (playerEl) playerEl.style.display = 'block';
-    }
+    if (playerEl) playerEl.style.display = 'block';
 
     if (trackCoverEl) {
       trackCoverEl.src = coverUrl || '';
@@ -4904,7 +4819,7 @@ const App = {
       if (scrubber && !this.isAudioScrubbing && dur > 0) {
         scrubber.value = ((cur / dur) * 100).toFixed(1);
       }
-      this.updateTurntableProgress(cur, dur);
+      
     };
 
     audio.onplay = () => {
@@ -4915,7 +4830,7 @@ const App = {
         b.textContent = '⏸';
       }
       this.updateSearchPlayingHighlights();
-      this.onTurntableAudioPlay();
+      
     };
 
     audio.onpause = () => {
@@ -4926,7 +4841,7 @@ const App = {
         b.textContent = '▶';
       }
       this.updateSearchPlayingHighlights();
-      this.onTurntableAudioPause();
+      
     };
 
     audio.onended = () => {
@@ -4942,7 +4857,7 @@ const App = {
       this.currentAudioArtist = null;
       this.currentAudioAlbumTitle = null;
       this.updateSearchPlayingHighlights();
-      this.onTurntableAudioEnded();
+      
     };
 
     audio.onerror = (e) => {
@@ -4954,7 +4869,7 @@ const App = {
         audio.load();
         audio.play().then(() => {
           this.updateSearchPlayingHighlights();
-          this.onTurntableAudioPlay();
+          
         }).catch(err => {
           this.handlePlaybackFailure(btn, playPauseIcon, 'Аудио недоступно');
         });
@@ -4967,7 +4882,7 @@ const App = {
     if (playPromise && typeof playPromise.then === 'function') {
       playPromise.then(() => {
         this.updateSearchPlayingHighlights();
-        this.onTurntableAudioPlay();
+        
       }).catch(e => {
         console.warn('Direct audio play() error:', e);
         if (!url.includes('/api/audio-proxy') && url.startsWith('http')) {
@@ -4976,7 +4891,7 @@ const App = {
           audio.load();
           audio.play().then(() => {
             this.updateSearchPlayingHighlights();
-            this.onTurntableAudioPlay();
+            
           }).catch(proxyErr => {
             console.warn('Proxy audio play() error:', proxyErr);
             this.handlePlaybackFailure(btn, playPauseIcon, 'Браузер заблокировал воспроизведение. Нажмите ▶ еще раз');
@@ -4995,7 +4910,7 @@ const App = {
       btn.textContent = '▶';
     }
     this.setCoverPulsing(false);
-    this.stopVinylCrackle();
+    
     if (msg) this.showToastNotification(msg);
     this.updateSearchPlayingHighlights();
   },
@@ -5035,8 +4950,8 @@ const App = {
     if (this.audioElement && !this.audioElement.paused) {
       this.audioElement.pause();
     }
-    this.stopVinylCrackle();
-    this.onTurntableAudioPause();
+    
+    
 
     const b = typeof this.currentAudioBtnId === 'string' ? document.getElementById(this.currentAudioBtnId) : this.currentAudioBtnId;
     if (b) {
@@ -5045,8 +4960,7 @@ const App = {
     }
     const playPauseIcon = document.getElementById('playerPlayPauseIcon');
     if (playPauseIcon) playPauseIcon.textContent = '▶';
-    const ttPlayIcon = document.getElementById('ttPlayIcon');
-    if (ttPlayIcon) ttPlayIcon.textContent = '▶';
+    
 
     this.setCoverPulsing(false);
     this.updateSearchPlayingHighlights();
@@ -5084,37 +4998,23 @@ const App = {
       });
     } catch (e) {}
 
-    // 3. Stop ASMR noise & suspend audio context completely
-    this.stopVinylCrackle();
+    // 3. Close & destroy any audio context
     if (this.audioCtx) {
-      try { this.audioCtx.suspend().catch(() => {}); } catch (e) {}
+      try {
+        this.audioCtx.close().catch(() => {});
+      } catch (e) {}
+      this.audioCtx = null;
     }
 
-    // 4. Reset scrubbers & time labels in both players
+    // 4. Hide bottom audio player completely
+    const playerEl = document.getElementById('bottomAudioPlayer');
+    if (playerEl) playerEl.style.display = 'none';
+
+    // 5. Reset scrubbers & time labels
     const curTime = document.getElementById('playerCurrentTime');
     if (curTime) curTime.textContent = '0:00';
     const scrubber = document.getElementById('playerScrubber');
     if (scrubber) scrubber.value = 0;
-
-    const ttCurTime = document.getElementById('ttTimeCurrent');
-    if (ttCurTime) ttCurTime.textContent = '0:00';
-    const ttFill = document.getElementById('ttScrubberFill');
-    if (ttFill) ttFill.style.width = '0%';
-
-    // 5. Reset tonearm back to rest cradle and stop platter
-    if (this.turntableState) {
-      this.turntableState.isPlaying = false;
-      this.applyTonearmAngle(this.turntableState.restAngle || -16, true);
-      const tonearm = document.getElementById('ttTonearm');
-      if (tonearm) {
-        tonearm.classList.remove('arm-lifted');
-        tonearm.classList.remove('is-dragging');
-      }
-      const platter = document.getElementById('ttPlatter');
-      if (platter) platter.classList.remove('is-spinning');
-      const ttPlayIcon = document.getElementById('ttPlayIcon');
-      if (ttPlayIcon) ttPlayIcon.textContent = '▶';
-    }
 
     const playPauseIcon = document.getElementById('playerPlayPauseIcon');
     if (playPauseIcon) playPauseIcon.textContent = '▶';
@@ -5132,39 +5032,23 @@ const App = {
 
     this.setCoverPulsing(false);
     this.updateSearchPlayingHighlights();
-    this.updateFloatingPlayerButtonUI();
   },
 
   stopAndCloseTurntableWidget() {
     this.stopAudio();
-    this.closeTurntableWidget();
   },
 
   stopAndCloseAudioPlayer() {
     this.stopAudio();
-    const playerEl = document.getElementById('bottomAudioPlayer');
-    if (playerEl) playerEl.style.display = 'none';
-    this.currentAudioTrackTitle = null;
-    this.currentAudioArtist = null;
-    this.currentAudioAlbumTitle = null;
-    this.currentAudioBtnId = null;
-    this.updateSearchPlayingHighlights();
-    this.updateFloatingPlayerButtonUI();
   },
 
   toggleAudioPlayPause() {
-    this.unlockAudio();
     if (!this.playingAudio || !this.playingAudio.src) {
-      this.playTurntableDefaultTrack();
       return;
     }
     if (this.playingAudio.paused) {
-      this.playingAudio.play().then(() => {
-        this.onTurntableAudioPlay();
-        this.updateFloatingPlayerButtonUI();
-      }).catch((e) => {
+      this.playingAudio.play().catch((e) => {
         console.warn('Resume error:', e);
-        this.showToastNotification('Нажмите ▶ для воспроизведения');
       });
     } else {
       this.pauseAudio();
@@ -5200,49 +5084,15 @@ const App = {
   },
 
   togglePlayerWidget() {
-    if (this.experiments.turntableAsmr) {
-      const widget = document.getElementById('vinylTurntableWidget');
-      const isVisible = widget && widget.style.display !== 'none';
-      if (isVisible) {
-        this.closeTurntableWidget();
-      } else {
-        const track = (this.turntableState && this.turntableState.currentTrack) ? this.turntableState.currentTrack : {
-          title: this.currentAudioTrackTitle || 'Виниловый проигрыватель',
-          artist: this.currentAudioArtist || '',
-          coverUrl: this.currentAudioCoverUrl || ''
-        };
-        const isPlaying = !!(this.playingAudio && !this.playingAudio.paused);
-        this.openTurntableWidget(track, isPlaying);
-      }
-    } else {
-      const bottomPlayer = document.getElementById('bottomAudioPlayer');
-      if (bottomPlayer) {
-        const isVisible = bottomPlayer.style.display !== 'none';
-        bottomPlayer.style.display = isVisible ? 'none' : 'block';
-      }
+    const bottomPlayer = document.getElementById('bottomAudioPlayer');
+    if (bottomPlayer) {
+      const isVisible = bottomPlayer.style.display !== 'none';
+      bottomPlayer.style.display = isVisible ? 'none' : 'block';
     }
-    this.updateFloatingPlayerButtonUI();
   },
 
   updateFloatingPlayerButtonUI() {
-    const btn = document.getElementById('floatingPlayerBtn');
-    const badge = document.getElementById('floatingPlayerBadge');
-    if (!btn) return;
-
-    const isAudioPlaying = !!(this.playingAudio && !this.playingAudio.paused && !this.playingAudio.ended);
-
-    if (isAudioPlaying) {
-      btn.classList.add('is-playing');
-      if (badge) badge.textContent = '⏸';
-      const label = this.currentAudioTrackTitle
-        ? `${this.currentAudioArtist ? this.currentAudioArtist + ' — ' : ''}${this.currentAudioTrackTitle}`
-        : 'Воспроизведение';
-      btn.title = `🎵 Сейчас играет: ${label}\nНажмите, чтобы открыть проигрыватель`;
-    } else {
-      btn.classList.remove('is-playing');
-      if (badge) badge.textContent = '▶';
-      btn.title = '💿 Проигрыватель винила (Нажмите, чтобы открыть)';
-    }
+    // Floating player button was removed
   },
 
   togglePreviewAudio(url, btnElement) {
@@ -5904,52 +5754,20 @@ const App = {
       const qAlbum = item.album || item.title || '';
       const qFull = [qArtist, qAlbum].filter(Boolean).join(' - ');
 
-      // Concurrent fetch: 1. Discogs tracklist (server falls back to Spotify/Deezer/iTunes automatically)
-      if (queryId || (qArtist && qAlbum) || qFull) {
-        reqs.push(
-          fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}&q=${encodeURIComponent(qFull)}`)
-            .then(r => r.ok ? r.json() : null)
-            .catch(() => null)
-        );
-      }
-
-      // Concurrent fetch: 2. Spotify album tracks directly
-      if (rawSpId || (qArtist && qAlbum)) {
-        reqs.push(
-          fetch(`/api/spotify/album/tracks?id=${encodeURIComponent(rawSpId || '')}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}`)
-            .then(r => r.ok ? r.json() : null)
-            .catch(() => null)
-        );
-      }
-
-      // Settle as soon as the first request with valid tracks arrives
+      // Strictly fetch from Discogs database!
       let data = null;
-      if (reqs.length > 0) {
-        data = await new Promise(resolve => {
-          let pending = reqs.length;
-          let settled = false;
-          reqs.forEach(p => {
-            p.then(res => {
-              if (settled) return;
-              if (res && res.tracklist && res.tracklist.length > 0) {
-                settled = true;
-                resolve(res);
-              } else {
-                pending--;
-                if (pending <= 0) {
-                  settled = true;
-                  resolve(res || null);
-                }
-              }
-            }).catch(() => {
-              pending--;
-              if (pending <= 0 && !settled) {
-                settled = true;
-                resolve(null);
-              }
-            });
-          });
-        });
+      if (rawSpId && this.searchProvider === 'spotify' && !queryId) {
+        try {
+          const spRes = await fetch(`/api/spotify/album/tracks?id=${encodeURIComponent(rawSpId)}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}`);
+          if (spRes.ok) data = await spRes.json().catch(() => null);
+        } catch (e) {}
+      }
+
+      if (!data || !data.tracklist || data.tracklist.length === 0) {
+        try {
+          const dRes = await fetch(`/api/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}&q=${encodeURIComponent(qFull)}`);
+          if (dRes.ok) data = await dRes.json().catch(() => null);
+        } catch (e) {}
       }
 
       if (data && data.tracklist && data.tracklist.length > 0) {
@@ -7674,7 +7492,7 @@ const App = {
   },
 
   applyExperimentEffects() {
-    // 1. Compact table mode (clean, no left dock)
+    // 1. Compact table mode
     document.body.classList.toggle('compact-table-mode', Boolean(this.experiments.compactTable));
 
     // 2. Smart Recommendations
@@ -7685,19 +7503,6 @@ const App = {
         this.renderSmartRecommendations();
       } else {
         recsBar.innerHTML = '';
-      }
-    }
-
-    // 3. Hi-Fi Turntable ASMR / 3D Smart Vinyl Player
-    document.body.classList.toggle('turntable-asmr-active', Boolean(this.experiments.turntableAsmr));
-    const bottomPlayerEl = document.getElementById('bottomAudioPlayer');
-    const ttWidget = document.getElementById('vinylTurntableWidget');
-    if (!this.experiments.turntableAsmr) {
-      if (ttWidget) ttWidget.style.display = 'none';
-      this.turntableState.isOpen = false;
-      this.stopVinylCrackle();
-      if (this.playingAudio && !this.playingAudio.paused) {
-        if (bottomPlayerEl) bottomPlayerEl.style.display = 'block';
       }
     }
 
@@ -7801,1383 +7606,7 @@ const App = {
     this.searchRecommendedVinyl(gem.artist, gem.title);
   },
 
-  // ----------------------------------------------------
-  // HI-FI VINYL TURNTABLE WIDGET & ASMR CRACKLE (Experiment 5)
-  // ----------------------------------------------------
-  turntableState: {
-    isOpen: false,
-    isPacked: true,
-    isPlaying: false,
-    crackleEnabled: true,
-    currentTrack: null,
-    isLifted: false,
-    wasPlayingBeforeLift: false,
-    isDragging: false,
-    currentAngle: -16,
-    restAngle: -16,
-    leadInAngle: 14,
-    leadOutAngle: 38
-  },
-
-  openTurntableWidget(trackInfo = null, isPlayingImmediately = false) {
-    if (!this.experiments.turntableAsmr) {
-      const bottomPlayer = document.getElementById('bottomAudioPlayer');
-      if (bottomPlayer && (this.playingAudio || trackInfo)) {
-        bottomPlayer.style.display = 'block';
-      }
-      return;
-    }
-    const widget = document.getElementById('vinylTurntableWidget');
-    if (!widget) return;
-    widget.style.display = 'flex';
-    this.turntableState.isOpen = true;
-
-    const playerEl = document.getElementById('bottomAudioPlayer');
-    if (playerEl) {
-      playerEl.style.display = 'none';
-    }
-
-    if (trackInfo) {
-      this.loadTurntableTrack(trackInfo, isPlayingImmediately);
-    }
-  },
-
-  closeTurntableWidget() {
-    this.stopAudio();
-    const widget = document.getElementById('vinylTurntableWidget');
-    if (widget) {
-      widget.style.display = 'none';
-    }
-    this.turntableState.isOpen = false;
-    this.stopVinylCrackle();
-    this.updateFloatingPlayerButtonUI();
-  },
-
-  applyTonearmAngle(angle, withTransition = true) {
-    this.turntableState.currentAngle = angle;
-    const tonearm = document.getElementById('ttTonearm');
-    if (!tonearm) return;
-    if (!withTransition) {
-      tonearm.style.transition = 'none';
-    } else {
-      tonearm.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
-    }
-    const liftedScale = this.turntableState.isLifted ? ' scale(1.05)' : '';
-    tonearm.style.transform = `rotate(${angle}deg)${liftedScale}`;
-  },
-
-  playNeedleDropEffect() {
-    try {
-      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-      const now = this.audioCtx.currentTime;
-
-      // 1. Stylus impact low thump (exponential pitch envelope 110Hz -> 36Hz)
-      const osc = this.audioCtx.createOscillator();
-      const oscGain = this.audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(110, now);
-      osc.frequency.exponentialRampToValueAtTime(36, now + 0.045);
-      oscGain.gain.setValueAtTime(0.38, now);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-      osc.connect(oscGain);
-      oscGain.connect(this.audioCtx.destination);
-      osc.start(now);
-      osc.stop(now + 0.055);
-
-      // 2. Vinyl micro-friction click (filtered noise burst)
-      const bufferSize = Math.floor(this.audioCtx.sampleRate * 0.035);
-      const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
-      }
-      const noise = this.audioCtx.createBufferSource();
-      noise.buffer = buffer;
-      const filter = this.audioCtx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1500, now);
-      filter.Q.setValueAtTime(1.2, now);
-      const noiseGain = this.audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.22, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-      noise.connect(filter);
-      filter.connect(noiseGain);
-      noiseGain.connect(this.audioCtx.destination);
-      noise.start(now);
-    } catch (e) {
-      console.warn('Needle sound effect error:', e);
-    }
-  },
-
-  loadTurntableTrack(item, isPlayingImmediately = false) {
-    if (!item) return;
-    this.turntableState.currentTrack = item;
-
-    const titleEl = document.getElementById('ttTrackTitle');
-    const artistEl = document.getElementById('ttArtistName');
-    const jacketCover = document.getElementById('ttJacketCover');
-    const labelImg = document.getElementById('ttLabelImg');
-    const disc = document.getElementById('ttVinylDisc');
-    const stage = document.getElementById('ttStage');
-    const btnPack = document.getElementById('ttBtnPack');
-    const tonearm = document.getElementById('ttTonearm');
-    const platter = document.getElementById('ttPlatter');
-
-    const title = item.title || item.album || 'Без названия';
-    const artist = item.artist || 'Неизвестный исполнитель';
-    const rawCover = item.coverUrl || item.coverImage || item.thumb || '';
-    const cover = this.getSafeCoverUrl(rawCover, artist, title);
-
-    if (titleEl) titleEl.textContent = title;
-    if (artistEl) artistEl.textContent = artist;
-    if (jacketCover) {
-      jacketCover.src = cover || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'120\' fill=\'%231a2233\'><rect width=\'120\' height=\'120\'/></svg>';
-      jacketCover.onerror = () => {
-        jacketCover.onerror = null;
-        jacketCover.src = `/api/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(title)}`;
-      };
-    }
-    if (labelImg) {
-      labelImg.src = cover || '';
-      labelImg.onerror = () => {
-        labelImg.onerror = null;
-        labelImg.src = `/api/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(title)}`;
-      };
-    }
-
-    // Physical vinyl tint based on format or color
-    if (disc) {
-      const fmt = `${item.format || ''} ${item.color || ''} ${item.vinylColor || ''} ${item.notes || ''}`.toLowerCase();
-      if (fmt.includes('gold') || fmt.includes('золот')) {
-        disc.style.background = 'radial-gradient(circle, #fbbf24 15%, #d97706 65%, #78350f 100%)';
-      } else if (fmt.includes('red') || fmt.includes('красн')) {
-        disc.style.background = 'radial-gradient(circle, #ef4444 15%, #b91c1c 65%, #450a0a 100%)';
-      } else if (fmt.includes('blue') || fmt.includes('син') || fmt.includes('голуб')) {
-        disc.style.background = 'radial-gradient(circle, #38bdf8 15%, #1d4ed8 65%, #0f172a 100%)';
-      } else if (fmt.includes('white') || fmt.includes('бел')) {
-        disc.style.background = 'radial-gradient(circle, #f8fafc 15%, #cbd5e1 65%, #64748b 100%)';
-      } else if (fmt.includes('green') || fmt.includes('зелен')) {
-        disc.style.background = 'radial-gradient(circle, #22c55e 15%, #15803d 65%, #052e16 100%)';
-      } else {
-        disc.style.background = 'radial-gradient(circle, #1c1917 18%, #0f0f11 65%, #050507 100%)';
-      }
-    }
-
-    if (stage) {
-      if (isPlayingImmediately) {
-        // Immediate play mode: vinyl smoothly extracted onto platter, platter spinning, needle on groove!
-        stage.classList.remove('state-packed');
-        stage.classList.add('state-extracted');
-        this.turntableState.isPacked = false;
-        if (btnPack) {
-          btnPack.textContent = '💿';
-          btnPack.title = 'Запаковать пластинку в конверт';
-        }
-        if (platter) platter.classList.add('is-spinning');
-        this.applyTonearmAngle(this.turntableState.leadInAngle, true);
-        this.playNeedleDropEffect();
-        if (this.turntableState.crackleEnabled) {
-          this.startVinylCrackle();
-        }
-        this.threeTurntable.targetDiscProgress = 1;
-      } else {
-        // Passive load: ensure record is extracted if not packed
-        if (!this.turntableState.isPacked) {
-          stage.classList.remove('state-packed');
-          stage.classList.add('state-extracted');
-          if (btnPack) btnPack.textContent = '💿';
-          this.threeTurntable.targetDiscProgress = 1;
-        } else {
-          this.threeTurntable.targetDiscProgress = 0;
-        }
-      }
-    }
-
-    if (cover) {
-      this.updateThreeTurntableCover(cover);
-    }
-  },
-
-  initTurntableDragging() {
-    const tonearm = document.getElementById('ttTonearm');
-    const deck = document.getElementById('ttDeck');
-    if (!tonearm || !deck) return;
-
-    let isPointerDown = false;
-    let startPivotX = 0;
-    let startPivotY = 0;
-
-    const onPointerDown = (e) => {
-      if (this.turntableState.isPacked) {
-        this.showToastNotification('Сначала достаньте пластинку из конверта');
-        return;
-      }
-      e.preventDefault();
-      isPointerDown = true;
-      this.turntableState.isDragging = true;
-      tonearm.classList.add('is-dragging');
-
-      const pivotEl = tonearm.querySelector('.tt-arm-pivot') || tonearm;
-      const r = pivotEl.getBoundingClientRect();
-      startPivotX = r.left + r.width / 2;
-      startPivotY = r.top + r.height / 2;
-
-      window.addEventListener('pointermove', onPointerMove, { passive: false });
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerUp);
-    };
-
-    const onPointerMove = (e) => {
-      if (!isPointerDown) return;
-      e.preventDefault();
-
-      const dx = e.clientX - startPivotX;
-      const dy = e.clientY - startPivotY;
-
-      // Clockwise angle from downward vector: positive swings into platter center
-      const angle = Math.atan2(-dx, dy) * (180 / Math.PI);
-      const clampedAngle = Math.max(-20, Math.min(42, angle));
-
-      this.applyTonearmAngle(clampedAngle, false);
-
-      // Scrubber visual feedback during live dragging
-      if (clampedAngle >= this.turntableState.leadInAngle && clampedAngle <= this.turntableState.leadOutAngle) {
-        const pct = (clampedAngle - this.turntableState.leadInAngle) / (this.turntableState.leadOutAngle - this.turntableState.leadInAngle);
-        const fill = document.getElementById('ttScrubberFill');
-        const curTime = document.getElementById('ttTimeCurrent');
-        const dur = (this.playingAudio && this.playingAudio.duration) || 30;
-        if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct * 100))}%`;
-        if (curTime) curTime.textContent = this.formatAudioTime(pct * dur);
-      }
-    };
-
-    const onPointerUp = () => {
-      if (!isPointerDown) return;
-      isPointerDown = false;
-      this.turntableState.isDragging = false;
-      tonearm.classList.remove('is-dragging');
-
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-
-      const curAngle = this.turntableState.currentAngle;
-
-      if (curAngle < 6) {
-        // Returned to rest cradle
-        this.applyTonearmAngle(this.turntableState.restAngle, true);
-        if (this.playingAudio && !this.playingAudio.paused) {
-          this.playingAudio.pause();
-        }
-        const platter = document.getElementById('ttPlatter');
-        if (platter) platter.classList.remove('is-spinning');
-        this.stopVinylCrackle();
-        this.showToastNotification('🛑 Тонарм на стойке (воспроизведение остановлено)');
-      } else {
-        // Dropped onto vinyl grooves
-        const finalAngle = Math.max(this.turntableState.leadInAngle, Math.min(this.turntableState.leadOutAngle, curAngle));
-        this.applyTonearmAngle(finalAngle, true);
-        this.playNeedleDropEffect();
-
-        const pct = (finalAngle - this.turntableState.leadInAngle) / (this.turntableState.leadOutAngle - this.turntableState.leadInAngle);
-        if (this.playingAudio && this.playingAudio.src) {
-          const dur = this.playingAudio.duration && !isNaN(this.playingAudio.duration) ? this.playingAudio.duration : 30;
-          this.playingAudio.currentTime = pct * dur;
-          if (this.playingAudio.paused && !this.turntableState.isLifted) {
-            this.playingAudio.play().catch(() => {});
-          }
-          const platter = document.getElementById('ttPlatter');
-          if (platter) platter.classList.add('is-spinning');
-          if (this.turntableState.crackleEnabled) {
-            this.startVinylCrackle();
-          }
-        } else {
-          this.playTurntableDefaultTrack(pct);
-        }
-        this.showToastNotification(`🎯 Игла на дорожке (${Math.round(pct * 100)}%)`);
-      }
-    };
-
-    tonearm.addEventListener('pointerdown', onPointerDown);
-  },
-
-  initTurntableWidgetDragging() {
-    const widget = document.getElementById('vinylTurntableWidget');
-    const header = document.getElementById('ttHeader') || (widget && widget.querySelector('.tt-header'));
-    if (!widget || !header) return;
-
-    // Restore saved coordinates if valid
-    const restorePosition = () => {
-      try {
-        const saved = localStorage.getItem('turntable_widget_pos');
-        if (saved) {
-          const pos = JSON.parse(saved);
-          if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-            const pad = 10;
-            const maxLeft = Math.max(pad, window.innerWidth - (widget.offsetWidth || 360) - pad);
-            const maxTop = Math.max(pad, window.innerHeight - (widget.offsetHeight || 380) - pad);
-            const left = Math.max(pad, Math.min(maxLeft, pos.left));
-            const top = Math.max(pad, Math.min(maxTop, pos.top));
-            widget.style.left = `${left}px`;
-            widget.style.top = `${top}px`;
-            widget.style.right = 'auto';
-            widget.style.bottom = 'auto';
-          }
-        }
-      } catch (e) {}
-    };
-
-    restorePosition();
-
-    // Adjust position on viewport resize so widget never stays outside screen
-    window.addEventListener('resize', () => {
-      if (widget.style.left && widget.style.left !== 'auto') {
-        const pad = 10;
-        const curLeft = parseInt(widget.style.left, 10) || 0;
-        const curTop = parseInt(widget.style.top, 10) || 0;
-        const maxLeft = Math.max(pad, window.innerWidth - (widget.offsetWidth || 360) - pad);
-        const maxTop = Math.max(pad, window.innerHeight - (widget.offsetHeight || 380) - pad);
-        widget.style.left = `${Math.max(pad, Math.min(maxLeft, curLeft))}px`;
-        widget.style.top = `${Math.max(pad, Math.min(maxTop, curTop))}px`;
-      }
-    });
-
-    let isPointerDown = false;
-    let shiftX = 0;
-    let shiftY = 0;
-
-    const onPointerDown = (e) => {
-      // Ignore clicks on header buttons or links (close, pack, etc.)
-      if (e.target.closest('button, input, a, .tt-btn-icon')) {
-        return;
-      }
-      e.preventDefault();
-      isPointerDown = true;
-      widget.classList.add('is-dragging');
-
-      const rect = widget.getBoundingClientRect();
-      shiftX = e.clientX - rect.left;
-      shiftY = e.clientY - rect.top;
-
-      window.addEventListener('pointermove', onPointerMove, { passive: false });
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerUp);
-    };
-
-    const onPointerMove = (e) => {
-      if (!isPointerDown) return;
-      e.preventDefault();
-
-      const pad = 8;
-      const widgetWidth = widget.offsetWidth || 360;
-      const widgetHeight = widget.offsetHeight || 380;
-      const maxLeft = Math.max(pad, window.innerWidth - widgetWidth - pad);
-      const maxTop = Math.max(pad, window.innerHeight - widgetHeight - pad);
-
-      let newLeft = e.clientX - shiftX;
-      let newTop = e.clientY - shiftY;
-
-      newLeft = Math.max(pad, Math.min(maxLeft, newLeft));
-      newTop = Math.max(pad, Math.min(maxTop, newTop));
-
-      widget.style.left = `${newLeft}px`;
-      widget.style.top = `${newTop}px`;
-      widget.style.right = 'auto';
-      widget.style.bottom = 'auto';
-    };
-
-    const onPointerUp = () => {
-      if (!isPointerDown) return;
-      isPointerDown = false;
-      widget.classList.remove('is-dragging');
-
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-
-      // Save position to localStorage
-      try {
-        const left = parseInt(widget.style.left, 10);
-        const top = parseInt(widget.style.top, 10);
-        if (!isNaN(left) && !isNaN(top)) {
-          localStorage.setItem('turntable_widget_pos', JSON.stringify({ left, top }));
-        }
-      } catch (e) {}
-    };
-
-    header.addEventListener('pointerdown', onPointerDown);
-  },
-
-  onTurntableDiscClick(event) {
-    this.unlockAudio();
-    if (this.turntableState.isPacked) {
-      this.showToastNotification('Сначала достаньте пластинку из конверта');
-      return;
-    }
-    const disc = document.getElementById('ttVinylDisc');
-    if (!disc) return;
-    const rect = disc.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const dx = event.clientX - centerX;
-    const dy = event.clientY - centerY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const radius = rect.width / 2;
-    const labelRadius = 23;
-
-    if (dist < labelRadius || dist > radius + 8) return;
-
-    // Outer edge (pct = 0) -> inner edge (pct = 1)
-    const pct = Math.max(0, Math.min(1, (radius - dist) / (radius - labelRadius)));
-    const targetAngle = this.turntableState.leadInAngle + pct * (this.turntableState.leadOutAngle - this.turntableState.leadInAngle);
-
-    this.applyTonearmAngle(targetAngle, true);
-    this.playNeedleDropEffect();
-
-    if (this.playingAudio && this.playingAudio.src) {
-      const dur = this.playingAudio.duration && !isNaN(this.playingAudio.duration) ? this.playingAudio.duration : 30;
-      this.playingAudio.currentTime = pct * dur;
-      if (this.playingAudio.paused && !this.turntableState.isLifted) {
-        this.playingAudio.play().catch(() => {});
-      }
-      const platter = document.getElementById('ttPlatter');
-      if (platter) platter.classList.add('is-spinning');
-      if (this.turntableState.crackleEnabled) {
-        this.startVinylCrackle();
-      }
-    } else {
-      this.playTurntableDefaultTrack(pct);
-    }
-    this.showToastNotification(`🎯 Игла перемещена на дорожку (${Math.round(pct * 100)}%)`);
-  },
-
-  toggleTurntablePack() {
-    this.unlockAudio();
-    const stage = document.getElementById('ttStage');
-    const btnPack = document.getElementById('ttBtnPack');
-    const platter = document.getElementById('ttPlatter');
-    const tonearm = document.getElementById('ttTonearm');
-    if (!stage) return;
-
-    if (!this.turntableState.isPacked) {
-      // Physical packaging sequence:
-      // 1. Lift tonearm first if it's currently on the record
-      if (tonearm) tonearm.classList.add('arm-lifted');
-      if (this.playingAudio && !this.playingAudio.paused) {
-        this.playingAudio.pause();
-      }
-      this.stopVinylCrackle();
-      if (platter) platter.classList.remove('is-spinning');
-
-      // 2. Return tonearm safely to rest cradle
-      this.applyTonearmAngle(this.turntableState.restAngle, true);
-
-      // 3. Lower tonearm into cradle and slide disc into jacket sleeve
-      this.threeTurntable.targetDiscProgress = 0;
-      setTimeout(() => {
-        if (tonearm) tonearm.classList.remove('arm-lifted');
-        if (stage) {
-          stage.classList.remove('state-extracted');
-          stage.classList.add('state-packed');
-        }
-        this.turntableState.isPacked = true;
-        if (btnPack) {
-          btnPack.textContent = '📦';
-          btnPack.title = 'Достать пластинку из конверта';
-        }
-        this.showToastNotification('📦 Игла снята на стойку, пластинка бережно запакована в конверт');
-      }, 350);
-
-    } else {
-      // Unpack sequence:
-      // 1. Slide disc out onto platter
-      stage.classList.remove('state-packed');
-      stage.classList.add('state-extracted');
-      this.turntableState.isPacked = false;
-      this.threeTurntable.targetDiscProgress = 1;
-      if (btnPack) {
-        btnPack.textContent = '💿';
-        btnPack.title = 'Запаковать пластинку в конверт';
-      }
-
-      // 2. Spin platter, lift needle, swing to lead-in groove, and drop
-      setTimeout(() => {
-        if (platter) platter.classList.add('is-spinning');
-        if (tonearm) tonearm.classList.add('arm-lifted');
-        this.applyTonearmAngle(this.turntableState.leadInAngle, true);
-
-        setTimeout(() => {
-          if (tonearm) tonearm.classList.remove('arm-lifted');
-          this.playNeedleDropEffect();
-          if (this.playingAudio && this.playingAudio.src) {
-            this.playingAudio.play().catch(() => {});
-            if (this.turntableState.crackleEnabled) {
-              this.startVinylCrackle();
-            }
-          } else {
-            this.playTurntableDefaultTrack(0);
-          }
-          this.showToastNotification('💿 Пластинка извлечена и установлена на стол, игла на дорожке');
-        }, 400);
-      }, 500);
-    }
-  },
-
-  toggleTurntableCueLift() {
-    if (this.turntableState.isPacked) {
-      this.showToastNotification('Сначала достаньте пластинку из конверта');
-      return;
-    }
-    const tonearm = document.getElementById('ttTonearm');
-    const btnLift = document.getElementById('ttBtnLift');
-    this.turntableState.isLifted = !this.turntableState.isLifted;
-
-    if (btnLift) btnLift.classList.toggle('active', this.turntableState.isLifted);
-    if (tonearm) tonearm.classList.toggle('arm-lifted', this.turntableState.isLifted);
-    this.applyTonearmAngle(this.turntableState.currentAngle, true);
-
-    if (this.turntableState.isLifted) {
-      if (this.playingAudio && !this.playingAudio.paused) {
-        this.turntableState.wasPlayingBeforeLift = true;
-        this.playingAudio.pause();
-      }
-      this.stopVinylCrackle();
-      this.showToastNotification('🎚️ Микролифт: игла поднята над пластинкой');
-    } else {
-      this.playNeedleDropEffect();
-      if (this.turntableState.wasPlayingBeforeLift && this.playingAudio) {
-        this.playingAudio.play().catch(() => {});
-        this.turntableState.wasPlayingBeforeLift = false;
-      }
-      this.showToastNotification('🎚️ Микролифт: игла плавно опущена на дорожку');
-    }
-  },
-
-  async turntableNextTrack() {
-    await this.navigateTurntableTrack(1);
-  },
-
-  async turntablePrevTrack() {
-    await this.navigateTurntableTrack(-1);
-  },
-
-  async navigateTurntableTrack(direction = 1) {
-    if (this.turntableState.isPacked) {
-      this.showToastNotification('Сначала достаньте пластинку из конверта');
-      return;
-    }
-
-    const tonearm = document.getElementById('ttTonearm');
-    if (tonearm) tonearm.classList.add('arm-lifted');
-    this.applyTonearmAngle(this.turntableState.leadInAngle, true);
-
-    // If modal tracklist is loaded
-    if (this.currentTracklistData && Array.isArray(this.currentTracklistData.tracklist) && this.currentTracklistData.tracklist.length > 0) {
-      const list = this.currentTracklistData.tracklist;
-      const curIdx = this.currentTracklistIndex >= 0 ? this.currentTracklistIndex : 0;
-      const nextIdx = (curIdx + direction + list.length) % list.length;
-      setTimeout(async () => {
-        if (tonearm) tonearm.classList.remove('arm-lifted');
-        this.playNeedleDropEffect();
-        await this.playTrackByIndex(nextIdx);
-      }, 350);
-      return;
-    }
-
-    // Otherwise navigate across albums/releases
-    const collection = (this.appMode === 'albums' ? this.albums : this.records) || [];
-    if (collection.length > 0) {
-      const curId = this.turntableState.currentTrack ? this.turntableState.currentTrack.id : null;
-      let curIdx = collection.findIndex(it => String(it.id) === String(curId));
-      if (curIdx === -1) curIdx = 0;
-      const nextIdx = (curIdx + direction + collection.length) % collection.length;
-      const nextItem = collection[nextIdx];
-
-      setTimeout(async () => {
-        if (tonearm) tonearm.classList.remove('arm-lifted');
-        this.playNeedleDropEffect();
-        await this.openAlbumTracklistModal(nextItem.id, nextItem);
-        if (this.currentTracklistData && this.currentTracklistData.tracklist && this.currentTracklistData.tracklist.length > 0) {
-          await this.playTrackByIndex(0);
-        }
-      }, 350);
-      return;
-    }
-
-    setTimeout(() => {
-      if (tonearm) tonearm.classList.remove('arm-lifted');
-      this.playNeedleDropEffect();
-    }, 350);
-  },
-
-  toggleTurntablePlayPause() {
-    this.unlockAudio();
-
-    if (this.turntableState.isPacked) {
-      this.toggleTurntablePack();
-      return;
-    }
-
-    if (this.playingAudio && !this.playingAudio.paused) {
-      this.pauseAudio();
-      return;
-    }
-
-    if (this.playingAudio && this.playingAudio.paused && this.playingAudio.src) {
-      this.playingAudio.play().then(() => {
-        this.onTurntableAudioPlay();
-        this.updateFloatingPlayerButtonUI();
-      }).catch(e => {
-        console.warn('Play error:', e);
-      });
-      return;
-    }
-
-    this.playTurntableDefaultTrack();
-  },
-
-  async playTurntableDefaultTrack(seekPct = 0) {
-    this.unlockAudio();
-
-    // 1. If currently have currentTrack in turntableState
-    const ct = this.turntableState.currentTrack;
-    if (ct) {
-      if (ct.previewUrl) {
-        this.playAudio(ct.previewUrl, ct.title, ct.artist, ct.coverUrl);
-        if (seekPct > 0) this.seekTurntableToPercent(seekPct);
-        return;
-      }
-      if (ct.title || ct.artist) {
-        await this.fetchAndPlayPreview(ct.title, ct.artist, ct.coverUrl);
-        if (seekPct > 0) this.seekTurntableToPercent(seekPct);
-        return;
-      }
-    }
-
-    // 2. If tracklist modal has tracks
-    if (this.currentTracklistData && Array.isArray(this.currentTracklistData.tracklist) && this.currentTracklistData.tracklist.length > 0) {
-      await this.playTrackByIndex(0);
-      if (seekPct > 0) this.seekTurntableToPercent(seekPct);
-      return;
-    }
-
-    // 3. Fallback to first item from library (albums or records)
-    const list = (this.appMode === 'albums' ? this.albums : this.records) || [];
-    if (list.length > 0) {
-      const first = list[0];
-      await this.openAlbumTracklistModal(first.id, first);
-      if (this.currentTracklistData && this.currentTracklistData.tracklist && this.currentTracklistData.tracklist.length > 0) {
-        await this.playTrackByIndex(0);
-        if (seekPct > 0) this.seekTurntableToPercent(seekPct);
-      }
-      return;
-    }
-
-    this.showToastNotification('Выберите пластинку или песню для воспроизведения');
-  },
-
-  seekTurntableToPercent(pct) {
-    setTimeout(() => {
-      if (this.playingAudio) {
-        const dur = this.playingAudio.duration || 30;
-        this.playingAudio.currentTime = Math.max(0, Math.min(dur, pct * dur));
-      }
-    }, 150);
-  },
-
-  skipTurntableAudio(deltaSeconds) {
-    if (this.playingAudio) {
-      const cur = this.playingAudio.currentTime || 0;
-      const dur = this.playingAudio.duration || 30;
-      const target = Math.max(0, Math.min(dur, cur + deltaSeconds));
-      this.playingAudio.currentTime = target;
-    }
-  },
-
-  seekTurntableFromEvent(e) {
-    const track = document.getElementById('ttScrubberTrack');
-    if (!track || !this.playingAudio) return;
-    const rect = track.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const pct = Math.max(0, Math.min(1, clickX / rect.width));
-    const dur = this.playingAudio.duration && !isNaN(this.playingAudio.duration) ? this.playingAudio.duration : 30;
-    this.playingAudio.currentTime = pct * dur;
-    this.playNeedleDropEffect();
-  },
-
-  toggleVinylCrackle() {
-    this.turntableState.crackleEnabled = !this.turntableState.crackleEnabled;
-    const btn = document.getElementById('ttBtnAsmr');
-    if (btn) {
-      btn.classList.toggle('active', this.turntableState.crackleEnabled);
-    }
-    if (this.turntableState.crackleEnabled) {
-      if (this.playingAudio && !this.playingAudio.paused) {
-        this.startVinylCrackle();
-      }
-      this.showToastNotification('🔊 Аналоговый треск винила включен');
-    } else {
-      this.stopVinylCrackle();
-      this.showToastNotification('🔇 Треск винила отключен');
-    }
-  },
-
-  startVinylCrackle() {
-    if (!this.experiments.turntableAsmr) return;
-    if (!this.turntableState.isOpen) return;
-    if (this.turntableState.isPacked) return;
-    if (!this.turntableState.crackleEnabled) return;
-    if (!this.playingAudio || this.playingAudio.paused) return;
-
-    try {
-      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-      if (this.vinylCracklingNode) return;
-
-      const bufferSize = 4096;
-      // Real-time procedural non-repetitive vinyl pops and surface hiss generator
-      const proc = this.audioCtx.createScriptProcessor ? this.audioCtx.createScriptProcessor(bufferSize, 0, 1) : null;
-
-      if (proc) {
-        let rotationPhase = 0;
-        proc.onaudioprocess = (e) => {
-          const out = e.outputBuffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) {
-            // Subtle 33 1/3 RPM rumble (0.55 Hz rotation modulation)
-            rotationPhase += (2 * Math.PI * 0.55) / 44100;
-            const rumble = Math.sin(rotationPhase) * 0.003;
-
-            // Surface friction hiss
-            const hiss = (Math.random() * 2 - 1) * 0.006;
-
-            // Random non-repetitive dust pops (Poisson distribution with organic amplitudes)
-            let pop = 0;
-            if (Math.random() < 0.00045) {
-              const sign = Math.random() < 0.5 ? 1 : -1;
-              const amp = 0.06 + Math.random() * 0.26;
-              pop = sign * amp;
-            }
-
-            out[i] = rumble + hiss + pop;
-          }
-        };
-
-        const filter = this.audioCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 2400;
-        filter.Q.value = 0.8;
-
-        const gain = this.audioCtx.createGain();
-        gain.gain.value = 0.32;
-
-        proc.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.audioCtx.destination);
-
-        this.vinylCracklingNode = { proc, filter, gain };
-      } else {
-        const sampleRate = this.audioCtx.sampleRate || 44100;
-        const buffer = this.audioCtx.createBuffer(1, sampleRate * 4, sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < data.length; i++) {
-          const pop = Math.random() < 0.0007 ? (Math.random() * 2 - 1) * 0.35 : 0;
-          data[i] = (Math.random() * 2 - 1) * 0.012 + pop;
-        }
-        const noise = this.audioCtx.createBufferSource();
-        noise.buffer = buffer;
-        noise.loop = true;
-        const gain = this.audioCtx.createGain();
-        gain.gain.value = 0.25;
-        noise.connect(gain);
-        gain.connect(this.audioCtx.destination);
-        noise.start();
-        this.vinylCracklingNode = { noise, gain };
-      }
-    } catch (e) {}
-  },
-
-  stopVinylCrackle() {
-    if (this.vinylCracklingNode) {
-      try {
-        if (this.vinylCracklingNode.proc) {
-          this.vinylCracklingNode.proc.disconnect();
-        }
-        if (this.vinylCracklingNode.noise) {
-          this.vinylCracklingNode.noise.stop();
-          this.vinylCracklingNode.noise.disconnect();
-        }
-        if (this.vinylCracklingNode.filter) this.vinylCracklingNode.filter.disconnect();
-        if (this.vinylCracklingNode.gain) this.vinylCracklingNode.gain.disconnect();
-      } catch (e) {}
-      this.vinylCracklingNode = null;
-    }
-  },
-
-  onTurntableAudioPlay() {
-    this.updateFloatingPlayerButtonUI();
-    const playPauseIcon = document.getElementById('playerPlayPauseIcon');
-    if (playPauseIcon) playPauseIcon.textContent = '⏸';
-    const ttPlayIcon = document.getElementById('ttPlayIcon');
-    if (ttPlayIcon) ttPlayIcon.textContent = '⏸';
-
-    if (!this.turntableState.isOpen) return;
-    const platter = document.getElementById('ttPlatter');
-    const led = document.getElementById('ttLedIndicator');
-    const stage = document.getElementById('ttStage');
-
-    if (stage) {
-      stage.classList.remove('state-packed');
-      stage.classList.add('state-extracted');
-      this.turntableState.isPacked = false;
-      const btnPack = document.getElementById('ttBtnPack');
-      if (btnPack) {
-        btnPack.textContent = '💿';
-        btnPack.title = 'Запаковать пластинку в конверт';
-      }
-    }
-
-    if (platter) platter.classList.add('is-spinning');
-    if (this.turntableState.currentAngle < 5) {
-      this.applyTonearmAngle(this.turntableState.leadInAngle, true);
-      this.playNeedleDropEffect();
-    }
-
-    if (led) led.classList.add('active');
-    if (!this.turntableState.isPacked && !this.turntableState.isLifted && this.experiments.turntableAsmr && this.turntableState.crackleEnabled) {
-      this.startVinylCrackle();
-    }
-  },
-
-  onTurntableAudioPause() {
-    this.updateFloatingPlayerButtonUI();
-    const playPauseIcon = document.getElementById('playerPlayPauseIcon');
-    if (playPauseIcon) playPauseIcon.textContent = '▶';
-    const ttPlayIcon = document.getElementById('ttPlayIcon');
-    if (ttPlayIcon) ttPlayIcon.textContent = '▶';
-
-    const platter = document.getElementById('ttPlatter');
-    const led = document.getElementById('ttLedIndicator');
-
-    if (platter) platter.classList.remove('is-spinning');
-    if (led) led.classList.remove('active');
-    this.stopVinylCrackle();
-  },
-
-  onTurntableAudioEnded() {
-    this.onTurntableAudioPause();
-    const fill = document.getElementById('ttScrubberFill');
-    const curTime = document.getElementById('ttTimeCurrent');
-    if (fill) fill.style.width = '0%';
-    if (curTime) curTime.textContent = '0:00';
-
-    const tonearm = document.getElementById('ttTonearm');
-    if (tonearm && !this.turntableState.isPacked) {
-      this.applyTonearmAngle(this.turntableState.leadOutAngle, true);
-      setTimeout(() => {
-        if (tonearm) tonearm.classList.add('arm-lifted');
-        setTimeout(() => {
-          this.applyTonearmAngle(this.turntableState.restAngle, true);
-          setTimeout(() => {
-            if (tonearm) tonearm.classList.remove('arm-lifted');
-          }, 350);
-        }, 300);
-      }, 500);
-    }
-  },
-
-  updateTurntableProgress(currentTime, duration) {
-    const fill = document.getElementById('ttScrubberFill');
-    const curTime = document.getElementById('ttTimeCurrent');
-    const durTime = document.getElementById('ttTimeDuration');
-    const tonearm = document.getElementById('ttTonearm');
-    const cur = currentTime || 0;
-    const dur = duration && !isNaN(duration) ? duration : 30;
-
-    if (curTime) curTime.textContent = this.formatAudioTime(cur);
-    if (durTime) durTime.textContent = this.formatAudioTime(dur);
-    if (fill && dur > 0) {
-      fill.style.width = `${Math.min(100, (cur / dur) * 100)}%`;
-    }
-
-    // Physical needle movement across vinyl grooves if playing & not dragging & not packed & not lifted
-    if (!this.turntableState.isDragging && !this.turntableState.isPacked && !this.turntableState.isLifted && tonearm) {
-      if (this.playingAudio && !this.playingAudio.paused) {
-        const progress = Math.min(1, Math.max(0, cur / dur));
-        const leadIn = this.turntableState.leadInAngle; // 14 deg
-        const leadOut = this.turntableState.leadOutAngle; // 38 deg
-        const targetAngle = leadIn + progress * (leadOut - leadIn);
-        this.applyTonearmAngle(targetAngle, true);
-      }
-    }
-  },
-
-  updateValuationStats() {
-    const badge = document.getElementById('statHeaderPriceRange');
-    if (!badge) return;
-    let sumMin = 0;
-    let sumMed = 0;
-    let sumMax = 0;
-    let count = 0;
-    this.records.forEach(r => {
-      const med = Number(r.priceMedian || r.priceLowest || r.priceMin || 25);
-      const min = Number(r.priceMin || (med * 0.7));
-      const max = Number(r.priceMax || (med * 1.45));
-      if (med > 0) {
-        sumMed += med;
-        sumMin += min;
-        sumMax += max;
-        count++;
-      }
-    });
-    if (count > 0) {
-      badge.innerHTML = `💰 Оценка продажи: от $${Math.round(sumMin)} до $${Math.round(sumMax)} <span style="opacity:0.85; font-size:11px;">(медиана $${Math.round(sumMed)})</span>`;
-      badge.title = `Если продать всю коллекцию (${count} пластинок): выручка от $${Math.round(sumMin)} до $${Math.round(sumMax)}, медиана $${Math.round(sumMed)}`;
-    }
-  },
-
-  // ----------------------------------------------------
-  // 3D REALISTIC WEBGL TURNTABLE (THREE.JS)
-  // ----------------------------------------------------
-  initThreeTurntable() {
-    if (this.threeTurntable.isInitialized) {
-      if (this.threeTurntable.renderer && this.threeTurntable.camera) {
-        this.onResizeThreeTurntable();
-      }
-      return;
-    }
-    if (typeof THREE === 'undefined') {
-      console.warn('Three.js library not loaded; using 2D turntable fallback.');
-      return;
-    }
-
-    const canvas = document.getElementById('tt3DCanvas');
-    const stage = document.getElementById('ttStage');
-    if (!canvas || !stage) return;
-
-    const width = stage.clientWidth || 440;
-    const height = stage.clientHeight || 230;
-
-    // Scene
-    const scene = new THREE.Scene();
-    this.threeTurntable.scene = scene;
-
-    // Perspective Camera overlooking the turntable and sleeve
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
-    camera.position.set(0, 3.8, 5.3);
-    camera.lookAt(0, -0.1, 0);
-    this.threeTurntable.camera = camera;
-
-    // WebGL Renderer
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance'
-    });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.threeTurntable.renderer = renderer;
-
-    // Realistic Multi-source Lighting
-    const ambLight = new THREE.AmbientLight(0xfff6ec, 0.85);
-    scene.add(ambLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.25);
-    dirLight.position.set(-3, 6, 4);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-
-    const rimLight = new THREE.PointLight(0x38bdf8, 0.9, 8);
-    rimLight.position.set(2.5, 2.5, -1);
-    scene.add(rimLight);
-
-    const warmAccentLight = new THREE.PointLight(0xf59e0b, 0.65, 6);
-    warmAccentLight.position.set(-1.8, 1.8, 2);
-    scene.add(warmAccentLight);
-
-    // 1. Turntable Plinth / Body
-    const plinthGeo = new THREE.BoxGeometry(3.6, 0.36, 3.2);
-    const plinthMat = new THREE.MeshStandardMaterial({
-      color: 0x111622,
-      roughness: 0.35,
-      metalness: 0.7
-    });
-    const plinthMesh = new THREE.Mesh(plinthGeo, plinthMat);
-    plinthMesh.position.set(0.9, -0.18, 0);
-    plinthMesh.receiveShadow = true;
-    scene.add(plinthMesh);
-
-    // Subtle edge trim / bevel
-    const trimGeo = new THREE.BoxGeometry(3.64, 0.04, 3.24);
-    const trimMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      metalness: 0.9,
-      roughness: 0.2
-    });
-    const trimMesh = new THREE.Mesh(trimGeo, trimMat);
-    trimMesh.position.set(0.9, 0.01, 0);
-    scene.add(trimMesh);
-
-    // 2. Platter Assembly (Silver rim with strobe dots + rubber mat)
-    const platterGroup = new THREE.Group();
-    platterGroup.position.set(0.4, 0.06, 0);
-
-    const rimGeo = new THREE.CylinderGeometry(1.36, 1.36, 0.12, 48);
-    const rimMat = new THREE.MeshStandardMaterial({
-      color: 0xd4d4d8,
-      metalness: 0.92,
-      roughness: 0.25
-    });
-    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
-    rimMesh.castShadow = true;
-    platterGroup.add(rimMesh);
-
-    const matGeo = new THREE.CylinderGeometry(1.3, 1.3, 0.03, 48);
-    const matMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.85,
-      metalness: 0.1
-    });
-    const matMesh = new THREE.Mesh(matGeo, matMaterial);
-    matMesh.position.y = 0.07;
-    platterGroup.add(matMesh);
-
-    const spindleGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.25, 24);
-    const spindleMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      metalness: 0.98,
-      roughness: 0.1
-    });
-    const spindleMesh = new THREE.Mesh(spindleGeo, spindleMat);
-    spindleMesh.position.y = 0.14;
-    platterGroup.add(spindleMesh);
-
-    scene.add(platterGroup);
-    this.threeTurntable.platterMesh = platterGroup;
-
-    // 3. Album Jacket / Sleeve (Конверт на левой стороне)
-    const jacketGroup = new THREE.Group();
-    jacketGroup.position.set(-1.85, 0.2, 0.1);
-    jacketGroup.rotation.y = 0.22;
-    jacketGroup.rotation.x = -0.12;
-
-    const jacketGeo = new THREE.BoxGeometry(2.2, 2.2, 0.08);
-    const jacketCanvas = document.createElement('canvas');
-    jacketCanvas.width = 512;
-    jacketCanvas.height = 512;
-    const jCtx = jacketCanvas.getContext('2d');
-    jCtx.fillStyle = '#1e293b';
-    jCtx.fillRect(0, 0, 512, 512);
-    jCtx.fillStyle = '#38bdf8';
-    jCtx.font = 'bold 36px sans-serif';
-    jCtx.textAlign = 'center';
-    jCtx.fillText('VINYL SLEEVE', 256, 240);
-    jCtx.font = '24px sans-serif';
-    jCtx.fillStyle = '#94a3b8';
-    jCtx.fillText('Click to unpack', 256, 290);
-    const jacketTex = new THREE.CanvasTexture(jacketCanvas);
-
-    const jacketMat = new THREE.MeshStandardMaterial({
-      map: jacketTex,
-      roughness: 0.35,
-      metalness: 0.15
-    });
-    const jacketMesh = new THREE.Mesh(jacketGeo, jacketMat);
-    jacketMesh.castShadow = true;
-    jacketGroup.add(jacketMesh);
-
-    scene.add(jacketGroup);
-    this.threeTurntable.jacketMesh = jacketGroup;
-    this.threeTurntable.jacketMaterial = jacketMat;
-
-    // 4. Physical Vinyl Disc
-    const vinylGroup = new THREE.Group();
-    const discGeo = new THREE.CylinderGeometry(1.28, 1.28, 0.03, 64);
-    const discMat = new THREE.MeshStandardMaterial({
-      color: 0x09090b,
-      roughness: 0.26,
-      metalness: 0.65
-    });
-    const discMesh = new THREE.Mesh(discGeo, discMat);
-    discMesh.castShadow = true;
-    vinylGroup.add(discMesh);
-
-    // Procedural Grooves Ring Texture
-    const groovesCanvas = document.createElement('canvas');
-    groovesCanvas.width = 512;
-    groovesCanvas.height = 512;
-    const gCtx = groovesCanvas.getContext('2d');
-    gCtx.fillStyle = '#09090b';
-    gCtx.fillRect(0, 0, 512, 512);
-    for (let r = 85; r < 246; r += 2.5) {
-      gCtx.strokeStyle = Math.random() < 0.25 ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)';
-      gCtx.lineWidth = 1;
-      gCtx.beginPath();
-      gCtx.arc(256, 256, r, 0, Math.PI * 2);
-      gCtx.stroke();
-    }
-    const groovesTex = new THREE.CanvasTexture(groovesCanvas);
-    const groovesPlaneGeo = new THREE.PlaneGeometry(2.52, 2.52);
-    const groovesMat = new THREE.MeshStandardMaterial({
-      map: groovesTex,
-      transparent: true,
-      roughness: 0.2,
-      metalness: 0.7
-    });
-    const groovesPlane = new THREE.Mesh(groovesPlaneGeo, groovesMat);
-    groovesPlane.rotation.x = -Math.PI / 2;
-    groovesPlane.position.y = 0.016;
-    vinylGroup.add(groovesPlane);
-
-    // Center Sticker / Label
-    const labelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.034, 32);
-    const labelCanvas = document.createElement('canvas');
-    labelCanvas.width = 256;
-    labelCanvas.height = 256;
-    const lCtx = labelCanvas.getContext('2d');
-    lCtx.fillStyle = '#d97706';
-    lCtx.beginPath();
-    lCtx.arc(128, 128, 120, 0, Math.PI * 2);
-    lCtx.fill();
-    lCtx.fillStyle = '#000';
-    lCtx.beginPath();
-    lCtx.arc(128, 128, 16, 0, Math.PI * 2);
-    lCtx.fill();
-    const labelTex = new THREE.CanvasTexture(labelCanvas);
-    const labelMat = new THREE.MeshStandardMaterial({
-      map: labelTex,
-      roughness: 0.4,
-      metalness: 0.1
-    });
-    const labelMesh = new THREE.Mesh(labelGeo, labelMat);
-    vinylGroup.add(labelMesh);
-
-    scene.add(vinylGroup);
-    this.threeTurntable.vinylMesh = vinylGroup;
-    this.threeTurntable.labelMaterial = labelMat;
-
-    // 5. Tonearm Assembly
-    const tonearmGroup = new THREE.Group();
-    tonearmGroup.position.set(2.2, 0.18, -1.05);
-
-    const baseGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.35, 24);
-    const baseMat = new THREE.MeshStandardMaterial({ color: 0x27272a, metalness: 0.9, roughness: 0.2 });
-    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-    tonearmGroup.add(baseMesh);
-
-    const armPivot = new THREE.Group();
-    armPivot.position.set(0, 0.2, 0);
-
-    const weightGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.22, 24);
-    const weightMat = new THREE.MeshStandardMaterial({ color: 0x52525b, metalness: 0.95, roughness: 0.15 });
-    const weightMesh = new THREE.Mesh(weightGeo, weightMat);
-    weightMesh.rotation.z = Math.PI / 2;
-    weightMesh.position.set(0.24, 0, -0.22);
-    armPivot.add(weightMesh);
-
-    const wandGeo = new THREE.CylinderGeometry(0.025, 0.025, 2.0, 16);
-    const wandMat = new THREE.MeshStandardMaterial({ color: 0xe4e4e7, metalness: 0.98, roughness: 0.1 });
-    const wandMesh = new THREE.Mesh(wandGeo, wandMat);
-    wandMesh.rotation.x = Math.PI / 2;
-    wandMesh.position.set(-0.06, 0.02, 0.9);
-    armPivot.add(wandMesh);
-
-    const headGeo = new THREE.BoxGeometry(0.1, 0.08, 0.24);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.5 });
-    const headMesh = new THREE.Mesh(headGeo, headMat);
-    headMesh.position.set(-0.16, -0.01, 1.95);
-    headMesh.rotation.y = 0.28;
-    armPivot.add(headMesh);
-
-    tonearmGroup.add(armPivot);
-    scene.add(tonearmGroup);
-    this.threeTurntable.tonearmPivot = armPivot;
-
-    // Raycaster for mouse interaction
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    canvas.addEventListener('click', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-
-      const intersects = raycaster.intersectObjects([
-        jacketMesh, discMesh, groovesPlane, rimMesh, matMesh, headMesh
-      ], true);
-
-      if (intersects.length > 0) {
-        const hit = intersects[0].object;
-        if (hit === jacketMesh || hit.parent === jacketGroup) {
-          this.toggleTurntablePack();
-        } else if (hit === discMesh || hit === groovesPlane || hit.parent === vinylGroup) {
-          if (this.threeTurntable.discProgress < 0.5) {
-            this.toggleTurntablePack();
-          } else {
-            this.toggleTurntablePlayPause();
-          }
-        } else if (hit === rimMesh || hit === matMesh || hit === headMesh) {
-          this.toggleTurntablePlayPause();
-        }
-      }
-    });
-
-    canvas.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects([jacketMesh, discMesh, groovesPlane, rimMesh], true);
-      canvas.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
-    });
-
-    window.addEventListener('resize', () => {
-      this.onResizeThreeTurntable();
-    });
-
-    this.threeTurntable.isInitialized = true;
-    this.threeTurntable.discProgress = this.turntableState.isPacked ? 0 : 1;
-    this.threeTurntable.targetDiscProgress = this.turntableState.isPacked ? 0 : 1;
-
-    // If there is an active track cover, load it
-    if (this.turntableState.currentTrack) {
-      const c = this.turntableState.currentTrack.coverUrl || this.turntableState.currentTrack.coverImage || this.turntableState.currentTrack.thumb;
-      if (c) this.updateThreeTurntableCover(c);
-    }
-
-    this.animateThreeTurntable();
-  },
-
-  animateThreeTurntable() {
-    if (!this.threeTurntable.isInitialized) return;
-
-    this.threeTurntable.animFrameId = requestAnimationFrame(() => this.animateThreeTurntable());
-
-    const tt = this.threeTurntable;
-    const isPlaying = this.playingAudio && !this.playingAudio.paused;
-
-    // Smooth interpolation for discProgress (0 = in sleeve, 1 = on platter)
-    const target = tt.targetDiscProgress;
-    const diff = target - tt.discProgress;
-    if (Math.abs(diff) > 0.002) {
-      tt.discProgress += diff * 0.08;
-    } else {
-      tt.discProgress = target;
-    }
-
-    const p = tt.discProgress;
-
-    if (p <= 0.01) {
-      // Packed inside jacket
-      tt.vinylMesh.position.set(-1.85, 0.2, 0.1);
-      tt.vinylMesh.rotation.set(-0.12, 0.22, 0);
-      tt.vinylMesh.scale.set(0.85, 0.85, 0.85);
-      tt.vinylMesh.visible = false;
-    } else {
-      tt.vinylMesh.visible = true;
-      if (p < 0.4) {
-        // Sliding out of jacket opening
-        const t = p / 0.4;
-        const x = -1.85 + t * 0.9;
-        const y = 0.2 + t * 0.25;
-        const z = 0.1 + t * 0.15;
-        tt.vinylMesh.position.set(x, y, z);
-        tt.vinylMesh.rotation.set(-0.12 * (1 - t), 0.22 * (1 - t), 0);
-        tt.vinylMesh.scale.set(0.85 + t * 0.15, 0.85 + t * 0.15, 0.85 + t * 0.15);
-      } else if (p < 0.85) {
-        // Floating across to platter center along arc
-        const t = (p - 0.4) / 0.45;
-        const arcY = Math.sin(t * Math.PI) * 0.45;
-        const x = -0.95 + t * 1.35;
-        const y = 0.45 + arcY;
-        const z = 0.25 * (1 - t);
-        tt.vinylMesh.position.set(x, y, z);
-        tt.vinylMesh.rotation.set(0, 0, 0);
-        tt.vinylMesh.scale.set(1, 1, 1);
-      } else {
-        // Lowering onto platter spindle
-        const t = (p - 0.85) / 0.15;
-        const y = 0.45 - t * 0.30;
-        tt.vinylMesh.position.set(0.4, y, 0);
-        tt.vinylMesh.rotation.set(0, tt.vinylMesh.rotation.y, 0);
-        tt.vinylMesh.scale.set(1, 1, 1);
-      }
-    }
-
-    // Spin platter and vinyl disc when playing and seated
-    if (isPlaying && p > 0.9) {
-      const spinSpeed = 0.058; // 33 1/3 RPM
-      if (tt.platterMesh) tt.platterMesh.rotation.y -= spinSpeed;
-      if (tt.vinylMesh) tt.vinylMesh.rotation.y -= spinSpeed;
-    }
-
-    // Tonearm tracking
-    if (tt.tonearmPivot) {
-      let targetArmAngle = 0.05;
-      let targetLift = 0;
-
-      if (p < 0.9 || this.turntableState.isPacked) {
-        targetArmAngle = 0.05;
-        targetLift = 0;
-      } else {
-        const audio = this.playingAudio;
-        const cur = (audio && audio.currentTime) || 0;
-        const dur = (audio && audio.duration && !isNaN(audio.duration)) ? audio.duration : 30;
-        const progress = Math.min(1, Math.max(0, cur / dur));
-
-        const leadIn = 0.42;
-        const leadOut = 0.82;
-        targetArmAngle = leadIn + progress * (leadOut - leadIn);
-
-        if (this.turntableState.isLifted) {
-          targetLift = -0.22;
-        }
-      }
-
-      tt.tonearmPivot.rotation.y += (targetArmAngle - tt.tonearmPivot.rotation.y) * 0.12;
-      tt.tonearmPivot.rotation.z += (targetLift - tt.tonearmPivot.rotation.z) * 0.18;
-    }
-
-    // Render 3D Scene
-    tt.renderer.render(tt.scene, tt.camera);
-  },
-
-  onResizeThreeTurntable() {
-    const tt = this.threeTurntable;
-    if (!tt.isInitialized || !tt.renderer || !tt.camera) return;
-    const stage = document.getElementById('ttStage');
-    if (!stage) return;
-    const width = stage.clientWidth || 440;
-    const height = stage.clientHeight || 230;
-    tt.camera.aspect = width / height;
-    tt.camera.updateProjectionMatrix();
-    tt.renderer.setSize(width, height);
-  },
-
-  updateThreeTurntableCover(coverUrl) {
-    if (!this.threeTurntable.isInitialized || !coverUrl) return;
-    const proxied = `/api/image-proxy?url=${encodeURIComponent(coverUrl)}`;
-    const loader = new THREE.TextureLoader();
-    loader.load(proxied, (texture) => {
-      texture.generateMipmaps = true;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      if (this.threeTurntable.jacketMaterial) {
-        this.threeTurntable.jacketMaterial.map = texture;
-        this.threeTurntable.jacketMaterial.needsUpdate = true;
-      }
-      if (this.threeTurntable.labelMaterial) {
-        this.threeTurntable.labelMaterial.map = texture;
-        this.threeTurntable.labelMaterial.needsUpdate = true;
-      }
-    }, undefined, (err) => {
-      console.warn('Three.js cover texture load error:', err);
-    });
-  },
-
+  // Clean audio player implementation (turntable widget removed)
   // ----------------------------------------------------
   // 3D ACRYLIC STANDS SHOWCASE IN SEARCH & GATEFOLD INNERSLEEVE
   // ----------------------------------------------------

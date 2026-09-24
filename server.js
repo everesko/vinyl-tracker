@@ -684,7 +684,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const apiPath = `/database/search?${searchParams.toString()}`;
-      const response = await discogsRequest(apiPath, 'GET', null, null, userToken);
+      const response = await discogsRequest(apiPath, 'GET', null, null, userToken, 2, true, true);
 
       if (response.statusCode === 200 && response.data) {
         if (Array.isArray(response.data.results)) {
@@ -705,20 +705,8 @@ const server = http.createServer(async (req, res) => {
               item.num_for_sale = cachedP.num_for_sale;
             }
           }
-
-          if (type === 'artist' && response.data.results.length > 0) {
-            await Promise.all(response.data.results.slice(0, 3).map(async it => {
-              if (!it.thumb && !it.cover_image) {
-                const img = await fetchDeezerArtistImage(it.title);
-                if (img) {
-                  it.thumb = img;
-                  it.cover_image = img;
-                }
-              }
-            }));
-          }
         }
-        setCached(cacheKey, response.data, 15 * 60 * 1000);
+        setCached(cacheKey, response.data, 30 * 60 * 1000);
       }
 
       res.writeHead(response.statusCode, { 'Content-Type': 'application/json' });

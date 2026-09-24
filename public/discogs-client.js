@@ -61,40 +61,19 @@ const DiscogsClient = {
       return clientMemoryCache.get(cacheKey);
     }
 
-    let fetchPromises = [];
+    let searchUrl = '';
     if (trimmed.includes(' - ')) {
       const parts = trimmed.split(' - ');
       const art = parts[0].trim();
       const tit = parts.slice(1).join(' - ').trim();
-      fetchPromises = [
-        fetch(`/api/discogs/search?artist=${encodeURIComponent(art)}&release_title=${encodeURIComponent(tit)}&type=release&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null),
-        fetch(`/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=release&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null)
-      ];
+      searchUrl = `/api/discogs/search?artist=${encodeURIComponent(art)}&release_title=${encodeURIComponent(tit)}&type=release&format=Vinyl&page=${page}&per_page=${perPage}`;
     } else {
-      fetchPromises = [
-        fetch(`/api/discogs/search?artist=${encodeURIComponent(trimmed)}&type=release&sort=have&sort_order=desc&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null),
-        fetch(`/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=release&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null)
-      ];
+      searchUrl = `/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=release&format=Vinyl&page=${page}&per_page=${perPage}`;
     }
 
-    const responses = await Promise.all(fetchPromises);
-    const dataList = await Promise.all(responses.map(async r => {
-      if (r && r.ok) return await r.json().catch(() => ({ results: [] }));
-      return { results: [] };
-    }));
-
-    const rawResults = [];
-    const seenIds = new Set();
-    for (const d of dataList) {
-      if (Array.isArray(d.results)) {
-        for (const item of d.results) {
-          if (!seenIds.has(item.id)) {
-            seenIds.add(item.id);
-            rawResults.push(item);
-          }
-        }
-      }
-    }
+    const r = await fetch(searchUrl, { headers: this.getHeaders() }).catch(() => null);
+    const data = (r && r.ok) ? await r.json().catch(() => ({ results: [] })) : { results: [] };
+    const rawResults = Array.isArray(data.results) ? data.results : [];
 
     const results = rawResults.map(item => {
       let artist = '';
@@ -133,7 +112,7 @@ const DiscogsClient = {
 
     const output = {
       results,
-      pagination: dataList[0]?.pagination || dataList[1]?.pagination || {}
+      pagination: data.pagination || {}
     };
 
     clientMemoryCache.set(cacheKey, output);
@@ -149,47 +128,32 @@ const DiscogsClient = {
     }
 
     const trimmed = query.trim();
-    const cacheKey = `search_master_v4_${trimmed}_${page}_${perPage}`;
+    const cacheKey = `search_master_v5_${trimmed}_${page}_${perPage}`;
     if (clientMemoryCache.has(cacheKey)) {
       return clientMemoryCache.get(cacheKey);
     }
 
-    let fetchPromises = [];
+    let searchUrl = '';
     if (trimmed.includes(' - ')) {
       const parts = trimmed.split(' - ');
       const art = parts[0].trim();
       const tit = parts.slice(1).join(' - ').trim();
-      fetchPromises = [
-        fetch(`/api/discogs/search?artist=${encodeURIComponent(art)}&release_title=${encodeURIComponent(tit)}&type=master&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null),
-        fetch(`/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=release&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null)
-      ];
+      searchUrl = `/api/discogs/search?artist=${encodeURIComponent(art)}&release_title=${encodeURIComponent(tit)}&type=master&page=${page}&per_page=${perPage}`;
     } else {
-      fetchPromises = [
-        // 1. If artist name: query masters ordered by popularity/have desc
-        fetch(`/api/discogs/search?artist=${encodeURIComponent(trimmed)}&type=master&sort=have&sort_order=desc&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null),
-        // 2. Fulltext keyword search across masters (for albums, keywords)
-        fetch(`/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=master&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null)
-      ];
+      searchUrl = `/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=master&page=${page}&per_page=${perPage}`;
     }
 
-    const responses = await Promise.all(fetchPromises);
-    const [dFirst, dSecond] = await Promise.all(responses.map(async r => {
-      if (r && r.ok) return await r.json().catch(() => ({ results: [] }));
-      return { results: [] };
-    }));
+    const r = await fetch(searchUrl, { headers: this.getHeaders() }).catch(() => null);
+    let data = (r && r.ok) ? await r.json().catch(() => ({ results: [] })) : { results: [] };
+    let rawResults = Array.isArray(data.results) ? data.results : [];
 
-    const rawTargetedMasters = trimmed.includes(' - ') ? (Array.isArray(dFirst?.results) ? dFirst.results : []) : [];
-    const rawArtistMasters = trimmed.includes(' - ') ? [] : (Array.isArray(dFirst?.results) ? dFirst.results : []);
-    const rawKeywordMasters = trimmed.includes(' - ') ? [] : (Array.isArray(dSecond?.results) ? dSecond.results : []);
-    const rawReleases = trimmed.includes(' - ') ? (Array.isArray(dSecond?.results) ? dSecond.results : []) : [];
-
-    // Fast fallback if neither masters nor artist produced results (rare indie releases)
-    if (rawTargetedMasters.length === 0 && rawArtistMasters.length === 0 && rawKeywordMasters.length === 0 && rawReleases.length === 0) {
+    // Fast fallback if no master results
+    if (rawResults.length === 0) {
       try {
-        const fallbackRel = await fetch(`/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=release&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null);
+        const fallbackRel = await fetch(`/api/discogs/search?q=${encodeURIComponent(trimmed)}&type=release&format=Vinyl&page=${page}&per_page=${perPage}`, { headers: this.getHeaders() }).catch(() => null);
         if (fallbackRel && fallbackRel.ok) {
           const fbData = await fallbackRel.json().catch(() => ({ results: [] }));
-          if (Array.isArray(fbData.results)) rawReleases.push(...fbData.results);
+          if (Array.isArray(fbData.results)) rawResults = fbData.results;
         }
       } catch (e) {}
     }
