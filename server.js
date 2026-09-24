@@ -2121,6 +2121,31 @@ const server = http.createServer(async (req, res) => {
     try {
       const records = await parseRequestBody(req);
       if (Array.isArray(records) || (records && typeof records === 'object')) {
+        // Automatic backup before overwrite
+        try {
+          if (fs.existsSync(targetFile)) {
+            const currentContent = fs.readFileSync(targetFile, 'utf8');
+            if (currentContent && currentContent.length > 50) {
+              fs.writeFileSync(targetFile + '.bak', currentContent, 'utf8');
+            }
+          }
+        } catch (_) {}
+
+        // Protect against accidental wipe of existing non-empty file
+        const incomingCount = Array.isArray(records) ? records.length : (records.tables ? records.tables.reduce((acc, t) => acc + (t.items?.length || 0), 0) : 0);
+        if (incomingCount === 0 && fs.existsSync(targetFile)) {
+          try {
+            const existing = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
+            const existingCount = Array.isArray(existing) ? existing.length : (existing.tables ? existing.tables.reduce((acc, t) => acc + (t.items?.length || 0), 0) : 0);
+            if (existingCount > 5) {
+              console.warn(`[Storage] Protected ${targetFile} (${existingCount} items) against accidental 0-item wipe.`);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'ok', protected: true, count: existingCount, type: storeType }));
+              return;
+            }
+          } catch (_) {}
+        }
+
         fs.writeFileSync(targetFile, JSON.stringify(records, null, 2), 'utf8');
         const count = Array.isArray(records) ? records.length : (records.tables ? records.tables.reduce((acc, t) => acc + (t.items?.length || 0), 0) : 1);
         res.writeHead(200, { 'Content-Type': 'application/json' });

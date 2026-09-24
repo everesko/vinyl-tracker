@@ -120,16 +120,15 @@ const App = {
       if (text) text.textContent = 'Развернуть';
     }
 
-    // Load saved mode preference
-    const savedMode = localStorage.getItem('vinyl_app_mode') || 'releases';
-    this.setAppMode(savedMode, false);
-
     // Initialize Firebase Sync for Releases
     FirebaseSync.onStatusChange((statusInfo) => {
       this.renderCloudStatus(statusInfo);
     });
 
+    // 1. Load all data from storage & server (recovering from backup if localStorage is empty)
     await this.loadAllReleases();
+    await this.loadAlbums();
+    await this.loadSpotifyTracks();
 
     await FirebaseSync.init((updatedRecords) => {
       if (updatedRecords && Array.isArray(updatedRecords) && updatedRecords.length > 0) {
@@ -143,13 +142,16 @@ const App = {
       }
     });
 
-    // Load local albums
-    await this.loadAlbums();
-
-    // Load local Spotify songs
-    await this.loadSpotifyTracks();
+    // 2. Intelligently determine active app mode
+    const savedMode = localStorage.getItem('vinyl_app_mode');
+    let targetMode = savedMode;
+    if (!targetMode || (targetMode === 'releases' && (this.records || []).length <= 1 && (this.albums || []).length > 5)) {
+      targetMode = 'albums';
+    }
+    this.setAppMode(targetMode || 'albums', false);
 
     this.render();
+    this.updateModeToggleBadges();
     this.initTurntableDragging();
     this.initTurntableWidgetDragging();
     this.updateFloatingPlayerButtonUI();
@@ -253,7 +255,42 @@ const App = {
     }
 
     this.selectedIds.clear();
+    this.updateModeToggleBadges();
     if (doRender) this.render();
+  },
+
+  countTableItems(data) {
+    if (!data) return 0;
+    if (Array.isArray(data)) {
+      if (data.length > 0 && Array.isArray(data[0].items)) {
+        return data.reduce((acc, t) => acc + (Array.isArray(t.items) ? t.items.length : 0), 0);
+      }
+      return data.length;
+    }
+    if (data.tables && Array.isArray(data.tables)) {
+      return data.tables.reduce((acc, t) => acc + (Array.isArray(t.items) ? t.items.length : 0), 0);
+    }
+    return 0;
+  },
+
+  updateModeToggleBadges() {
+    const relCount = (this.records || []).length;
+    const albCount = (this.albums || []).length;
+    const spCount = (this.spotifyTracks || []).length;
+
+    const btnRel = document.getElementById('btnModeReleases');
+    const btnAlb = document.getElementById('btnModeAlbums');
+    const btnSp = document.getElementById('btnModeSpotify');
+
+    if (btnRel) {
+      btnRel.innerHTML = `💽 Винилы (с ценами) <span class="mode-count-pill">${relCount}</span>`;
+    }
+    if (btnAlb) {
+      btnAlb.innerHTML = `🎵 По альбомам <span class="mode-count-pill">${albCount}</span>`;
+    }
+    if (btnSp) {
+      btnSp.innerHTML = `🟢 Песни (Spotify) <span class="mode-count-pill">${spCount}</span>`;
+    }
   },
 
   // ----------------------------------------------------
@@ -283,75 +320,162 @@ const App = {
   },
 
   async loadAllReleases() {
-    let data = null;
+    let localData = null;
     try {
       const localTbl = localStorage.getItem('vinyl_releases_tables');
-      if (localTbl) data = JSON.parse(localTbl);
+      if (localTbl) {
+        const parsed = JSON.parse(localTbl);
+        if (this.countTableItems(parsed) > 0) localData = parsed;
+      }
     } catch (e) {}
 
-    if (!data) {
-      try {
-        const res = await fetch('/api/storage/records?type=release');
-        if (res.ok) data = await res.json();
-      } catch (e) {}
-    }
+    let serverData = null;
+    try {
+      const res = await fetch('/api/storage/records?type=release');
+      if (res.ok) {
+        const parsed = await res.json();
+        if (this.countTableItems(parsed) > 0) serverData = parsed;
+      }
+    } catch (e) {}
 
-    if (!data) {
-      data = await FirebaseSync.loadLocalRecords();
+    let fbData = null;
+    try {
+      const rawFb = await FirebaseSync.loadLocalRecords();
+      if (rawFb && this.countTableItems(rawFb) > 0) fbData = rawFb;
+    } catch (e) {}
+
+    const localCount = this.countTableItems(localData);
+    const serverCount = this.countTableItems(serverData);
+    const fbCount = this.countTableItems(fbData);
+
+    let data = null;
+    if (serverCount >= localCount && serverCount >= fbCount && serverCount > 0) {
+      data = serverData;
+    } else if (localCount >= serverCount && localCount >= fbCount && localCount > 0) {
+      data = localData;
+    } else if (fbCount > 0) {
+      data = fbData;
+    } else {
+      data = serverData || localData || fbData;
     }
 
     this.tables.releases = this.normalizeTables(data, 'releases', 'Основная коллекция');
     this.records = this.getAllItemsInMode('releases');
+
+    try {
+      if (this.tables.releases && this.records.length > 0) {
+        localStorage.setItem('vinyl_releases_tables', JSON.stringify(this.tables.releases));
+        localStorage.setItem('vinyl_records_local', JSON.stringify(this.records));
+      }
+    } catch (e) {}
   },
 
   async loadAlbums() {
-    let data = null;
+    let localData = null;
     try {
       const localTbl = localStorage.getItem('vinyl_albums_tables');
-      if (localTbl) data = JSON.parse(localTbl);
+      if (localTbl) {
+        const parsed = JSON.parse(localTbl);
+        if (this.countTableItems(parsed) > 0) localData = parsed;
+      }
     } catch (e) {}
 
-    if (!data) {
-      try {
-        const res = await fetch('/api/storage/records?type=album');
-        if (res.ok) data = await res.json();
-      } catch (e) {}
-    }
+    let serverData = null;
+    try {
+      const res = await fetch('/api/storage/records?type=album');
+      if (res.ok) {
+        const parsed = await res.json();
+        if (this.countTableItems(parsed) > 0) serverData = parsed;
+      }
+    } catch (e) {}
 
-    if (!data) {
-      try {
-        const local = localStorage.getItem('vinyl_albums_local');
-        if (local) data = JSON.parse(local);
-      } catch (e) {}
+    let fallbackData = null;
+    try {
+      const local = localStorage.getItem('vinyl_albums_local');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (this.countTableItems(parsed) > 0) fallbackData = parsed;
+      }
+    } catch (e) {}
+
+    const localCount = this.countTableItems(localData);
+    const serverCount = this.countTableItems(serverData);
+    const fallbackCount = this.countTableItems(fallbackData);
+
+    let data = null;
+    if (serverCount >= localCount && serverCount >= fallbackCount && serverCount > 0) {
+      data = serverData;
+    } else if (localCount >= serverCount && localCount >= fallbackCount && localCount > 0) {
+      data = localData;
+    } else if (fallbackCount > 0) {
+      data = fallbackData;
+    } else {
+      data = serverData || localData || fallbackData;
     }
 
     this.tables.albums = this.normalizeTables(data, 'albums', 'Каталог альбомов');
     this.albums = this.getAllItemsInMode('albums');
+
+    try {
+      if (this.tables.albums && this.albums.length > 0) {
+        localStorage.setItem('vinyl_albums_tables', JSON.stringify(this.tables.albums));
+        localStorage.setItem('vinyl_albums_local', JSON.stringify(this.albums));
+      }
+    } catch (e) {}
   },
 
   async loadSpotifyTracks() {
-    let data = null;
+    let localData = null;
     try {
       const localTbl = localStorage.getItem('vinyl_spotify_tables');
-      if (localTbl) data = JSON.parse(localTbl);
+      if (localTbl) {
+        const parsed = JSON.parse(localTbl);
+        if (this.countTableItems(parsed) > 0) localData = parsed;
+      }
     } catch (e) {}
 
-    if (!data) {
-      try {
-        const res = await fetch('/api/storage/records?type=spotify');
-        if (res.ok) data = await res.json();
-      } catch (e) {}
-    }
+    let serverData = null;
+    try {
+      const res = await fetch('/api/storage/records?type=spotify');
+      if (res.ok) {
+        const parsed = await res.json();
+        if (this.countTableItems(parsed) > 0) serverData = parsed;
+      }
+    } catch (e) {}
 
-    if (!data) {
-      try {
-        const local = localStorage.getItem('vinyl_spotify_tracks_local');
-        if (local) data = JSON.parse(local);
-      } catch (e) {}
+    let fallbackData = null;
+    try {
+      const local = localStorage.getItem('vinyl_spotify_tracks_local');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (this.countTableItems(parsed) > 0) fallbackData = parsed;
+      }
+    } catch (e) {}
+
+    const localCount = this.countTableItems(localData);
+    const serverCount = this.countTableItems(serverData);
+    const fallbackCount = this.countTableItems(fallbackData);
+
+    let data = null;
+    if (serverCount >= localCount && serverCount >= fallbackCount && serverCount > 0) {
+      data = serverData;
+    } else if (localCount >= serverCount && localCount >= fallbackCount && localCount > 0) {
+      data = localData;
+    } else if (fallbackCount > 0) {
+      data = fallbackData;
+    } else {
+      data = serverData || localData || fallbackData;
     }
 
     this.tables.spotify = this.normalizeTables(data, 'spotify', 'Мой треклист');
     this.spotifyTracks = this.getAllItemsInMode('spotify');
+
+    try {
+      if (this.tables.spotify && this.spotifyTracks.length > 0) {
+        localStorage.setItem('vinyl_spotify_tables', JSON.stringify(this.tables.spotify));
+        localStorage.setItem('vinyl_spotify_tracks_local', JSON.stringify(this.spotifyTracks));
+      }
+    } catch (e) {}
   },
 
   getActiveModeTables(mode = this.appMode) {
@@ -418,6 +542,7 @@ const App = {
         localStorage.setItem('vinyl_spotify_tracks_local', JSON.stringify(this.spotifyTracks));
       } catch (e) {}
     }
+    this.updateModeToggleBadges();
   },
 
   saveAlbumsLocally() {
@@ -1270,6 +1395,7 @@ const App = {
     try { this.updateRangeSliderBounds(); } catch (e) { console.error('Error in updateRangeSliderBounds:', e); }
     try { this.renderPinnedTable(); } catch (e) { console.error('Error in renderPinnedTable:', e); }
     try { this.renderTable(); } catch (e) { console.error('Error in renderTable:', e); }
+    try { this.updateModeToggleBadges(); } catch (e) {}
   },
 
   renderDestinationFolderSelect() {

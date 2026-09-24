@@ -1,0 +1,47 @@
+{
+  "tables": [
+    {
+      "id": "tbl_spotify_default",
+      "name": "Мой треклист",
+      "isCollapsed": false,
+      "items": [
+        {
+          "id": "sp-track_1525933490",
+          "spotifyId": "track_1525933490",
+          "uri": "spotify:search:Oasis%20Wonderwall%20(Remastered)",
+          "title": "Wonderwall (Remastered)",
+          "artist": "Oasis",
+          "album": "(What's The Story) Morning Glory? [Deluxe Remastered Edition]",
+          "durationMs": 258773,
+          "durationStr": "4:18",
+          "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/86/3c/97/863c9741-2dbd-7ca2-3c88-67e87d504343/mzaf_13259566290948941960.plus.aac.p.m4a",
+          "coverImage": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/34/2e/cb/342ecb17-ef19-816a-4ce5-e60b9ceec161/5051961073164.jpg/600x600bb.jpg",
+          "externalUrl": "https://open.spotify.com/track/track_1525933490",
+          "status": "owned",
+          "rating": 5,
+          "isHighValue": false,
+          "notes": "",
+          "createdAt": "2026-09-18T22:38:21.902Z"
+        },
+        {
+          "id": "sp-track_267537169",
+          "spotifyId": "track_267537169",
+          "uri": "spotify:search:The%20Goo%20Goo%20Dolls%20Iris",
+          "title": "Iris",
+          "artist": "The Goo Goo Dolls",
+          "album": "Greatest Hits, Vol. One: The Singles",
+          "durationMs": 289907,
+          "durationStr": "4:49",
+          "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/d5/c4/72/d5c472a3-2cea-e2fd-a94a-5a9290667075/mzaf_15343141215451287660.plus.aac.p.m4a",
+          "coverImage": "https://is1-ssl.mzstatic.com/image/thumb/Music/b4/0c/98/mzi.vhowcacb.jpg/600x600bb.jpg",
+          "externalUrl": "https://open.spotify.com/track/track_267537169",
+          "status": "owned",
+          "rating": 5,
+          "isHighValue": false,
+          "notes": "",
+          "createdAt": "2026-09-18T22:14:31.429Z"
+        }
+      ]
+    }
+  ]
+}
