@@ -319,47 +319,68 @@ const App = {
     }];
   },
 
+  mergeTableLists(primaryData, secondaryData, mode, defaultName) {
+    const primaryTables = this.normalizeTables(primaryData, mode, defaultName);
+    const secondaryTables = this.normalizeTables(secondaryData, mode, defaultName);
+
+    const mergedTables = JSON.parse(JSON.stringify(primaryTables));
+
+    secondaryTables.forEach(secTable => {
+      let targetTable = mergedTables.find(t => (t.name || '').toLowerCase().trim() === (secTable.name || '').toLowerCase().trim());
+      if (!targetTable) {
+        targetTable = {
+          id: secTable.id || `tbl_${mode}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          name: secTable.name,
+          isCollapsed: Boolean(secTable.isCollapsed),
+          items: []
+        };
+        mergedTables.push(targetTable);
+      }
+      if (Array.isArray(secTable.items)) {
+        secTable.items.forEach(secItem => {
+          if (!secItem) return;
+          const sId = String(secItem.id || secItem.masterId || secItem.discogsId || secItem.spotifyId || '');
+          const sKey = `${(secItem.artist || '').toLowerCase().trim()}:::${(secItem.title || secItem.album || '').toLowerCase().trim()}`;
+          const exists = targetTable.items.some(it => {
+            const itId = String(it.id || it.masterId || it.discogsId || it.spotifyId || '');
+            const itKey = `${(it.artist || '').toLowerCase().trim()}:::${(it.title || it.album || '').toLowerCase().trim()}`;
+            return (sId && itId && sId === itId) || (sKey && itKey && sKey === itKey);
+          });
+          if (!exists) {
+            targetTable.items.push(secItem);
+          }
+        });
+      }
+    });
+
+    return mergedTables;
+  },
+
   async loadAllReleases() {
     let localData = null;
     try {
       const localTbl = localStorage.getItem('vinyl_releases_tables');
-      if (localTbl) {
-        const parsed = JSON.parse(localTbl);
-        if (this.countTableItems(parsed) > 0) localData = parsed;
-      }
+      if (localTbl) localData = JSON.parse(localTbl);
     } catch (e) {}
 
     let serverData = null;
     try {
       const res = await fetch('/api/storage/records?type=release');
-      if (res.ok) {
-        const parsed = await res.json();
-        if (this.countTableItems(parsed) > 0) serverData = parsed;
-      }
+      if (res.ok) serverData = await res.json();
     } catch (e) {}
 
     let fbData = null;
     try {
       const rawFb = await FirebaseSync.loadLocalRecords();
-      if (rawFb && this.countTableItems(rawFb) > 0) fbData = rawFb;
+      if (rawFb) fbData = rawFb;
     } catch (e) {}
 
-    const localCount = this.countTableItems(localData);
-    const serverCount = this.countTableItems(serverData);
-    const fbCount = this.countTableItems(fbData);
-
-    let data = null;
-    if (serverCount >= localCount && serverCount >= fbCount && serverCount > 0) {
-      data = serverData;
-    } else if (localCount >= serverCount && localCount >= fbCount && localCount > 0) {
-      data = localData;
-    } else if (fbCount > 0) {
-      data = fbData;
-    } else {
-      data = serverData || localData || fbData;
+    let merged = this.mergeTableLists(serverData, localData, 'releases', 'Основная коллекция');
+    if (fbData) {
+      merged = this.mergeTableLists(merged, fbData, 'releases', 'Основная коллекция');
     }
 
-    this.tables.releases = this.normalizeTables(data, 'releases', 'Основная коллекция');
+    this.tables.releases = merged;
     this.records = this.getAllItemsInMode('releases');
 
     try {
@@ -374,46 +395,27 @@ const App = {
     let localData = null;
     try {
       const localTbl = localStorage.getItem('vinyl_albums_tables');
-      if (localTbl) {
-        const parsed = JSON.parse(localTbl);
-        if (this.countTableItems(parsed) > 0) localData = parsed;
-      }
+      if (localTbl) localData = JSON.parse(localTbl);
     } catch (e) {}
 
     let serverData = null;
     try {
       const res = await fetch('/api/storage/records?type=album');
-      if (res.ok) {
-        const parsed = await res.json();
-        if (this.countTableItems(parsed) > 0) serverData = parsed;
-      }
+      if (res.ok) serverData = await res.json();
     } catch (e) {}
 
     let fallbackData = null;
     try {
       const local = localStorage.getItem('vinyl_albums_local');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (this.countTableItems(parsed) > 0) fallbackData = parsed;
-      }
+      if (local) fallbackData = JSON.parse(local);
     } catch (e) {}
 
-    const localCount = this.countTableItems(localData);
-    const serverCount = this.countTableItems(serverData);
-    const fallbackCount = this.countTableItems(fallbackData);
-
-    let data = null;
-    if (serverCount >= localCount && serverCount >= fallbackCount && serverCount > 0) {
-      data = serverData;
-    } else if (localCount >= serverCount && localCount >= fallbackCount && localCount > 0) {
-      data = localData;
-    } else if (fallbackCount > 0) {
-      data = fallbackData;
-    } else {
-      data = serverData || localData || fallbackData;
+    let merged = this.mergeTableLists(serverData, localData, 'albums', 'Каталог альбомов');
+    if (fallbackData) {
+      merged = this.mergeTableLists(merged, fallbackData, 'albums', 'Каталог альбомов');
     }
 
-    this.tables.albums = this.normalizeTables(data, 'albums', 'Каталог альбомов');
+    this.tables.albums = merged;
     this.albums = this.getAllItemsInMode('albums');
 
     try {
@@ -428,46 +430,27 @@ const App = {
     let localData = null;
     try {
       const localTbl = localStorage.getItem('vinyl_spotify_tables');
-      if (localTbl) {
-        const parsed = JSON.parse(localTbl);
-        if (this.countTableItems(parsed) > 0) localData = parsed;
-      }
+      if (localTbl) localData = JSON.parse(localTbl);
     } catch (e) {}
 
     let serverData = null;
     try {
       const res = await fetch('/api/storage/records?type=spotify');
-      if (res.ok) {
-        const parsed = await res.json();
-        if (this.countTableItems(parsed) > 0) serverData = parsed;
-      }
+      if (res.ok) serverData = await res.json();
     } catch (e) {}
 
     let fallbackData = null;
     try {
       const local = localStorage.getItem('vinyl_spotify_tracks_local');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (this.countTableItems(parsed) > 0) fallbackData = parsed;
-      }
+      if (local) fallbackData = JSON.parse(local);
     } catch (e) {}
 
-    const localCount = this.countTableItems(localData);
-    const serverCount = this.countTableItems(serverData);
-    const fallbackCount = this.countTableItems(fallbackData);
-
-    let data = null;
-    if (serverCount >= localCount && serverCount >= fallbackCount && serverCount > 0) {
-      data = serverData;
-    } else if (localCount >= serverCount && localCount >= fallbackCount && localCount > 0) {
-      data = localData;
-    } else if (fallbackCount > 0) {
-      data = fallbackData;
-    } else {
-      data = serverData || localData || fallbackData;
+    let merged = this.mergeTableLists(serverData, localData, 'spotify', 'Мой треклист');
+    if (fallbackData) {
+      merged = this.mergeTableLists(merged, fallbackData, 'spotify', 'Мой треклист');
     }
 
-    this.tables.spotify = this.normalizeTables(data, 'spotify', 'Мой треклист');
+    this.tables.spotify = merged;
     this.spotifyTracks = this.getAllItemsInMode('spotify');
 
     try {
@@ -7636,6 +7619,40 @@ const App = {
     this.updateValuationStats();
 
     this.renderTable();
+  },
+
+  updateValuationStats() {
+    const badge = document.getElementById('statHeaderPriceRange');
+    if (!badge) return;
+    let sumMin = 0;
+    let sumMed = 0;
+    let sumMax = 0;
+    let count = 0;
+    (this.records || []).forEach(r => {
+      const med = Number(r.priceMedian || r.priceLowest || r.priceMin || 25);
+      const min = Number(r.priceMin || (med * 0.7));
+      const max = Number(r.priceMax || (med * 1.45));
+      if (med > 0) {
+        sumMed += med;
+        sumMin += min;
+        sumMax += max;
+        count++;
+      }
+    });
+
+    if (count > 0 && sumMed > 0) {
+      badge.textContent = `💰 Оценка продажи: от $${Math.round(sumMin)} до $${Math.round(sumMax)} (медиана $${Math.round(sumMed)})`;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.textContent = `💰 Оценка продажи: от $0 до $0 (медиана $0)`;
+      badge.style.display = 'none';
+    }
+  },
+
+  initTurntableDragging() {},
+  initTurntableWidgetDragging() {},
+  closeTurntableWidget() {
+    this.stopAudio();
   },
 
   onTableRowClick(event, itemId) {
