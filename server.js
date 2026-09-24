@@ -2131,9 +2131,10 @@ const server = http.createServer(async (req, res) => {
           }
         } catch (_) {}
 
-        // Protect against accidental wipe of existing non-empty file
+        // Protect against accidental wipe of existing non-empty file (unless explicitly triggered by user)
+        const isForceOrUser = Boolean(records && (records.userAction || records.forceSave));
         const incomingCount = Array.isArray(records) ? records.length : (records.tables ? records.tables.reduce((acc, t) => acc + (t.items?.length || 0), 0) : 0);
-        if (incomingCount === 0 && fs.existsSync(targetFile)) {
+        if (!isForceOrUser && incomingCount === 0 && fs.existsSync(targetFile)) {
           try {
             const existing = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
             const existingCount = Array.isArray(existing) ? existing.length : (existing.tables ? existing.tables.reduce((acc, t) => acc + (t.items?.length || 0), 0) : 0);

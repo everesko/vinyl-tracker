@@ -357,107 +357,104 @@ const App = {
   },
 
   async loadAllReleases() {
-    let localData = null;
-    try {
-      const localTbl = localStorage.getItem('vinyl_releases_tables');
-      if (localTbl) localData = JSON.parse(localTbl);
-    } catch (e) {}
-
     let serverData = null;
     try {
       const res = await fetch('/api/storage/records?type=release');
       if (res.ok) serverData = await res.json();
     } catch (e) {}
 
-    let fbData = null;
+    let localData = null;
     try {
-      const rawFb = await FirebaseSync.loadLocalRecords();
-      if (rawFb) fbData = rawFb;
+      const localTbl = localStorage.getItem('vinyl_releases_tables');
+      if (localTbl) localData = JSON.parse(localTbl);
     } catch (e) {}
 
-    let merged = this.mergeTableLists(serverData, localData, 'releases', 'Основная коллекция');
-    if (fbData) {
-      merged = this.mergeTableLists(merged, fbData, 'releases', 'Основная коллекция');
+    if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
+      this.tables.releases = this.normalizeTables(serverData, 'releases', 'Основная коллекция');
+    } else if (localData) {
+      this.tables.releases = this.normalizeTables(localData, 'releases', 'Основная коллекция');
+    } else {
+      this.tables.releases = [{
+        id: 'tbl_releases_default',
+        name: 'Основная коллекция',
+        isCollapsed: false,
+        items: []
+      }];
     }
 
-    this.tables.releases = merged;
     this.records = this.getAllItemsInMode('releases');
 
     try {
-      if (this.tables.releases && this.records.length > 0) {
-        localStorage.setItem('vinyl_releases_tables', JSON.stringify(this.tables.releases));
-        localStorage.setItem('vinyl_records_local', JSON.stringify(this.records));
-      }
+      localStorage.setItem('vinyl_releases_tables', JSON.stringify(this.tables.releases));
+      localStorage.setItem('vinyl_records_local', JSON.stringify(this.records));
     } catch (e) {}
   },
 
   async loadAlbums() {
-    let localData = null;
-    try {
-      const localTbl = localStorage.getItem('vinyl_albums_tables');
-      if (localTbl) localData = JSON.parse(localTbl);
-    } catch (e) {}
-
     let serverData = null;
     try {
       const res = await fetch('/api/storage/records?type=album');
       if (res.ok) serverData = await res.json();
     } catch (e) {}
 
-    let fallbackData = null;
+    let localData = null;
     try {
-      const local = localStorage.getItem('vinyl_albums_local');
-      if (local) fallbackData = JSON.parse(local);
+      const localTbl = localStorage.getItem('vinyl_albums_tables');
+      if (localTbl) localData = JSON.parse(localTbl);
     } catch (e) {}
 
-    let merged = this.mergeTableLists(serverData, localData, 'albums', 'Каталог альбомов');
-    if (fallbackData) {
-      merged = this.mergeTableLists(merged, fallbackData, 'albums', 'Каталог альбомов');
+    if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
+      this.tables.albums = this.normalizeTables(serverData, 'albums', 'Каталог альбомов');
+    } else if (localData) {
+      this.tables.albums = this.normalizeTables(localData, 'albums', 'Каталог альбомов');
+    } else {
+      this.tables.albums = [{
+        id: 'tbl_albums_default',
+        name: 'Каталог альбомов',
+        isCollapsed: false,
+        items: []
+      }];
     }
 
-    this.tables.albums = merged;
     this.albums = this.getAllItemsInMode('albums');
 
     try {
-      if (this.tables.albums && this.albums.length > 0) {
-        localStorage.setItem('vinyl_albums_tables', JSON.stringify(this.tables.albums));
-        localStorage.setItem('vinyl_albums_local', JSON.stringify(this.albums));
-      }
+      localStorage.setItem('vinyl_albums_tables', JSON.stringify(this.tables.albums));
+      localStorage.setItem('vinyl_albums_local', JSON.stringify(this.albums));
     } catch (e) {}
   },
 
   async loadSpotifyTracks() {
-    let localData = null;
-    try {
-      const localTbl = localStorage.getItem('vinyl_spotify_tables');
-      if (localTbl) localData = JSON.parse(localTbl);
-    } catch (e) {}
-
     let serverData = null;
     try {
       const res = await fetch('/api/storage/records?type=spotify');
       if (res.ok) serverData = await res.json();
     } catch (e) {}
 
-    let fallbackData = null;
+    let localData = null;
     try {
-      const local = localStorage.getItem('vinyl_spotify_tracks_local');
-      if (local) fallbackData = JSON.parse(local);
+      const localTbl = localStorage.getItem('vinyl_spotify_tables');
+      if (localTbl) localData = JSON.parse(localTbl);
     } catch (e) {}
 
-    let merged = this.mergeTableLists(serverData, localData, 'spotify', 'Мой треклист');
-    if (fallbackData) {
-      merged = this.mergeTableLists(merged, fallbackData, 'spotify', 'Мой треклист');
+    if (serverData && (Array.isArray(serverData) || (serverData.tables && Array.isArray(serverData.tables)))) {
+      this.tables.spotify = this.normalizeTables(serverData, 'spotify', 'Мой треклист');
+    } else if (localData) {
+      this.tables.spotify = this.normalizeTables(localData, 'spotify', 'Мой треклист');
+    } else {
+      this.tables.spotify = [{
+        id: 'tbl_spotify_default',
+        name: 'Мой треклист',
+        isCollapsed: false,
+        items: []
+      }];
     }
 
-    this.tables.spotify = merged;
     this.spotifyTracks = this.getAllItemsInMode('spotify');
 
     try {
-      if (this.tables.spotify && this.spotifyTracks.length > 0) {
-        localStorage.setItem('vinyl_spotify_tables', JSON.stringify(this.tables.spotify));
-        localStorage.setItem('vinyl_spotify_tracks_local', JSON.stringify(this.spotifyTracks));
-      }
+      localStorage.setItem('vinyl_spotify_tables', JSON.stringify(this.tables.spotify));
+      localStorage.setItem('vinyl_spotify_tracks_local', JSON.stringify(this.spotifyTracks));
     } catch (e) {}
   },
 
@@ -500,7 +497,7 @@ const App = {
         fetch('/api/storage/records?type=release', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tables })
+          body: JSON.stringify({ tables, userAction: true, forceSave: true })
         }).catch(() => {});
         FirebaseSync.saveLocalRecords(this.records);
       } catch (e) {}
@@ -510,7 +507,7 @@ const App = {
         fetch('/api/storage/records?type=album', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tables })
+          body: JSON.stringify({ tables, userAction: true, forceSave: true })
         }).catch(() => {});
         localStorage.setItem('vinyl_albums_local', JSON.stringify(this.albums));
       } catch (e) {}
@@ -520,7 +517,7 @@ const App = {
         fetch('/api/storage/records?type=spotify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tables })
+          body: JSON.stringify({ tables, userAction: true, forceSave: true })
         }).catch(() => {});
         localStorage.setItem('vinyl_spotify_tracks_local', JSON.stringify(this.spotifyTracks));
       } catch (e) {}
@@ -4833,6 +4830,10 @@ const App = {
   },
 
   playAudio(url, title = '', artist = '', coverUrl = '', btnElementOrId = null, album = '', source = '') {
+    this._isAudioExplicitlyStopped = false;
+    this._audioPlayToken = (this._audioPlayToken || 0) + 1;
+    const currentToken = this._audioPlayToken;
+
     this.unlockAudio();
 
     if (!url) {
@@ -4928,10 +4929,14 @@ const App = {
       if (scrubber && !this.isAudioScrubbing && dur > 0) {
         scrubber.value = ((cur / dur) * 100).toFixed(1);
       }
-      
     };
 
     audio.onplay = () => {
+      if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken) {
+        audio.pause();
+        audio.removeAttribute('src');
+        return;
+      }
       if (playPauseIcon) playPauseIcon.textContent = '⏸';
       const b = typeof this.currentAudioBtnId === 'string' ? document.getElementById(this.currentAudioBtnId) : this.currentAudioBtnId;
       if (b) {
@@ -4939,7 +4944,6 @@ const App = {
         b.textContent = '⏸';
       }
       this.updateSearchPlayingHighlights();
-      
     };
 
     audio.onpause = () => {
@@ -4950,7 +4954,6 @@ const App = {
         b.textContent = '▶';
       }
       this.updateSearchPlayingHighlights();
-      
     };
 
     audio.onended = () => {
@@ -4966,10 +4969,12 @@ const App = {
       this.currentAudioArtist = null;
       this.currentAudioAlbumTitle = null;
       this.updateSearchPlayingHighlights();
-      
     };
 
     audio.onerror = (e) => {
+      if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken || !audio.src) {
+        return;
+      }
       console.warn('Audio playback error:', e);
       if (!audio.src.includes('/api/audio-proxy') && audio.src.startsWith('http')) {
         const proxyUrl = `/api/audio-proxy?url=${encodeURIComponent(url)}`;
@@ -4977,9 +4982,14 @@ const App = {
         audio.src = proxyUrl;
         audio.load();
         audio.play().then(() => {
+          if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken) {
+            audio.pause();
+            audio.removeAttribute('src');
+            return;
+          }
           this.updateSearchPlayingHighlights();
-          
         }).catch(err => {
+          if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken) return;
           this.handlePlaybackFailure(btn, playPauseIcon, 'Аудио недоступно');
         });
         return;
@@ -4990,18 +5000,30 @@ const App = {
     const playPromise = audio.play();
     if (playPromise && typeof playPromise.then === 'function') {
       playPromise.then(() => {
+        if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken) {
+          audio.pause();
+          audio.removeAttribute('src');
+          return;
+        }
         this.updateSearchPlayingHighlights();
-        
       }).catch(e => {
+        if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken || e.name === 'AbortError') {
+          return;
+        }
         console.warn('Direct audio play() error:', e);
         if (!url.includes('/api/audio-proxy') && url.startsWith('http')) {
           const proxyUrl = `/api/audio-proxy?url=${encodeURIComponent(url)}`;
           audio.src = proxyUrl;
           audio.load();
           audio.play().then(() => {
+            if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken) {
+              audio.pause();
+              audio.removeAttribute('src');
+              return;
+            }
             this.updateSearchPlayingHighlights();
-            
           }).catch(proxyErr => {
+            if (this._isAudioExplicitlyStopped || this._audioPlayToken !== currentToken) return;
             console.warn('Proxy audio play() error:', proxyErr);
             this.handlePlaybackFailure(btn, playPauseIcon, 'Браузер заблокировал воспроизведение. Нажмите ▶ еще раз');
           });
@@ -5019,12 +5041,15 @@ const App = {
       btn.textContent = '▶';
     }
     this.setCoverPulsing(false);
-    
     if (msg) this.showToastNotification(msg);
     this.updateSearchPlayingHighlights();
   },
 
   async fetchAndPlayPreview(title, artist, coverUrl = '', btnElementOrId = null, album = '') {
+    this._isAudioExplicitlyStopped = false;
+    this._audioPlayToken = (this._audioPlayToken || 0) + 1;
+    const token = this._audioPlayToken;
+
     this.unlockAudio();
     const btn = typeof btnElementOrId === 'string' ? document.getElementById(btnElementOrId) : btnElementOrId;
     if (btn) {
@@ -5033,8 +5058,10 @@ const App = {
     }
     try {
       const res = await fetch(`/api/track/preview?track=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
+      if (this._isAudioExplicitlyStopped || this._audioPlayToken !== token) return;
       if (res.ok) {
         const data = await res.json();
+        if (this._isAudioExplicitlyStopped || this._audioPlayToken !== token) return;
         if (data && data.found && data.previewUrl) {
           const finalCover = this.getSafeCoverUrl(coverUrl || data.coverImage, artist, album || data.album);
           this.playAudio(data.previewUrl, title, artist, finalCover, btnElementOrId, album || data.album, data.source);
@@ -5044,6 +5071,7 @@ const App = {
     } catch (e) {
       console.warn('Preview search failed:', e);
     }
+    if (this._isAudioExplicitlyStopped || this._audioPlayToken !== token) return;
     if (btn) {
       btn.classList.remove('playing');
       btn.textContent = '✕';
@@ -5054,13 +5082,11 @@ const App = {
 
   pauseAudio() {
     if (this.playingAudio && !this.playingAudio.paused) {
-      this.playingAudio.pause();
+      try { this.playingAudio.pause(); } catch (e) {}
     }
     if (this.audioElement && !this.audioElement.paused) {
-      this.audioElement.pause();
+      try { this.audioElement.pause(); } catch (e) {}
     }
-    
-    
 
     const b = typeof this.currentAudioBtnId === 'string' ? document.getElementById(this.currentAudioBtnId) : this.currentAudioBtnId;
     if (b) {
@@ -5069,7 +5095,6 @@ const App = {
     }
     const playPauseIcon = document.getElementById('playerPlayPauseIcon');
     if (playPauseIcon) playPauseIcon.textContent = '▶';
-    
 
     this.setCoverPulsing(false);
     this.updateSearchPlayingHighlights();
@@ -5077,35 +5102,64 @@ const App = {
   },
 
   stopAudio() {
+    this._isAudioExplicitlyStopped = true;
+    this._audioPlayToken = (this._audioPlayToken || 0) + 1;
+
     this.pauseAudio();
 
-    // 1. Force stop, reset and clear all audio objects
+    // 1. Force stop, reset and detach all listeners on audio objects
     if (this.playingAudio) {
       try {
+        this.playingAudio.onplay = null;
+        this.playingAudio.onpause = null;
+        this.playingAudio.onended = null;
+        this.playingAudio.onerror = null;
+        this.playingAudio.ontimeupdate = null;
         this.playingAudio.pause();
         this.playingAudio.currentTime = 0;
-        this.playingAudio.src = '';
+        this.playingAudio.removeAttribute('src');
+        this.playingAudio.load();
       } catch (e) {}
       this.playingAudio = null;
     }
     if (this.audioElement) {
       try {
+        this.audioElement.onplay = null;
+        this.audioElement.onpause = null;
+        this.audioElement.onended = null;
+        this.audioElement.onerror = null;
+        this.audioElement.ontimeupdate = null;
         this.audioElement.pause();
         this.audioElement.currentTime = 0;
-        this.audioElement.src = '';
+        this.audioElement.removeAttribute('src');
+        this.audioElement.load();
       } catch (e) {}
     }
 
-    // 2. Clear all audio/video elements across document
+    // 2. Clear all audio/video elements and video iframes across document
     try {
       document.querySelectorAll('audio, video').forEach(el => {
         try {
+          el.onplay = null;
+          el.onpause = null;
+          el.onended = null;
+          el.onerror = null;
+          el.ontimeupdate = null;
           el.pause();
           el.currentTime = 0;
-          el.src = '';
+          el.removeAttribute('src');
+          el.load();
+        } catch (e) {}
+      });
+      document.querySelectorAll('iframe.tracklist-video-frame, #tracklistVideoFrame').forEach(f => {
+        try {
+          f.src = 'about:blank';
+          f.style.display = 'none';
         } catch (e) {}
       });
     } catch (e) {}
+
+    this.clearTrackVideo();
 
     // 3. Close & destroy any audio context
     if (this.audioCtx) {
@@ -5522,7 +5576,7 @@ const App = {
                 ▶
               </button>
               <div class="album-track-info">
-                <span class="tracklist-title-text" onclick="App.selectTrackByIndex(${idx})" style="cursor:pointer;" title="Нажмите для воспроизведения">${this.escapeHtml(t.title)}</span>
+                <span class="tracklist-title-text">${this.escapeHtml(t.title)}</span>
                 <span class="album-track-artist">${this.escapeHtml(t.artist || artistName)}</span>
               </div>
             </div>
@@ -5897,6 +5951,10 @@ const App = {
   },
 
   async playTrackByIndex(idx) {
+    this._isAudioExplicitlyStopped = false;
+    this._audioPlayToken = (this._audioPlayToken || 0) + 1;
+    const token = this._audioPlayToken;
+
     this.unlockAudio();
     if (!this.currentTracklistData || !this.currentTracklistData.tracklist) return;
     const track = this.currentTracklistData.tracklist[idx];
@@ -5955,8 +6013,10 @@ const App = {
     if (!audioUrl) {
       try {
         const aRes = await fetch(`/api/track/preview?track=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
+        if (this._isAudioExplicitlyStopped || this._audioPlayToken !== token) return;
         if (aRes.ok) {
           const aData = await aRes.json();
+          if (this._isAudioExplicitlyStopped || this._audioPlayToken !== token) return;
           if (aData && aData.previewUrl) {
             audioUrl = aData.previewUrl;
             previewSource = aData.source || 'Spotify';
@@ -5968,6 +6028,8 @@ const App = {
         console.warn('Track preview fetch error:', e);
       }
     }
+
+    if (this._isAudioExplicitlyStopped || this._audioPlayToken !== token) return;
 
     if (audioUrl) {
       this.playAudio(audioUrl, title, artist, cover, btnId, album, previewSource);
@@ -6053,7 +6115,8 @@ const App = {
   },
 
   selectTrackByIndex(idx) {
-    this.playTrackByIndex(idx);
+    // Music is strictly played ONLY when clicking the dedicated play button (▶).
+    return;
   },
 
   addTrackByIndex(idx) {
@@ -6115,6 +6178,7 @@ const App = {
   },
 
   closeAlbumTracklistModal() {
+    this.stopAudio();
     this.clearTrackVideo();
     this.setCoverPulsing(false);
     this.clearTracklistFilter();

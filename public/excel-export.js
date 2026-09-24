@@ -467,6 +467,32 @@ const ExcelExporter = {
         const notes = (colMap.notes !== undefined && row[colMap.notes]) ? String(row[colMap.notes]).trim() : '';
         const link = (colMap.link !== undefined && row[colMap.link]) ? String(row[colMap.link]).trim() : '';
         const cover = (colMap.cover !== undefined && row[colMap.cover]) ? String(row[colMap.cover]).trim() : '';
+        const importedDate = (colMap.date !== undefined && row[colMap.date]) ? String(row[colMap.date]).trim() : '';
+
+        // Preserve the original date from the file
+        let createdAt = new Date().toISOString();
+        if (importedDate) {
+          const numDate = Number(importedDate);
+          if (!isNaN(numDate) && numDate > 20000 && numDate < 80000) {
+            // Excel serial date number (days since 1899-12-30)
+            createdAt = new Date(Math.round((numDate - 25569) * 86400 * 1000)).toISOString();
+          } else {
+            // Try parsing common date formats: dd.mm.yyyy, yyyy-mm-dd, mm/dd/yyyy
+            const dotMatch = importedDate.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+            const isoMatch = importedDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+            const slashMatch = importedDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (dotMatch) {
+              createdAt = new Date(`${dotMatch[3]}-${dotMatch[2].padStart(2,'0')}-${dotMatch[1].padStart(2,'0')}T12:00:00.000Z`).toISOString();
+            } else if (isoMatch) {
+              createdAt = new Date(`${isoMatch[1]}-${isoMatch[2].padStart(2,'0')}-${isoMatch[3].padStart(2,'0')}T12:00:00.000Z`).toISOString();
+            } else if (slashMatch) {
+              createdAt = new Date(`${slashMatch[3]}-${slashMatch[1].padStart(2,'0')}-${slashMatch[2].padStart(2,'0')}T12:00:00.000Z`).toISOString();
+            } else {
+              const parsed = Date.parse(importedDate);
+              if (!isNaN(parsed)) createdAt = new Date(parsed).toISOString();
+            }
+          }
+        }
 
         const item = {
           id: `import_${mode}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
@@ -480,7 +506,7 @@ const ExcelExporter = {
           uri: link,
           coverImage: cover || undefined,
           thumb: cover || undefined,
-          createdAt: new Date().toISOString()
+          createdAt
         };
 
         if (mode === 'releases') {
