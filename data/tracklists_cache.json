@@ -655,5 +655,5816 @@
     "source": "Discogs",
     "discogsNotFound": false,
     "notice": null
+  },
+  "tracklist:master:4243770:Время И Стекло:Золотые Хиты:Время И Стекло - Золотые Хиты": {
+    "id": "4243770",
+    "type": "master",
+    "title": "Золотые Хиты",
+    "artist": "Время И Стекло",
+    "year": 2025,
+    "cover": "https://i.discogs.com/aQQcxc-WxN3eHVnPMYf_Xs_XQa9ikcBHG9IbnEmncIo/rs:fit/g:sm/q:90/h:591/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MTc3/OTQxLTE3NzcyMDA0/OTItMzE1Ni5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Имя 505",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Троль ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Vislovo ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Песня 404",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Навернопотомучто",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "На стиле",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A7",
+        "title": "Дим",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "#кАроче",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Навсегда/Никогда",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Так выпала карта",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Слеза",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Ей 21",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Потанцуй со мной",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:4243770": {
+    "id": "4243770",
+    "type": "master",
+    "title": "Золотые Хиты",
+    "artist": "Время И Стекло",
+    "year": 2025,
+    "cover": "https://i.discogs.com/aQQcxc-WxN3eHVnPMYf_Xs_XQa9ikcBHG9IbnEmncIo/rs:fit/g:sm/q:90/h:591/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MTc3/OTQxLTE3NzcyMDA0/OTItMzE1Ni5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Имя 505",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Троль ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Vislovo ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Песня 404",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Навернопотомучто",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "На стиле",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A7",
+        "title": "Дим",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "#кАроче",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Навсегда/Никогда",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Так выпала карта",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Слеза",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Ей 21",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Потанцуй со мной",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:время и стекло:::золотые хиты": {
+    "id": "4243770",
+    "type": "master",
+    "title": "Золотые Хиты",
+    "artist": "Время И Стекло",
+    "year": 2025,
+    "cover": "https://i.discogs.com/aQQcxc-WxN3eHVnPMYf_Xs_XQa9ikcBHG9IbnEmncIo/rs:fit/g:sm/q:90/h:591/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MTc3/OTQxLTE3NzcyMDA0/OTItMzE1Ni5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Имя 505",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Троль ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Vislovo ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Песня 404",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Навернопотомучто",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "На стиле",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A7",
+        "title": "Дим",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "#кАроче",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Навсегда/Никогда",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Так выпала карта",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Слеза",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Ей 21",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Потанцуй со мной",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:3187617:Jamala:10:Jamala - 10": {
+    "id": "3187617",
+    "type": "master",
+    "title": "10",
+    "artist": "Jamala",
+    "year": 2019,
+    "cover": "https://i.discogs.com/ftMh0BjyRcN8fAUwBe_JZr9axDMuEF-rZIwta29ltWA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI1NzQ5/MDEwLTE2NzM1NjQw/OTQtNTQ4NS5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Крила",
+        "duration": "3:56",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Заплуталась",
+        "duration": "5:08",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Злива",
+        "duration": "5:46",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Шлях Додому",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "1944",
+        "duration": "3:00",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Solo",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Watch Over Me",
+        "duration": "5:47",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "My Lover",
+        "duration": "3:38",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "I'm Like A Bird",
+        "duration": "3:33",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Perfect Man",
+        "duration": "3:45",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Очима",
+        "duration": "4:34",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Подих",
+        "duration": "4:29",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Иные",
+        "duration": "3:26",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Заманили",
+        "duration": "3:21",
+        "type_": "track"
+      },
+      {
+        "position": "15",
+        "title": "The Great Pretender",
+        "duration": "3:29",
+        "type_": "track"
+      },
+      {
+        "position": "16",
+        "title": "Find Me",
+        "duration": "4:43",
+        "type_": "track"
+      },
+      {
+        "position": "17",
+        "title": "Hurt",
+        "duration": "4:03",
+        "type_": "track"
+      },
+      {
+        "position": "18",
+        "title": "All or Nothing",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "19",
+        "title": "Сумую",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "20",
+        "title": "You're Made of Love",
+        "duration": "4:00",
+        "type_": "track"
+      },
+      {
+        "position": "21",
+        "title": "It's Me, Jamala",
+        "duration": "3:23",
+        "type_": "track"
+      },
+      {
+        "position": "22",
+        "title": "Обещание",
+        "duration": "3:44",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:3187617": {
+    "id": "3187617",
+    "type": "master",
+    "title": "10",
+    "artist": "Jamala",
+    "year": 2019,
+    "cover": "https://i.discogs.com/ftMh0BjyRcN8fAUwBe_JZr9axDMuEF-rZIwta29ltWA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI1NzQ5/MDEwLTE2NzM1NjQw/OTQtNTQ4NS5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Крила",
+        "duration": "3:56",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Заплуталась",
+        "duration": "5:08",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Злива",
+        "duration": "5:46",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Шлях Додому",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "1944",
+        "duration": "3:00",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Solo",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Watch Over Me",
+        "duration": "5:47",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "My Lover",
+        "duration": "3:38",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "I'm Like A Bird",
+        "duration": "3:33",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Perfect Man",
+        "duration": "3:45",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Очима",
+        "duration": "4:34",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Подих",
+        "duration": "4:29",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Иные",
+        "duration": "3:26",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Заманили",
+        "duration": "3:21",
+        "type_": "track"
+      },
+      {
+        "position": "15",
+        "title": "The Great Pretender",
+        "duration": "3:29",
+        "type_": "track"
+      },
+      {
+        "position": "16",
+        "title": "Find Me",
+        "duration": "4:43",
+        "type_": "track"
+      },
+      {
+        "position": "17",
+        "title": "Hurt",
+        "duration": "4:03",
+        "type_": "track"
+      },
+      {
+        "position": "18",
+        "title": "All or Nothing",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "19",
+        "title": "Сумую",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "20",
+        "title": "You're Made of Love",
+        "duration": "4:00",
+        "type_": "track"
+      },
+      {
+        "position": "21",
+        "title": "It's Me, Jamala",
+        "duration": "3:23",
+        "type_": "track"
+      },
+      {
+        "position": "22",
+        "title": "Обещание",
+        "duration": "3:44",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:jamala:::10": {
+    "id": "3187617",
+    "type": "master",
+    "title": "10",
+    "artist": "Jamala",
+    "year": 2019,
+    "cover": "https://i.discogs.com/ftMh0BjyRcN8fAUwBe_JZr9axDMuEF-rZIwta29ltWA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI1NzQ5/MDEwLTE2NzM1NjQw/OTQtNTQ4NS5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Крила",
+        "duration": "3:56",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Заплуталась",
+        "duration": "5:08",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Злива",
+        "duration": "5:46",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Шлях Додому",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "1944",
+        "duration": "3:00",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Solo",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Watch Over Me",
+        "duration": "5:47",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "My Lover",
+        "duration": "3:38",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "I'm Like A Bird",
+        "duration": "3:33",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Perfect Man",
+        "duration": "3:45",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Очима",
+        "duration": "4:34",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Подих",
+        "duration": "4:29",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Иные",
+        "duration": "3:26",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Заманили",
+        "duration": "3:21",
+        "type_": "track"
+      },
+      {
+        "position": "15",
+        "title": "The Great Pretender",
+        "duration": "3:29",
+        "type_": "track"
+      },
+      {
+        "position": "16",
+        "title": "Find Me",
+        "duration": "4:43",
+        "type_": "track"
+      },
+      {
+        "position": "17",
+        "title": "Hurt",
+        "duration": "4:03",
+        "type_": "track"
+      },
+      {
+        "position": "18",
+        "title": "All or Nothing",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "19",
+        "title": "Сумую",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "20",
+        "title": "You're Made of Love",
+        "duration": "4:00",
+        "type_": "track"
+      },
+      {
+        "position": "21",
+        "title": "It's Me, Jamala",
+        "duration": "3:23",
+        "type_": "track"
+      },
+      {
+        "position": "22",
+        "title": "Обещание",
+        "duration": "3:44",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:780367:Flëur:Штормовое предупреждение:Flëur - Штормовое предупреждение": {
+    "id": "780367",
+    "type": "master",
+    "title": "Штормовое предупреждение",
+    "artist": "Flëur",
+    "year": 2014,
+    "cover": "https://i.discogs.com/dWZhhbxqWyX9wSUJb8vZZzd7sVpVL2T49ngu1a64VPQ/rs:fit/g:sm/q:90/h:539/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYxOTgw/NDAtMTQxMzQ5NTc5/NS01ODM3LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Интро",
+        "duration": "0:17",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Железо поёт",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Мы летали",
+        "duration": "4:57",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Кислород",
+        "duration": "6:14",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "После кораблекрушения",
+        "duration": "5:20",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Рамки",
+        "duration": "5:11",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Тростник",
+        "duration": "6:44",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Утешитель",
+        "duration": "5:19",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Зеркальный портал",
+        "duration": "5:19",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Магия",
+        "duration": "5:25",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Черта",
+        "duration": "5:35",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:780367": {
+    "id": "780367",
+    "type": "master",
+    "title": "Штормовое предупреждение",
+    "artist": "Flëur",
+    "year": 2014,
+    "cover": "https://i.discogs.com/dWZhhbxqWyX9wSUJb8vZZzd7sVpVL2T49ngu1a64VPQ/rs:fit/g:sm/q:90/h:539/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYxOTgw/NDAtMTQxMzQ5NTc5/NS01ODM3LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Интро",
+        "duration": "0:17",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Железо поёт",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Мы летали",
+        "duration": "4:57",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Кислород",
+        "duration": "6:14",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "После кораблекрушения",
+        "duration": "5:20",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Рамки",
+        "duration": "5:11",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Тростник",
+        "duration": "6:44",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Утешитель",
+        "duration": "5:19",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Зеркальный портал",
+        "duration": "5:19",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Магия",
+        "duration": "5:25",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Черта",
+        "duration": "5:35",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:flëur:::штормовое предупреждение": {
+    "id": "780367",
+    "type": "master",
+    "title": "Штормовое предупреждение",
+    "artist": "Flëur",
+    "year": 2014,
+    "cover": "https://i.discogs.com/dWZhhbxqWyX9wSUJb8vZZzd7sVpVL2T49ngu1a64VPQ/rs:fit/g:sm/q:90/h:539/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYxOTgw/NDAtMTQxMzQ5NTc5/NS01ODM3LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Интро",
+        "duration": "0:17",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Железо поёт",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Мы летали",
+        "duration": "4:57",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Кислород",
+        "duration": "6:14",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "После кораблекрушения",
+        "duration": "5:20",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Рамки",
+        "duration": "5:11",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Тростник",
+        "duration": "6:44",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Утешитель",
+        "duration": "5:19",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Зеркальный портал",
+        "duration": "5:19",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Магия",
+        "duration": "5:25",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Черта",
+        "duration": "5:35",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:1389778:Христина Соловій:Жива Вода:Христина Соловій - Жива Вода": {
+    "id": "1389778",
+    "type": "master",
+    "title": "Жива Вода",
+    "artist": "Христина Соловій",
+    "year": 2015,
+    "cover": "https://i.discogs.com/4zZzr6KXQPNOC396tcS1XtzVKP_YcSac5AZIBorAeb0/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTg3MzY5/MjEtMTQ4ODQ3ODQ1/MS05MDAzLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Несе Галя Воду",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Янчик",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Тримай",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Синя пісня",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Горе Долом",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Сідит пташок",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Тиха вода",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "В темну нічку ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Тече вода каламутна ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Як ішов я",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Гамерицкий край ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Под облачком",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:1389778": {
+    "id": "1389778",
+    "type": "master",
+    "title": "Жива Вода",
+    "artist": "Христина Соловій",
+    "year": 2015,
+    "cover": "https://i.discogs.com/4zZzr6KXQPNOC396tcS1XtzVKP_YcSac5AZIBorAeb0/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTg3MzY5/MjEtMTQ4ODQ3ODQ1/MS05MDAzLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Несе Галя Воду",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Янчик",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Тримай",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Синя пісня",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Горе Долом",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Сідит пташок",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Тиха вода",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "В темну нічку ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Тече вода каламутна ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Як ішов я",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Гамерицкий край ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Под облачком",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:христина соловій:::жива вода": {
+    "id": "1389778",
+    "type": "master",
+    "title": "Жива Вода",
+    "artist": "Христина Соловій",
+    "year": 2015,
+    "cover": "https://i.discogs.com/4zZzr6KXQPNOC396tcS1XtzVKP_YcSac5AZIBorAeb0/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTg3MzY5/MjEtMTQ4ODQ3ODQ1/MS05MDAzLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Несе Галя Воду",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Янчик",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Тримай",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Синя пісня",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Горе Долом",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Сідит пташок",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Тиха вода",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "В темну нічку ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Тече вода каламутна ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Як ішов я",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Гамерицкий край ",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Под облачком",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:967654:Lama:Мені Так Треба:Lama - Мені Так Треба": {
+    "id": "967654",
+    "type": "master",
+    "title": "Мені Так Треба",
+    "artist": "Lama",
+    "year": 2006,
+    "cover": "https://i.discogs.com/C_spJdr4RNsHfqlDGcVBRFTsGi1ihoP5Vba_1xzpLgU/rs:fit/g:sm/q:90/h:589/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTgyMDQ5/NjktMTQ1NzExMDI1/MC03MzExLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Intro",
+        "duration": "1:16",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Літак",
+        "duration": "3:34",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "З Тим (Кого Любила)",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Мені Так Треба",
+        "duration": "3:32",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Моє Серце",
+        "duration": "3:46",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Не Сліди",
+        "duration": "4:05",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Обман",
+        "duration": "4:09",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Тіло Тремтить",
+        "duration": "4:08",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Між Зорями",
+        "duration": "4:10",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Сон",
+        "duration": "3:27",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Білі Вогні",
+        "duration": "5:16",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Мені Так Треба 2006",
+        "duration": "3:19",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:967654": {
+    "id": "967654",
+    "type": "master",
+    "title": "Мені Так Треба",
+    "artist": "Lama",
+    "year": 2006,
+    "cover": "https://i.discogs.com/C_spJdr4RNsHfqlDGcVBRFTsGi1ihoP5Vba_1xzpLgU/rs:fit/g:sm/q:90/h:589/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTgyMDQ5/NjktMTQ1NzExMDI1/MC03MzExLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Intro",
+        "duration": "1:16",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Літак",
+        "duration": "3:34",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "З Тим (Кого Любила)",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Мені Так Треба",
+        "duration": "3:32",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Моє Серце",
+        "duration": "3:46",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Не Сліди",
+        "duration": "4:05",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Обман",
+        "duration": "4:09",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Тіло Тремтить",
+        "duration": "4:08",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Між Зорями",
+        "duration": "4:10",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Сон",
+        "duration": "3:27",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Білі Вогні",
+        "duration": "5:16",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Мені Так Треба 2006",
+        "duration": "3:19",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:lama:::мені так треба": {
+    "id": "967654",
+    "type": "master",
+    "title": "Мені Так Треба",
+    "artist": "Lama",
+    "year": 2006,
+    "cover": "https://i.discogs.com/C_spJdr4RNsHfqlDGcVBRFTsGi1ihoP5Vba_1xzpLgU/rs:fit/g:sm/q:90/h:589/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTgyMDQ5/NjktMTQ1NzExMDI1/MC03MzExLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Intro",
+        "duration": "1:16",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Літак",
+        "duration": "3:34",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "З Тим (Кого Любила)",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Мені Так Треба",
+        "duration": "3:32",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Моє Серце",
+        "duration": "3:46",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Не Сліди",
+        "duration": "4:05",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Обман",
+        "duration": "4:09",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Тіло Тремтить",
+        "duration": "4:08",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Між Зорями",
+        "duration": "4:10",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Сон",
+        "duration": "3:27",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Білі Вогні",
+        "duration": "5:16",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Мені Так Треба 2006",
+        "duration": "3:19",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:430739:Святослав Вакарчук:Вночі:Святослав Вакарчук - Вночі": {
+    "id": "430739",
+    "type": "master",
+    "title": "Вночі",
+    "artist": "Святослав Вакарчук",
+    "year": 2008,
+    "cover": "https://i.discogs.com/vSpNhgoA8_gMshiyYYkkXTGj3EkheLzMynrh92hKFFQ/rs:fit/g:sm/q:90/h:216/w:237/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE3NjU4/NjQtMTI0OTI5NzI1/NS5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Ой, Поперед Мене Гори Сині",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Не Йди",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Бути З Тобою",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Колискова",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Пізно Вночі",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Там, Де Літо",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Дзвони",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Не Опускай Свої Очі",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Чайка",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Така, Як Ти",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Wherever You Are",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:430739": {
+    "id": "430739",
+    "type": "master",
+    "title": "Вночі",
+    "artist": "Святослав Вакарчук",
+    "year": 2008,
+    "cover": "https://i.discogs.com/vSpNhgoA8_gMshiyYYkkXTGj3EkheLzMynrh92hKFFQ/rs:fit/g:sm/q:90/h:216/w:237/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE3NjU4/NjQtMTI0OTI5NzI1/NS5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Ой, Поперед Мене Гори Сині",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Не Йди",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Бути З Тобою",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Колискова",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Пізно Вночі",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Там, Де Літо",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Дзвони",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Не Опускай Свої Очі",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Чайка",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Така, Як Ти",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Wherever You Are",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:святослав вакарчук:::вночі": {
+    "id": "430739",
+    "type": "master",
+    "title": "Вночі",
+    "artist": "Святослав Вакарчук",
+    "year": 2008,
+    "cover": "https://i.discogs.com/vSpNhgoA8_gMshiyYYkkXTGj3EkheLzMynrh92hKFFQ/rs:fit/g:sm/q:90/h:216/w:237/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE3NjU4/NjQtMTI0OTI5NzI1/NS5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Ой, Поперед Мене Гори Сині",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Не Йди",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Бути З Тобою",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Колискова",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Пізно Вночі",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Там, Де Літо",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Дзвони",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Не Опускай Свої Очі",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Чайка",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Така, Як Ти",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Wherever You Are",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:290850:Океан Ельзи:Dolce Vita:Океан Ельзи - Dolce Vita": {
+    "id": "290850",
+    "type": "master",
+    "title": "Dolce Vita",
+    "artist": "Океан Ельзи",
+    "year": 2010,
+    "cover": "https://i.discogs.com/l__YLbG6kfI7zsRjZrUcCWg5mNV7SJj7Dfh2lEGCE6E/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIxNzkz/NDUtMTM3NTQzNTQy/Ni02NjcxLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Онлайн",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Небо Над Дніпром",
+        "duration": "4:17",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Надя",
+        "duration": "3:56",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Я Так Хочу...",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "На Лінії Вогню",
+        "duration": "3:01",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Більше Для Нас",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Ордени",
+        "duration": "3:49",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "З Тобою",
+        "duration": "3:05",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Ще Один День",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Королева",
+        "duration": "4:17",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "18 Хвилин",
+        "duration": "4:24",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Компас",
+        "duration": "4:28",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Dolce Vita",
+        "duration": "5:21",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Ой, Чий Там Кінь Стоїть",
+        "duration": "3:49",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:290850": {
+    "id": "290850",
+    "type": "master",
+    "title": "Dolce Vita",
+    "artist": "Океан Ельзи",
+    "year": 2010,
+    "cover": "https://i.discogs.com/l__YLbG6kfI7zsRjZrUcCWg5mNV7SJj7Dfh2lEGCE6E/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIxNzkz/NDUtMTM3NTQzNTQy/Ni02NjcxLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Онлайн",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Небо Над Дніпром",
+        "duration": "4:17",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Надя",
+        "duration": "3:56",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Я Так Хочу...",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "На Лінії Вогню",
+        "duration": "3:01",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Більше Для Нас",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Ордени",
+        "duration": "3:49",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "З Тобою",
+        "duration": "3:05",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Ще Один День",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Королева",
+        "duration": "4:17",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "18 Хвилин",
+        "duration": "4:24",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Компас",
+        "duration": "4:28",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Dolce Vita",
+        "duration": "5:21",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Ой, Чий Там Кінь Стоїть",
+        "duration": "3:49",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:океан ельзи:::dolce vita": {
+    "id": "290850",
+    "type": "master",
+    "title": "Dolce Vita",
+    "artist": "Океан Ельзи",
+    "year": 2010,
+    "cover": "https://i.discogs.com/l__YLbG6kfI7zsRjZrUcCWg5mNV7SJj7Dfh2lEGCE6E/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIxNzkz/NDUtMTM3NTQzNTQy/Ni02NjcxLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Онлайн",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Небо Над Дніпром",
+        "duration": "4:17",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Надя",
+        "duration": "3:56",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Я Так Хочу...",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "На Лінії Вогню",
+        "duration": "3:01",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Більше Для Нас",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Ордени",
+        "duration": "3:49",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "З Тобою",
+        "duration": "3:05",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Ще Один День",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Королева",
+        "duration": "4:17",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "18 Хвилин",
+        "duration": "4:24",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Компас",
+        "duration": "4:28",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Dolce Vita",
+        "duration": "5:21",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Ой, Чий Там Кінь Стоїть",
+        "duration": "3:49",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111886:Океан Ельзи:Янанебібув:Океан Ельзи - Янанебібув": {
+    "id": "111886",
+    "type": "master",
+    "title": "Янанебібув",
+    "artist": "Океан Ельзи",
+    "year": 2000,
+    "cover": "https://i.discogs.com/X46cq99jz9nw9nBy4Ar6WXokj1cBuvi6_tN-B4ldqyo/rs:fit/g:sm/q:90/h:500/w:500/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY1MTcw/MzctMTQyMTA0Njc4/OC05MDM1LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Янанебібув",
+        "duration": "3:19",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Той День",
+        "duration": "3:58",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Мало Мені",
+        "duration": "5:06",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Сосни",
+        "duration": "4:32",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Кавачай",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Відпусти",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Африка",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Поясни",
+        "duration": "3:40",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Фіалки",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Коли Тебе Нема",
+        "duration": "3:18",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Етюд",
+        "duration": "2:22",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Там Де Нас Нема",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111886": {
+    "id": "111886",
+    "type": "master",
+    "title": "Янанебібув",
+    "artist": "Океан Ельзи",
+    "year": 2000,
+    "cover": "https://i.discogs.com/X46cq99jz9nw9nBy4Ar6WXokj1cBuvi6_tN-B4ldqyo/rs:fit/g:sm/q:90/h:500/w:500/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY1MTcw/MzctMTQyMTA0Njc4/OC05MDM1LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Янанебібув",
+        "duration": "3:19",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Той День",
+        "duration": "3:58",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Мало Мені",
+        "duration": "5:06",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Сосни",
+        "duration": "4:32",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Кавачай",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Відпусти",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Африка",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Поясни",
+        "duration": "3:40",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Фіалки",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Коли Тебе Нема",
+        "duration": "3:18",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Етюд",
+        "duration": "2:22",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Там Де Нас Нема",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:океан ельзи:::янанебібув": {
+    "id": "111886",
+    "type": "master",
+    "title": "Янанебібув",
+    "artist": "Океан Ельзи",
+    "year": 2000,
+    "cover": "https://i.discogs.com/X46cq99jz9nw9nBy4Ar6WXokj1cBuvi6_tN-B4ldqyo/rs:fit/g:sm/q:90/h:500/w:500/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY1MTcw/MzctMTQyMTA0Njc4/OC05MDM1LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Янанебібув",
+        "duration": "3:19",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Той День",
+        "duration": "3:58",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Мало Мені",
+        "duration": "5:06",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Сосни",
+        "duration": "4:32",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Кавачай",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Відпусти",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Африка",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Поясни",
+        "duration": "3:40",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Фіалки",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Коли Тебе Нема",
+        "duration": "3:18",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Етюд",
+        "duration": "2:22",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Там Де Нас Нема",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111884:Океан Ельзи:Gloria:Океан Ельзи - Gloria": {
+    "id": "111884",
+    "type": "master",
+    "title": "Gloria",
+    "artist": "Океан Ельзи",
+    "year": 2005,
+    "cover": "https://i.discogs.com/pkWcypTGUxTrHIfihgb-6qI9b6TMoBlwC1XW6UaoFk4/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2Nzc3/MTktMTM3NTQzMzU3/NC01NTE0LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Перша Пiсня",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Ти І Я",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Вище Неба",
+        "duration": "3:59",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Сонце Сiдає",
+        "duration": "3:11",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Ніколи",
+        "duration": "3:21",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Тінь Твого Тіла",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Без Бою",
+        "duration": "4:19",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Gloria",
+        "duration": "3:24",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Відчуваю",
+        "duration": "4:16",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Ікони Не Плачуть",
+        "duration": "4:12",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Як Останній День",
+        "duration": "2:53",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Не Питай",
+        "duration": "2:37",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111884": {
+    "id": "111884",
+    "type": "master",
+    "title": "Gloria",
+    "artist": "Океан Ельзи",
+    "year": 2005,
+    "cover": "https://i.discogs.com/pkWcypTGUxTrHIfihgb-6qI9b6TMoBlwC1XW6UaoFk4/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2Nzc3/MTktMTM3NTQzMzU3/NC01NTE0LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Перша Пiсня",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Ти І Я",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Вище Неба",
+        "duration": "3:59",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Сонце Сiдає",
+        "duration": "3:11",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Ніколи",
+        "duration": "3:21",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Тінь Твого Тіла",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Без Бою",
+        "duration": "4:19",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Gloria",
+        "duration": "3:24",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Відчуваю",
+        "duration": "4:16",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Ікони Не Плачуть",
+        "duration": "4:12",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Як Останній День",
+        "duration": "2:53",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Не Питай",
+        "duration": "2:37",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:океан ельзи:::gloria": {
+    "id": "111884",
+    "type": "master",
+    "title": "Gloria",
+    "artist": "Океан Ельзи",
+    "year": 2005,
+    "cover": "https://i.discogs.com/pkWcypTGUxTrHIfihgb-6qI9b6TMoBlwC1XW6UaoFk4/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2Nzc3/MTktMTM3NTQzMzU3/NC01NTE0LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Перша Пiсня",
+        "duration": "3:43",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Ти І Я",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Вище Неба",
+        "duration": "3:59",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Сонце Сiдає",
+        "duration": "3:11",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Ніколи",
+        "duration": "3:21",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Тінь Твого Тіла",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Без Бою",
+        "duration": "4:19",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Gloria",
+        "duration": "3:24",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Відчуваю",
+        "duration": "4:16",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Ікони Не Плачуть",
+        "duration": "4:12",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Як Останній День",
+        "duration": "2:53",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Не Питай",
+        "duration": "2:37",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:593968:Океан Ельзи:Земля:Океан Ельзи - Земля": {
+    "id": "593968",
+    "type": "master",
+    "title": "Земля",
+    "artist": "Океан Ельзи",
+    "year": 2013,
+    "cover": "https://i.discogs.com/hjD-oGK9IzfAttKtt2tEJJcxpZ0CvyQYQ4ZpkUc3syw/rs:fit/g:sm/q:90/h:542/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ2NTg2/MTQtMTM3MTMyNzIw/MC00MTAzLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "З Нею",
+        "duration": "4:59",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Стіна",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Бодегіта",
+        "duration": "4:07",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Незалежність",
+        "duration": "3:17",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Rendez-Vous",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Стріляй",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Обійми",
+        "duration": "3:45",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Караван",
+        "duration": "3:53",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Джульєтта",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "На Небі",
+        "duration": "3:44",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Пори Року",
+        "duration": "4:58",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Коли Навколо Ні Душі...",
+        "duration": "3:13",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:593968": {
+    "id": "593968",
+    "type": "master",
+    "title": "Земля",
+    "artist": "Океан Ельзи",
+    "year": 2013,
+    "cover": "https://i.discogs.com/hjD-oGK9IzfAttKtt2tEJJcxpZ0CvyQYQ4ZpkUc3syw/rs:fit/g:sm/q:90/h:542/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ2NTg2/MTQtMTM3MTMyNzIw/MC00MTAzLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "З Нею",
+        "duration": "4:59",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Стіна",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Бодегіта",
+        "duration": "4:07",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Незалежність",
+        "duration": "3:17",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Rendez-Vous",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Стріляй",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Обійми",
+        "duration": "3:45",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Караван",
+        "duration": "3:53",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Джульєтта",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "На Небі",
+        "duration": "3:44",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Пори Року",
+        "duration": "4:58",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Коли Навколо Ні Душі...",
+        "duration": "3:13",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:океан ельзи:::земля": {
+    "id": "593968",
+    "type": "master",
+    "title": "Земля",
+    "artist": "Океан Ельзи",
+    "year": 2013,
+    "cover": "https://i.discogs.com/hjD-oGK9IzfAttKtt2tEJJcxpZ0CvyQYQ4ZpkUc3syw/rs:fit/g:sm/q:90/h:542/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ2NTg2/MTQtMTM3MTMyNzIw/MC00MTAzLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "З Нею",
+        "duration": "4:59",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Стіна",
+        "duration": "3:30",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Бодегіта",
+        "duration": "4:07",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Незалежність",
+        "duration": "3:17",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Rendez-Vous",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Стріляй",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Обійми",
+        "duration": "3:45",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Караван",
+        "duration": "3:53",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Джульєтта",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "На Небі",
+        "duration": "3:44",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Пори Року",
+        "duration": "4:58",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Коли Навколо Ні Душі...",
+        "duration": "3:13",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111879:Океан Ельзи:Модель:Океан Ельзи - Модель": {
+    "id": "111879",
+    "type": "master",
+    "title": "Модель",
+    "artist": "Океан Ельзи",
+    "year": 2001,
+    "cover": "https://i.discogs.com/TJyoW4X5IlaFSbrY1HYlSYtrDczrdf5Wau5B9US6yUA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTcyMzM3/MC0xMzc1NDMxNzMw/LTc4ODIuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "911",
+        "duration": "3:29",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Я До Тебе",
+        "duration": "4:47",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Друг Ч.1",
+        "duration": "1:23",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Друг Ч.2",
+        "duration": "4:04",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Ти Собi Сама",
+        "duration": "3:49",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Квiтка",
+        "duration": "4:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Вставай",
+        "duration": "2:52",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Isn't It Сон",
+        "duration": "3:40",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Коко Шанель",
+        "duration": "3:55",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Сьогоднi",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Вулиця (Може Все Не Так)",
+        "duration": "5:26",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111879": {
+    "id": "111879",
+    "type": "master",
+    "title": "Модель",
+    "artist": "Океан Ельзи",
+    "year": 2001,
+    "cover": "https://i.discogs.com/TJyoW4X5IlaFSbrY1HYlSYtrDczrdf5Wau5B9US6yUA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTcyMzM3/MC0xMzc1NDMxNzMw/LTc4ODIuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "911",
+        "duration": "3:29",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Я До Тебе",
+        "duration": "4:47",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Друг Ч.1",
+        "duration": "1:23",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Друг Ч.2",
+        "duration": "4:04",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Ти Собi Сама",
+        "duration": "3:49",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Квiтка",
+        "duration": "4:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Вставай",
+        "duration": "2:52",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Isn't It Сон",
+        "duration": "3:40",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Коко Шанель",
+        "duration": "3:55",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Сьогоднi",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Вулиця (Може Все Не Так)",
+        "duration": "5:26",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:океан ельзи:::модель": {
+    "id": "111879",
+    "type": "master",
+    "title": "Модель",
+    "artist": "Океан Ельзи",
+    "year": 2001,
+    "cover": "https://i.discogs.com/TJyoW4X5IlaFSbrY1HYlSYtrDczrdf5Wau5B9US6yUA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTcyMzM3/MC0xMzc1NDMxNzMw/LTc4ODIuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "911",
+        "duration": "3:29",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Я До Тебе",
+        "duration": "4:47",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Друг Ч.1",
+        "duration": "1:23",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Друг Ч.2",
+        "duration": "4:04",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Ти Собi Сама",
+        "duration": "3:49",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Квiтка",
+        "duration": "4:15",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Вставай",
+        "duration": "2:52",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Isn't It Сон",
+        "duration": "3:40",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Коко Шанель",
+        "duration": "3:55",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Сьогоднi",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Вулиця (Може Все Не Так)",
+        "duration": "5:26",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111880:Океан Ельзи:Суперсиметрія:Океан Ельзи - Суперсиметрія": {
+    "id": "111880",
+    "type": "master",
+    "title": "Суперсиметрія",
+    "artist": "Океан Ельзи",
+    "year": 2003,
+    "cover": "https://i.discogs.com/m9id2XsY0Js_aCKfqabTf9VsE4iaji9o8GdWTvyqhfk/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2Nzc3/MjktMTM3NTQzMjkz/OC0xMTk5LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Кiшка",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Дiвчина (З Іншого Життя)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Вiльний",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Susy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Мене",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Для Тебе",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Ледi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Майже Весна",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Холодно",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Вiддам",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Невидима Сiм'я",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:111880": {
+    "id": "111880",
+    "type": "master",
+    "title": "Суперсиметрія",
+    "artist": "Океан Ельзи",
+    "year": 2003,
+    "cover": "https://i.discogs.com/m9id2XsY0Js_aCKfqabTf9VsE4iaji9o8GdWTvyqhfk/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2Nzc3/MjktMTM3NTQzMjkz/OC0xMTk5LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Кiшка",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Дiвчина (З Іншого Життя)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Вiльний",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Susy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Мене",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Для Тебе",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Ледi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Майже Весна",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Холодно",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Вiддам",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Невидима Сiм'я",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:океан ельзи:::суперсиметрія": {
+    "id": "111880",
+    "type": "master",
+    "title": "Суперсиметрія",
+    "artist": "Океан Ельзи",
+    "year": 2003,
+    "cover": "https://i.discogs.com/m9id2XsY0Js_aCKfqabTf9VsE4iaji9o8GdWTvyqhfk/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2Nzc3/MjktMTM3NTQzMjkz/OC0xMTk5LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Кiшка",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Дiвчина (З Іншого Життя)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Вiльний",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Susy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Мене",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Для Тебе",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Ледi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Майже Весна",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Холодно",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Вiддам",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Невидима Сiм'я",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:1132970:ТіК:Весільний:ТіК - Весільний": {
+    "id": "1132970",
+    "type": "master",
+    "title": "Весільний",
+    "artist": "ТіК",
+    "year": 2011,
+    "cover": "https://i.discogs.com/l8xyfDU3CRMJC7WcPUuH-xEJ5pscZMb1FKDxHtmoJ94/rs:fit/g:sm/q:90/h:600/w:597/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTkwMjA3/MDItMTQ4Njc5ODAy/OC05NDg0LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Весела Пісня",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Сірожине Пірожине",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Помаранчеві Сни",
+        "duration": "3:18",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Гуляй, Народ!",
+        "duration": "2:24",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Для Мами",
+        "duration": "3:25",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Чоловіче Щастя",
+        "duration": "3:04",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Міську, Вважай!",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Не Цілуй",
+        "duration": "3:44",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Вінницька Полька",
+        "duration": "3:27",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Зелене Листя",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Ще НВУ",
+        "duration": "3:02",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Свєта (Rmx)",
+        "duration": "3:41",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Чоловіче Щастя (Rmx)",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Сірожине Пірожине (Rmx)",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "15",
+        "title": "Тиха (Rmx)",
+        "duration": "3:32",
+        "type_": "track"
+      },
+      {
+        "position": "Video 1",
+        "title": "Свєта",
+        "duration": "3:20",
+        "type_": "track"
+      },
+      {
+        "position": "Video 2",
+        "title": "Для Мами",
+        "duration": "3:31",
+        "type_": "track"
+      },
+      {
+        "position": "Video 3",
+        "title": "Чоловіче Щастя",
+        "duration": "3:04",
+        "type_": "track"
+      },
+      {
+        "position": "Video 4",
+        "title": "Сірожине Пірожине",
+        "duration": "3:02",
+        "type_": "track"
+      },
+      {
+        "position": "Video 5",
+        "title": "Ще НВУ",
+        "duration": "3:08",
+        "type_": "track"
+      },
+      {
+        "position": "Video 6",
+        "title": "Не Цілуй",
+        "duration": "3:45",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:1132970": {
+    "id": "1132970",
+    "type": "master",
+    "title": "Весільний",
+    "artist": "ТіК",
+    "year": 2011,
+    "cover": "https://i.discogs.com/l8xyfDU3CRMJC7WcPUuH-xEJ5pscZMb1FKDxHtmoJ94/rs:fit/g:sm/q:90/h:600/w:597/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTkwMjA3/MDItMTQ4Njc5ODAy/OC05NDg0LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Весела Пісня",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Сірожине Пірожине",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Помаранчеві Сни",
+        "duration": "3:18",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Гуляй, Народ!",
+        "duration": "2:24",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Для Мами",
+        "duration": "3:25",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Чоловіче Щастя",
+        "duration": "3:04",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Міську, Вважай!",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Не Цілуй",
+        "duration": "3:44",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Вінницька Полька",
+        "duration": "3:27",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Зелене Листя",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Ще НВУ",
+        "duration": "3:02",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Свєта (Rmx)",
+        "duration": "3:41",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Чоловіче Щастя (Rmx)",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Сірожине Пірожине (Rmx)",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "15",
+        "title": "Тиха (Rmx)",
+        "duration": "3:32",
+        "type_": "track"
+      },
+      {
+        "position": "Video 1",
+        "title": "Свєта",
+        "duration": "3:20",
+        "type_": "track"
+      },
+      {
+        "position": "Video 2",
+        "title": "Для Мами",
+        "duration": "3:31",
+        "type_": "track"
+      },
+      {
+        "position": "Video 3",
+        "title": "Чоловіче Щастя",
+        "duration": "3:04",
+        "type_": "track"
+      },
+      {
+        "position": "Video 4",
+        "title": "Сірожине Пірожине",
+        "duration": "3:02",
+        "type_": "track"
+      },
+      {
+        "position": "Video 5",
+        "title": "Ще НВУ",
+        "duration": "3:08",
+        "type_": "track"
+      },
+      {
+        "position": "Video 6",
+        "title": "Не Цілуй",
+        "duration": "3:45",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:тік:::весільний": {
+    "id": "1132970",
+    "type": "master",
+    "title": "Весільний",
+    "artist": "ТіК",
+    "year": 2011,
+    "cover": "https://i.discogs.com/l8xyfDU3CRMJC7WcPUuH-xEJ5pscZMb1FKDxHtmoJ94/rs:fit/g:sm/q:90/h:600/w:597/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTkwMjA3/MDItMTQ4Njc5ODAy/OC05NDg0LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Весела Пісня",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Сірожине Пірожине",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Помаранчеві Сни",
+        "duration": "3:18",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Гуляй, Народ!",
+        "duration": "2:24",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Для Мами",
+        "duration": "3:25",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Чоловіче Щастя",
+        "duration": "3:04",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Міську, Вважай!",
+        "duration": "2:51",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Не Цілуй",
+        "duration": "3:44",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Вінницька Полька",
+        "duration": "3:27",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Зелене Листя",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Ще НВУ",
+        "duration": "3:02",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Свєта (Rmx)",
+        "duration": "3:41",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "Чоловіче Щастя (Rmx)",
+        "duration": "3:28",
+        "type_": "track"
+      },
+      {
+        "position": "14",
+        "title": "Сірожине Пірожине (Rmx)",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "15",
+        "title": "Тиха (Rmx)",
+        "duration": "3:32",
+        "type_": "track"
+      },
+      {
+        "position": "Video 1",
+        "title": "Свєта",
+        "duration": "3:20",
+        "type_": "track"
+      },
+      {
+        "position": "Video 2",
+        "title": "Для Мами",
+        "duration": "3:31",
+        "type_": "track"
+      },
+      {
+        "position": "Video 3",
+        "title": "Чоловіче Щастя",
+        "duration": "3:04",
+        "type_": "track"
+      },
+      {
+        "position": "Video 4",
+        "title": "Сірожине Пірожине",
+        "duration": "3:02",
+        "type_": "track"
+      },
+      {
+        "position": "Video 5",
+        "title": "Ще НВУ",
+        "duration": "3:08",
+        "type_": "track"
+      },
+      {
+        "position": "Video 6",
+        "title": "Не Цілуй",
+        "duration": "3:45",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:18755:Queen:The Miracle:Queen - The Miracle": {
+    "id": "18755",
+    "type": "master",
+    "title": "The Miracle",
+    "artist": "Queen",
+    "year": 1989,
+    "cover": "https://i.discogs.com/UDW2oy1kJnN7kmxAreCAY0GjKUGJO-f97R3WGLD7dzA/rs:fit/g:sm/q:90/h:600/w:598/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzOTQ4/MzctMTQ3Njg5MzE5/Ny0zMTA4LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Party",
+        "duration": "2:25",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Khashoggi's Ship",
+        "duration": "2:45",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "The Miracle",
+        "duration": "5:00",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "I Want It All",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "The Invisible Man",
+        "duration": "3:57",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Breakthru",
+        "duration": "4:06",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Rain Must Fall",
+        "duration": "4:20",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Scandal",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "My Baby Does Me",
+        "duration": "3:22",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Was It All Worth It",
+        "duration": "5:43",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:18755": {
+    "id": "18755",
+    "type": "master",
+    "title": "The Miracle",
+    "artist": "Queen",
+    "year": 1989,
+    "cover": "https://i.discogs.com/UDW2oy1kJnN7kmxAreCAY0GjKUGJO-f97R3WGLD7dzA/rs:fit/g:sm/q:90/h:600/w:598/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzOTQ4/MzctMTQ3Njg5MzE5/Ny0zMTA4LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Party",
+        "duration": "2:25",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Khashoggi's Ship",
+        "duration": "2:45",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "The Miracle",
+        "duration": "5:00",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "I Want It All",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "The Invisible Man",
+        "duration": "3:57",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Breakthru",
+        "duration": "4:06",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Rain Must Fall",
+        "duration": "4:20",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Scandal",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "My Baby Does Me",
+        "duration": "3:22",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Was It All Worth It",
+        "duration": "5:43",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:queen:::the miracle": {
+    "id": "18755",
+    "type": "master",
+    "title": "The Miracle",
+    "artist": "Queen",
+    "year": 1989,
+    "cover": "https://i.discogs.com/UDW2oy1kJnN7kmxAreCAY0GjKUGJO-f97R3WGLD7dzA/rs:fit/g:sm/q:90/h:600/w:598/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzOTQ4/MzctMTQ3Njg5MzE5/Ny0zMTA4LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Party",
+        "duration": "2:25",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Khashoggi's Ship",
+        "duration": "2:45",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "The Miracle",
+        "duration": "5:00",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "I Want It All",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "The Invisible Man",
+        "duration": "3:57",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Breakthru",
+        "duration": "4:06",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Rain Must Fall",
+        "duration": "4:20",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Scandal",
+        "duration": "4:42",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "My Baby Does Me",
+        "duration": "3:22",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Was It All Worth It",
+        "duration": "5:43",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:16143:Queen:A Kind Of Magic:Queen - A Kind Of Magic": {
+    "id": "16143",
+    "type": "master",
+    "title": "A Kind Of Magic",
+    "artist": "Queen",
+    "year": 1986,
+    "cover": "https://i.discogs.com/4wp1c9FLVPoxlaf9ZPjF0cGGPkyF0vVR3NcEcHEfM4s/rs:fit/g:sm/q:90/h:597/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTExMzY1/MTAtMTQ3MzYzMjYw/OS03MTk3LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "One Vision",
+        "duration": "5:10",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "A Kind Of Magic",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "One Year Of Love",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Pain Is So Close To Pleasure",
+        "duration": "4:22",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Friends Will Be Friends",
+        "duration": "4:08",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Who Wants To Live Forever",
+        "duration": "5:14",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Gimme The Prize (Kurgan's Theme)",
+        "duration": "4:33",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Don't Lose Your Head",
+        "duration": "4:38",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Princes Of The Universe",
+        "duration": "3:32",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:16143": {
+    "id": "16143",
+    "type": "master",
+    "title": "A Kind Of Magic",
+    "artist": "Queen",
+    "year": 1986,
+    "cover": "https://i.discogs.com/4wp1c9FLVPoxlaf9ZPjF0cGGPkyF0vVR3NcEcHEfM4s/rs:fit/g:sm/q:90/h:597/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTExMzY1/MTAtMTQ3MzYzMjYw/OS03MTk3LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "One Vision",
+        "duration": "5:10",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "A Kind Of Magic",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "One Year Of Love",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Pain Is So Close To Pleasure",
+        "duration": "4:22",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Friends Will Be Friends",
+        "duration": "4:08",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Who Wants To Live Forever",
+        "duration": "5:14",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Gimme The Prize (Kurgan's Theme)",
+        "duration": "4:33",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Don't Lose Your Head",
+        "duration": "4:38",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Princes Of The Universe",
+        "duration": "3:32",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:queen:::a kind of magic": {
+    "id": "16143",
+    "type": "master",
+    "title": "A Kind Of Magic",
+    "artist": "Queen",
+    "year": 1986,
+    "cover": "https://i.discogs.com/4wp1c9FLVPoxlaf9ZPjF0cGGPkyF0vVR3NcEcHEfM4s/rs:fit/g:sm/q:90/h:597/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTExMzY1/MTAtMTQ3MzYzMjYw/OS03MTk3LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "One Vision",
+        "duration": "5:10",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "A Kind Of Magic",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "One Year Of Love",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Pain Is So Close To Pleasure",
+        "duration": "4:22",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Friends Will Be Friends",
+        "duration": "4:08",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Who Wants To Live Forever",
+        "duration": "5:14",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Gimme The Prize (Kurgan's Theme)",
+        "duration": "4:33",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Don't Lose Your Head",
+        "duration": "4:38",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Princes Of The Universe",
+        "duration": "3:32",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:212905:Ірина Білик:Фарби:Ірина Білик - Фарби": {
+    "id": "212905",
+    "type": "master",
+    "title": "Фарби",
+    "artist": "Ірина Білик",
+    "year": 1997,
+    "cover": "https://i.discogs.com/-Q4FKWnXrVLSISBR13mmZ93_NxMeeH4oleRD9bpzU-k/rs:fit/g:sm/q:90/h:600/w:383/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYwNDgx/MTItMTQwOTczNTE0/Ni03MTIwLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "А Я Пливу",
+        "duration": "4:50",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Одинокая...",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Фарби",
+        "duration": "5:02",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Щастя Моє",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Я Не Знаю",
+        "duration": "5:44",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Серце",
+        "duration": "4:14",
+        "type_": "track"
+      },
+      {
+        "position": "B7",
+        "title": "Сонце",
+        "duration": "4:56",
+        "type_": "track"
+      },
+      {
+        "position": "B8",
+        "title": "Те, Чого Нема",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "B9",
+        "title": "Н-а-р-к-о-т-и-к-и",
+        "duration": "5:09",
+        "type_": "track"
+      },
+      {
+        "position": "B10",
+        "title": "Я Буду",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "B11",
+        "title": "Montserrat",
+        "duration": "4:21",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:212905": {
+    "id": "212905",
+    "type": "master",
+    "title": "Фарби",
+    "artist": "Ірина Білик",
+    "year": 1997,
+    "cover": "https://i.discogs.com/-Q4FKWnXrVLSISBR13mmZ93_NxMeeH4oleRD9bpzU-k/rs:fit/g:sm/q:90/h:600/w:383/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYwNDgx/MTItMTQwOTczNTE0/Ni03MTIwLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "А Я Пливу",
+        "duration": "4:50",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Одинокая...",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Фарби",
+        "duration": "5:02",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Щастя Моє",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Я Не Знаю",
+        "duration": "5:44",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Серце",
+        "duration": "4:14",
+        "type_": "track"
+      },
+      {
+        "position": "B7",
+        "title": "Сонце",
+        "duration": "4:56",
+        "type_": "track"
+      },
+      {
+        "position": "B8",
+        "title": "Те, Чого Нема",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "B9",
+        "title": "Н-а-р-к-о-т-и-к-и",
+        "duration": "5:09",
+        "type_": "track"
+      },
+      {
+        "position": "B10",
+        "title": "Я Буду",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "B11",
+        "title": "Montserrat",
+        "duration": "4:21",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:ірина білик:::фарби": {
+    "id": "212905",
+    "type": "master",
+    "title": "Фарби",
+    "artist": "Ірина Білик",
+    "year": 1997,
+    "cover": "https://i.discogs.com/-Q4FKWnXrVLSISBR13mmZ93_NxMeeH4oleRD9bpzU-k/rs:fit/g:sm/q:90/h:600/w:383/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYwNDgx/MTItMTQwOTczNTE0/Ni03MTIwLmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "А Я Пливу",
+        "duration": "4:50",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Одинокая...",
+        "duration": "4:25",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Фарби",
+        "duration": "5:02",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Щастя Моє",
+        "duration": "3:52",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Я Не Знаю",
+        "duration": "5:44",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Серце",
+        "duration": "4:14",
+        "type_": "track"
+      },
+      {
+        "position": "B7",
+        "title": "Сонце",
+        "duration": "4:56",
+        "type_": "track"
+      },
+      {
+        "position": "B8",
+        "title": "Те, Чого Нема",
+        "duration": "4:13",
+        "type_": "track"
+      },
+      {
+        "position": "B9",
+        "title": "Н-а-р-к-о-т-и-к-и",
+        "duration": "5:09",
+        "type_": "track"
+      },
+      {
+        "position": "B10",
+        "title": "Я Буду",
+        "duration": "4:27",
+        "type_": "track"
+      },
+      {
+        "position": "B11",
+        "title": "Montserrat",
+        "duration": "4:21",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:5303:Queen:Sheer Heart Attack:Queen - Sheer Heart Attack": {
+    "id": "5303",
+    "type": "master",
+    "title": "Sheer Heart Attack",
+    "artist": "Queen",
+    "year": 1974,
+    "cover": "https://i.discogs.com/b9d4VHURl-ofzbjchxyN8buWVa4dFgmymFzuIoOGRT0/rs:fit/g:sm/q:90/h:595/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc3Nzc0/Ny0xNzI1MjE4NTI3/LTExNzkuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Brighton Rock",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Killer Queen",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Tenement Funster",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Flick Of The Wrist",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Lily Of The Valley",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Now I'm Here",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "In The Lap Of The Gods",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Stone Cold Crazy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Dear Friends",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Misfire",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Bring Back That Leroy Brown",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "She Makes Me (Stormtrooper In Stilettoes)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B7",
+        "title": "In The Lap Of The Gods... Revisited",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:5303": {
+    "id": "5303",
+    "type": "master",
+    "title": "Sheer Heart Attack",
+    "artist": "Queen",
+    "year": 1974,
+    "cover": "https://i.discogs.com/b9d4VHURl-ofzbjchxyN8buWVa4dFgmymFzuIoOGRT0/rs:fit/g:sm/q:90/h:595/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc3Nzc0/Ny0xNzI1MjE4NTI3/LTExNzkuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Brighton Rock",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Killer Queen",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Tenement Funster",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Flick Of The Wrist",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Lily Of The Valley",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Now I'm Here",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "In The Lap Of The Gods",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Stone Cold Crazy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Dear Friends",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Misfire",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Bring Back That Leroy Brown",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "She Makes Me (Stormtrooper In Stilettoes)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B7",
+        "title": "In The Lap Of The Gods... Revisited",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:queen:::sheer heart attack": {
+    "id": "5303",
+    "type": "master",
+    "title": "Sheer Heart Attack",
+    "artist": "Queen",
+    "year": 1974,
+    "cover": "https://i.discogs.com/b9d4VHURl-ofzbjchxyN8buWVa4dFgmymFzuIoOGRT0/rs:fit/g:sm/q:90/h:595/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc3Nzc0/Ny0xNzI1MjE4NTI3/LTExNzkuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Brighton Rock",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Killer Queen",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Tenement Funster",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Flick Of The Wrist",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Lily Of The Valley",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Now I'm Here",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "In The Lap Of The Gods",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Stone Cold Crazy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Dear Friends",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Misfire",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Bring Back That Leroy Brown",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "She Makes Me (Stormtrooper In Stilettoes)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B7",
+        "title": "In The Lap Of The Gods... Revisited",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:20137:The Smiths:The Queen Is Dead:The Smiths - The Queen Is Dead": {
+    "id": "20137",
+    "type": "master",
+    "title": "The Queen Is Dead",
+    "artist": "The Smiths",
+    "year": 1986,
+    "cover": "https://i.discogs.com/8T8F8Aoe4Sb207KcKjHQWClBY3NLeU_4q3XCREdBtRc/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ5NDky/Ny0xMjMwODU0MDIz/LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "The Queen Is Dead / Take Me Back To Dear Old Blighty (Medley)",
+        "duration": "6:23",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Frankly, Mr. Shankly",
+        "duration": "2:17",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "I Know It's Over",
+        "duration": "5:48",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Never Had No One Ever",
+        "duration": "3:36",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Cemetry Gates",
+        "duration": "2:39",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Bigmouth Strikes Again",
+        "duration": "3:12",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "The Boy With The Thorn In His Side",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Vicar In A Tutu",
+        "duration": "2:21",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "There Is A Light That Never Goes Out",
+        "duration": "4:02",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Some Girls Are Bigger Than Others",
+        "duration": "3:14",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:20137": {
+    "id": "20137",
+    "type": "master",
+    "title": "The Queen Is Dead",
+    "artist": "The Smiths",
+    "year": 1986,
+    "cover": "https://i.discogs.com/8T8F8Aoe4Sb207KcKjHQWClBY3NLeU_4q3XCREdBtRc/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ5NDky/Ny0xMjMwODU0MDIz/LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "The Queen Is Dead / Take Me Back To Dear Old Blighty (Medley)",
+        "duration": "6:23",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Frankly, Mr. Shankly",
+        "duration": "2:17",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "I Know It's Over",
+        "duration": "5:48",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Never Had No One Ever",
+        "duration": "3:36",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Cemetry Gates",
+        "duration": "2:39",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Bigmouth Strikes Again",
+        "duration": "3:12",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "The Boy With The Thorn In His Side",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Vicar In A Tutu",
+        "duration": "2:21",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "There Is A Light That Never Goes Out",
+        "duration": "4:02",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Some Girls Are Bigger Than Others",
+        "duration": "3:14",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:the smiths:::the queen is dead": {
+    "id": "20137",
+    "type": "master",
+    "title": "The Queen Is Dead",
+    "artist": "The Smiths",
+    "year": 1986,
+    "cover": "https://i.discogs.com/8T8F8Aoe4Sb207KcKjHQWClBY3NLeU_4q3XCREdBtRc/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ5NDky/Ny0xMjMwODU0MDIz/LmpwZWc.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "The Queen Is Dead / Take Me Back To Dear Old Blighty (Medley)",
+        "duration": "6:23",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Frankly, Mr. Shankly",
+        "duration": "2:17",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "I Know It's Over",
+        "duration": "5:48",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Never Had No One Ever",
+        "duration": "3:36",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Cemetry Gates",
+        "duration": "2:39",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Bigmouth Strikes Again",
+        "duration": "3:12",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "The Boy With The Thorn In His Side",
+        "duration": "3:15",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Vicar In A Tutu",
+        "duration": "2:21",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "There Is A Light That Never Goes Out",
+        "duration": "4:02",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Some Girls Are Bigger Than Others",
+        "duration": "3:14",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:1563046:Madonna:Madame X:Madonna - Madame X": {
+    "id": "1563046",
+    "type": "master",
+    "title": "Madame X",
+    "artist": "Madonna",
+    "year": 2019,
+    "cover": "https://i.discogs.com/WLT8Md0WU94jxMT-yKvMtvxtC6_c5PXXp8UFW9fFmnA/rs:fit/g:sm/q:90/h:591/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzNzQ5/MjExLTE1NjA2MDEz/MjMtMTc0Mi5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Medellín",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Dark Ballet",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "God Control",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Future",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Batuka",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Killers Who Are Partying",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Crave",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Crazy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Come Alive",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Faz Gostoso",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Bitch I'm Loca",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "I Don't Search I Find",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "I Rise",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:1563046": {
+    "id": "1563046",
+    "type": "master",
+    "title": "Madame X",
+    "artist": "Madonna",
+    "year": 2019,
+    "cover": "https://i.discogs.com/WLT8Md0WU94jxMT-yKvMtvxtC6_c5PXXp8UFW9fFmnA/rs:fit/g:sm/q:90/h:591/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzNzQ5/MjExLTE1NjA2MDEz/MjMtMTc0Mi5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Medellín",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Dark Ballet",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "God Control",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Future",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Batuka",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Killers Who Are Partying",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Crave",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Crazy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Come Alive",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Faz Gostoso",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Bitch I'm Loca",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "I Don't Search I Find",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "I Rise",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:madonna:::madame x": {
+    "id": "1563046",
+    "type": "master",
+    "title": "Madame X",
+    "artist": "Madonna",
+    "year": 2019,
+    "cover": "https://i.discogs.com/WLT8Md0WU94jxMT-yKvMtvxtC6_c5PXXp8UFW9fFmnA/rs:fit/g:sm/q:90/h:591/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzNzQ5/MjExLTE1NjA2MDEz/MjMtMTc0Mi5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Medellín",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Dark Ballet",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "God Control",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Future",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "Batuka",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Killers Who Are Partying",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Crave",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Crazy",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "Come Alive",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Faz Gostoso",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Bitch I'm Loca",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "I Don't Search I Find",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "13",
+        "title": "I Rise",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:34205:Madonna:Confessions On A Dance Floor:Madonna - Confessions On A Dance Floor": {
+    "id": "34205",
+    "type": "master",
+    "title": "Confessions On A Dance Floor",
+    "artist": "Madonna",
+    "year": 2005,
+    "cover": "https://i.discogs.com/SGsBGIIiladYPjgtbFKu7y2XN3vAgwKmhR_IP1y9Scs/rs:fit/g:sm/q:90/h:588/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY5MDcw/OS0xNTIzMTI0NzA2/LTk1MzUuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Hung Up",
+        "duration": "5:36",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Get Together",
+        "duration": "5:30",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Sorry",
+        "duration": "4:43",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Future Lovers",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "I Love New York",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Let It Will Be",
+        "duration": "4:18",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Forbidden Love",
+        "duration": "4:22",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Jump",
+        "duration": "3:46",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "How High",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Isaac",
+        "duration": "6:03",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Push",
+        "duration": "3:57",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Like It Or Not",
+        "duration": "4:32",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:34205": {
+    "id": "34205",
+    "type": "master",
+    "title": "Confessions On A Dance Floor",
+    "artist": "Madonna",
+    "year": 2005,
+    "cover": "https://i.discogs.com/SGsBGIIiladYPjgtbFKu7y2XN3vAgwKmhR_IP1y9Scs/rs:fit/g:sm/q:90/h:588/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY5MDcw/OS0xNTIzMTI0NzA2/LTk1MzUuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Hung Up",
+        "duration": "5:36",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Get Together",
+        "duration": "5:30",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Sorry",
+        "duration": "4:43",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Future Lovers",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "I Love New York",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Let It Will Be",
+        "duration": "4:18",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Forbidden Love",
+        "duration": "4:22",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Jump",
+        "duration": "3:46",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "How High",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Isaac",
+        "duration": "6:03",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Push",
+        "duration": "3:57",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Like It Or Not",
+        "duration": "4:32",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:madonna:::confessions on a dance floor": {
+    "id": "34205",
+    "type": "master",
+    "title": "Confessions On A Dance Floor",
+    "artist": "Madonna",
+    "year": 2005,
+    "cover": "https://i.discogs.com/SGsBGIIiladYPjgtbFKu7y2XN3vAgwKmhR_IP1y9Scs/rs:fit/g:sm/q:90/h:588/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY5MDcw/OS0xNTIzMTI0NzA2/LTk1MzUuanBlZw.jpeg",
+    "tracklist": [
+      {
+        "position": "1",
+        "title": "Hung Up",
+        "duration": "5:36",
+        "type_": "track"
+      },
+      {
+        "position": "2",
+        "title": "Get Together",
+        "duration": "5:30",
+        "type_": "track"
+      },
+      {
+        "position": "3",
+        "title": "Sorry",
+        "duration": "4:43",
+        "type_": "track"
+      },
+      {
+        "position": "4",
+        "title": "Future Lovers",
+        "duration": "4:51",
+        "type_": "track"
+      },
+      {
+        "position": "5",
+        "title": "I Love New York",
+        "duration": "4:11",
+        "type_": "track"
+      },
+      {
+        "position": "6",
+        "title": "Let It Will Be",
+        "duration": "4:18",
+        "type_": "track"
+      },
+      {
+        "position": "7",
+        "title": "Forbidden Love",
+        "duration": "4:22",
+        "type_": "track"
+      },
+      {
+        "position": "8",
+        "title": "Jump",
+        "duration": "3:46",
+        "type_": "track"
+      },
+      {
+        "position": "9",
+        "title": "How High",
+        "duration": "4:40",
+        "type_": "track"
+      },
+      {
+        "position": "10",
+        "title": "Isaac",
+        "duration": "6:03",
+        "type_": "track"
+      },
+      {
+        "position": "11",
+        "title": "Push",
+        "duration": "3:57",
+        "type_": "track"
+      },
+      {
+        "position": "12",
+        "title": "Like It Or Not",
+        "duration": "4:32",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:12676:Pink Floyd:Atom Heart Mother:Pink Floyd - Atom Heart Mother": {
+    "id": "12676",
+    "type": "master",
+    "title": "Atom Heart Mother",
+    "artist": "Pink Floyd",
+    "year": 1970,
+    "cover": "https://i.discogs.com/1NngGhotJfUHlUBUL3obLWG5CxUGF60qbongKJqOQM4/rs:fit/g:sm/q:90/h:588/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI2NDQ2/MTctMTI5NDcwMDMy/Ni5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "B1",
+        "title": "If",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Summer '68",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Fat Old Sun",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:12676": {
+    "id": "12676",
+    "type": "master",
+    "title": "Atom Heart Mother",
+    "artist": "Pink Floyd",
+    "year": 1970,
+    "cover": "https://i.discogs.com/1NngGhotJfUHlUBUL3obLWG5CxUGF60qbongKJqOQM4/rs:fit/g:sm/q:90/h:588/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI2NDQ2/MTctMTI5NDcwMDMy/Ni5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "B1",
+        "title": "If",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Summer '68",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Fat Old Sun",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:pink floyd:::atom heart mother": {
+    "id": "12676",
+    "type": "master",
+    "title": "Atom Heart Mother",
+    "artist": "Pink Floyd",
+    "year": 1970,
+    "cover": "https://i.discogs.com/1NngGhotJfUHlUBUL3obLWG5CxUGF60qbongKJqOQM4/rs:fit/g:sm/q:90/h:588/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI2NDQ2/MTctMTI5NDcwMDMy/Ni5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "B1",
+        "title": "If",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Summer '68",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Fat Old Sun",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:939193:Nana Mouskouri:À Force De Prier:Nana Mouskouri - À Force De Prier": {
+    "id": "939193",
+    "type": "master",
+    "title": "À Force De Prier",
+    "artist": "Nana Mouskouri",
+    "year": 1963,
+    "cover": "https://i.discogs.com/tO0oevbcR_y2EVoyzpxvTNyPgSEd8Nj7AheodqwBRSM/rs:fit/g:sm/q:90/h:600/w:593/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTU4NTU1/MDAtMTUwMzA5NTg3/NC0zNzM2Lm1wbw.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "À Force De Prier",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Dindi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Laisse-moi Pleurer",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Smoke Gets In Your Eyes",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Ensemble",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Salvame Dios",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Un Homme Est Venu",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Encore Plus Près De Toi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Les Yeux Pour Pleurer",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Wildwood Flower",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Portrait En Couleurs",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Crois-moi Ca Durera",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:939193": {
+    "id": "939193",
+    "type": "master",
+    "title": "À Force De Prier",
+    "artist": "Nana Mouskouri",
+    "year": 1963,
+    "cover": "https://i.discogs.com/tO0oevbcR_y2EVoyzpxvTNyPgSEd8Nj7AheodqwBRSM/rs:fit/g:sm/q:90/h:600/w:593/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTU4NTU1/MDAtMTUwMzA5NTg3/NC0zNzM2Lm1wbw.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "À Force De Prier",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Dindi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Laisse-moi Pleurer",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Smoke Gets In Your Eyes",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Ensemble",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Salvame Dios",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Un Homme Est Venu",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Encore Plus Près De Toi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Les Yeux Pour Pleurer",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Wildwood Flower",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Portrait En Couleurs",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Crois-moi Ca Durera",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:nana mouskouri:::à force de prier": {
+    "id": "939193",
+    "type": "master",
+    "title": "À Force De Prier",
+    "artist": "Nana Mouskouri",
+    "year": 1963,
+    "cover": "https://i.discogs.com/tO0oevbcR_y2EVoyzpxvTNyPgSEd8Nj7AheodqwBRSM/rs:fit/g:sm/q:90/h:600/w:593/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTU4NTU1/MDAtMTUwMzA5NTg3/NC0zNzM2Lm1wbw.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "À Force De Prier",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "Dindi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Laisse-moi Pleurer",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A4",
+        "title": "Smoke Gets In Your Eyes",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A5",
+        "title": "Ensemble",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A6",
+        "title": "Salvame Dios",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Un Homme Est Venu",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "Encore Plus Près De Toi",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Les Yeux Pour Pleurer",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B4",
+        "title": "Wildwood Flower",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B5",
+        "title": "Portrait En Couleurs",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B6",
+        "title": "Crois-moi Ca Durera",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:4227663:Rachel Chinouriri:Little House:Rachel Chinouriri - Little House": {
+    "id": "4227663",
+    "type": "master",
+    "title": "Little House",
+    "artist": "Rachel Chinouriri",
+    "year": 2026,
+    "cover": "https://i.discogs.com/vdIwVVKOpa4qwY5vOLyaoss09lSZG5HjnQlbWWRgdAE/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MDk5/MTcwLTE3NzY0ODk4/MDUtOTMxOC5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Can We Talk About Isaac?",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "23:42",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Judas (Demo)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Indigo",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "What A Life",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Little House",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:master:4227663": {
+    "id": "4227663",
+    "type": "master",
+    "title": "Little House",
+    "artist": "Rachel Chinouriri",
+    "year": 2026,
+    "cover": "https://i.discogs.com/vdIwVVKOpa4qwY5vOLyaoss09lSZG5HjnQlbWWRgdAE/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MDk5/MTcwLTE3NzY0ODk4/MDUtOTMxOC5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Can We Talk About Isaac?",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "23:42",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Judas (Demo)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Indigo",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "What A Life",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Little House",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
+  },
+  "tracklist:rachel chinouriri:::little house": {
+    "id": "4227663",
+    "type": "master",
+    "title": "Little House",
+    "artist": "Rachel Chinouriri",
+    "year": 2026,
+    "cover": "https://i.discogs.com/vdIwVVKOpa4qwY5vOLyaoss09lSZG5HjnQlbWWRgdAE/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MDk5/MTcwLTE3NzY0ODk4/MDUtOTMxOC5qcGVn.jpeg",
+    "tracklist": [
+      {
+        "position": "A1",
+        "title": "Can We Talk About Isaac?",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A2",
+        "title": "23:42",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "A3",
+        "title": "Judas (Demo)",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B1",
+        "title": "Indigo",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B2",
+        "title": "What A Life",
+        "duration": "",
+        "type_": "track"
+      },
+      {
+        "position": "B3",
+        "title": "Little House",
+        "duration": "",
+        "type_": "track"
+      }
+    ],
+    "source": "Discogs",
+    "discogsNotFound": false,
+    "notice": null
   }
 }

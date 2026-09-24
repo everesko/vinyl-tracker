@@ -280,39 +280,6 @@ spotifyData.tables.forEach(tbl => {
   });
 });
 
-// 2. Songs/tracks from Discogs cache (SadSvit, Pink Floyd, Nirvana) added/accessed on 22.09-23.09
-const cachedAlbums = [
-  { key: 'tracklist:sadsvit:::cassette', table: 'Треклист: SadSvit - Cassette (22.09.2026)' },
-  { key: 'tracklist:pink floyd:::the dark side of the moon', table: 'Треклист: Pink Floyd - Dark Side (22.09.2026)' },
-  { key: 'tracklist:nirvana:::nevermind', table: 'Треклист: Nirvana - Nevermind (22.09.2026)' }
-];
-
-cachedAlbums.forEach(item => {
-  const cached = tracklistsCache[item.key];
-  if (cached && Array.isArray(cached.tracklist)) {
-    cached.tracklist.forEach(tr => {
-      totalTrackCount++;
-      spotifyRows.push([
-        item.table,
-        tr.position || totalTrackCount,
-        tr.title || '',
-        cached.artist || '',
-        cached.title || '',
-        tr.duration || '',
-        '★★★★★ (5/5)',
-        'ДА (💎)',
-        'В наличии',
-        cached.cover || '',
-        cached.cover || '',
-        `discogs:track:${cached.id || ''}:${tr.position || ''}`,
-        String(cached.year || '2026'),
-        `Трек из винилового издания Discogs master #${cached.id}`,
-        '22.09.2026'
-      ]);
-    });
-  }
-});
-
 const totalMinutes = Math.floor(totalMs / 60000);
 const totalHours = Math.floor(totalMinutes / 60);
 const remMin = totalMinutes % 60;
@@ -361,7 +328,7 @@ XLSX.utils.book_append_sheet(wb, wsSpotify, 'Spotify Треки');
 const summaryRows = [
   ['СВОДНЫЙ ОТЧЕТ КОЛЛЕКЦИИ VINYL TRACKER', ''],
   ['Дата формирования архива:', new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString('ru-RU')],
-  ['Период данных:', '18.09.2026 — 24.09.2026 (включая 22.09 и 23.09)'],
+  ['Период данных:', '18.09.2026 — 25.09.2026 (включая 22.09, 23.09 и все добавленные треки)'],
   ['', ''],
   ['Раздел', 'Количество записей'],
   ['Альбомы: Таблица «Zakhar»', albumsData.tables.find(t => t.name === 'Zakhar')?.items.length || 0],
@@ -369,9 +336,8 @@ const summaryRows = [
   ['Всего альбомов в каталоге:', totalAlbumCount],
   ['Всего вариантов виниловых прессов:', totalPressings],
   ['Виниловые релизы (пластинки в охоте/коллекции):', totalReleasesCount],
-  ['Песни в треклисте Spotify:', spotifyData.tables[0]?.items.length || 0],
-  ['Песни и треки виниловых изданий (SadSvit, Pink Floyd, Nirvana):', 30],
-  ['Всего треков и песен:', totalTrackCount],
+  ['Количество таблиц в треках:', spotifyData.tables.length],
+  ['Всего треков и песен во всех таблицах:', totalTrackCount],
   ['', ''],
   ['Инструкция по загрузке:', 'Нажмите кнопку «Загрузить» (зеленая кнопка со стрелкой вверх) в шапке Vinyl Tracker и выберите данный файл. Все таблицы будут мгновенно восстановлены.']
 ];
