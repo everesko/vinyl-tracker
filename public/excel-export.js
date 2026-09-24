@@ -429,6 +429,7 @@ const ExcelExporter = {
         else if (h.includes('жанр')) colMap.genre = idx;
         else if (h.includes('стил')) colMap.style = idx;
         else if (h.includes('длительност')) colMap.duration = idx;
+        else if (h.includes('обложк') || h.includes('cover')) colMap.cover = idx;
         else if (h.includes('uri')) colMap.uri = idx;
       });
 
@@ -465,6 +466,7 @@ const ExcelExporter = {
         const year = (colMap.year !== undefined && row[colMap.year]) ? String(row[colMap.year]).trim() : '';
         const notes = (colMap.notes !== undefined && row[colMap.notes]) ? String(row[colMap.notes]).trim() : '';
         const link = (colMap.link !== undefined && row[colMap.link]) ? String(row[colMap.link]).trim() : '';
+        const cover = (colMap.cover !== undefined && row[colMap.cover]) ? String(row[colMap.cover]).trim() : '';
 
         const item = {
           id: `import_${mode}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
@@ -476,6 +478,8 @@ const ExcelExporter = {
           status,
           notes,
           uri: link,
+          coverImage: cover || undefined,
+          thumb: cover || undefined,
           createdAt: new Date().toISOString()
         };
 
