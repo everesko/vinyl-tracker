@@ -120,7 +120,7 @@ const App = {
       if (text) text.textContent = 'Развернуть';
     }
 
-    // Initialize Firebase Sync for Releases
+    // Initialize Firebase Sync for all modes (Albums, Releases, Spotify)
     FirebaseSync.onStatusChange((statusInfo) => {
       this.renderCloudStatus(statusInfo);
     });
@@ -130,18 +130,21 @@ const App = {
     await this.loadAlbums();
     await this.loadSpotifyTracks();
 
-    if (FirebaseSync.getConfig()) {
-      await FirebaseSync.init((updatedRecords) => {
-        if (updatedRecords && Array.isArray(updatedRecords) && updatedRecords.length > 0) {
-          if (!this.tables.releases || this.tables.releases.length === 0) {
-            this.tables.releases = this.normalizeTables(updatedRecords, 'releases', 'Основная коллекция');
-          } else {
-            this.tables.releases[0].items = updatedRecords;
-          }
+    // Connect to Google Cloud Firebase Firestore
+    try {
+      await FirebaseSync.init({
+        onModeUpdated: (mode, updatedTables, updatedAt) => {
+          if (!Array.isArray(updatedTables) || updatedTables.length === 0) return;
+          this.tables[mode] = updatedTables;
           this.syncLegacyArrays();
-          if (this.appMode === 'releases') this.render();
+          if (this.appMode === mode) {
+            this.render();
+          }
+          this.updateModeToggleBadges();
         }
       });
+    } catch (e) {
+      console.warn('FirebaseSync init error:', e);
     }
 
     // 2. Intelligently determine active app mode
@@ -448,6 +451,9 @@ const App = {
       localStorage.setItem('vinyl_albums_tables', JSON.stringify(this.tables.albums));
       localStorage.setItem('vinyl_albums_local', JSON.stringify(this.albums));
     } catch (e) {}
+
+    // Auto-refresh real vinyl editions counts in background for any unverified albums
+    setTimeout(() => this.refreshMissingVersionsCounts(), 1500);
   },
 
   async loadSpotifyTracks() {
@@ -536,6 +542,14 @@ const App = {
       localStorage.setItem(`vinyl_${mode}_tables`, JSON.stringify(tables));
       localStorage.setItem(`vinyl_${mode}_updated_at`, String(now));
 
+      // 1. Sync to Google Cloud Firebase Firestore
+      if (window.FirebaseSync && typeof FirebaseSync.syncModeTables === 'function') {
+        FirebaseSync.syncModeTables(mode, tables, now).catch((err) => {
+          console.warn(`[FirebaseSync] Error syncing ${mode}:`, err);
+        });
+      }
+
+      // 2. Also backup to local Node server if running
       fetch(`/api/storage/records?type=${typeParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2959,6 +2973,92 @@ const App = {
     }
   },
 
+  updateAlbumVersionsCount(masterId, realCount) {
+    if (!masterId || typeof realCount !== 'number' || isNaN(realCount)) return;
+    const strMaster = String(masterId);
+    let updated = false;
+
+    (this.tables.albums || []).forEach(tbl => {
+      if (Array.isArray(tbl.items)) {
+        tbl.items.forEach(a => {
+          if (String(a.masterId) === strMaster || String(a.id) === `master-${strMaster}` || String(a.id) === strMaster) {
+            if (Number(a.versionsCount) !== Number(realCount)) {
+              a.versionsCount = realCount;
+              updated = true;
+            }
+          }
+        });
+      }
+    });
+
+    // Update in DOM table rows immediately if present
+    document.querySelectorAll('.editions-count-badge').forEach(btn => {
+      const onclickAttr = btn.getAttribute('onclick') || '';
+      if (onclickAttr.includes(`openMasterVersionsModal(${strMaster}`) || onclickAttr.includes(`openMasterVersionsModal('${strMaster}'`)) {
+        const numSpan = btn.querySelector('.editions-count-num');
+        if (numSpan) numSpan.textContent = String(realCount);
+        btn.classList.toggle('is-zero', realCount === 0);
+        btn.title = `Виниловых изданий: ${realCount}. Нажмите, чтобы открыть все прессы на Discogs`;
+      }
+    });
+
+    // Update in lastSearchResults
+    if (this.lastSearchResults) {
+      this.lastSearchResults.forEach(item => {
+        if (String(item.masterId) === strMaster || String(item.id) === strMaster) {
+          item.versionsCount = realCount;
+          const countEl = document.getElementById(`modalAlbumVersCount-${item.id}`);
+          if (countEl) {
+            countEl.textContent = `💽 ${this.formatVinylVersions(realCount)}`;
+          }
+        }
+      });
+    }
+
+    if (updated) {
+      this.saveModeTables('albums', true);
+    }
+  },
+
+  async refreshMissingVersionsCounts() {
+    try {
+      const allAlbums = this.getAllItemsInMode('albums') || [];
+      const needed = allAlbums.filter(a => a.masterId && (typeof a.versionsCount !== 'number' || a.versionsCount <= 1));
+      if (needed.length === 0) return;
+
+      const ids = Array.from(new Set(needed.map(a => a.masterId)));
+      const chunkSize = 15;
+      let anyUpdated = false;
+
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const counts = await DiscogsClient.getBatchMasterVersionsCounts(chunk).catch(() => null);
+        if (counts) {
+          allAlbums.forEach(a => {
+            if (a.masterId && counts[a.masterId] !== undefined) {
+              const realCount = Number(counts[a.masterId]);
+              if (!isNaN(realCount) && a.versionsCount !== realCount) {
+                a.versionsCount = realCount;
+                anyUpdated = true;
+                document.querySelectorAll('.editions-count-badge').forEach(btn => {
+                  const onclickAttr = btn.getAttribute('onclick') || '';
+                  if (onclickAttr.includes(`openMasterVersionsModal(${a.masterId}`)) {
+                    const numSpan = btn.querySelector('.editions-count-num');
+                    if (numSpan) numSpan.textContent = String(realCount);
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+
+      if (anyUpdated) {
+        this.saveModeTables('albums', true);
+      }
+    } catch (e) {}
+  },
+
   prefetchCollectionTracklists() {
     setTimeout(async () => {
       try {
@@ -3047,9 +3147,12 @@ const App = {
         headerSub.innerHTML = `Оригинальный первопресс: <strong style="color:var(--accent-theme);">${firstPressYear || '—'}</strong> · Всего виниловых прессов на Discogs: <strong style="color:var(--accent-theme);">${totalCount}</strong>`;
       }
 
-      // Automatically sync year in table to first press year!
+      // Automatically sync year and REAL editions count in table and cloud database!
       if (firstPressYear) {
         this.updateAlbumYearToFirstPress(masterId, String(firstPressYear));
+      }
+      if (typeof totalCount === 'number') {
+        this.updateAlbumVersionsCount(masterId, totalCount);
       }
 
       // Populate Country filter options

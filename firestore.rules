@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Vinyl Tracker Cloud Collections (Albums, Releases, Spotify Tracks)
+    match /vinyl_tracker/{document=**} {
+      allow read, write: if true;
+    }
+
     // Records collection: each user can manage their vinyl records
     match /users/{userId}/records/{recordId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -8,6 +13,11 @@ service cloud.firestore {
     
     // Default public/guest demo collection when auth is not enabled
     match /guest_records/{recordId} {
+      allow read, write: if true;
+    }
+
+    // Fallback for any other collection
+    match /{document=**} {
       allow read, write: if true;
     }
   }

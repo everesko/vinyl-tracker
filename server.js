@@ -481,7 +481,7 @@ function executeDeezerTrackSearch(q, limit = 10) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+const handleRequest = async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
   const query = parsedUrl.query;
@@ -3207,8 +3207,14 @@ async function fetchYouTubeVideoInfo(artist, title) {
       }
     });
   });
-});
+};
 
-server.listen(PORT, () => {
-  console.log(`Vinyl Hunter Server is running on http://localhost:${PORT}`);
-});
+const server = http.createServer(handleRequest);
+
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Vinyl Hunter Server is running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = handleRequest;
