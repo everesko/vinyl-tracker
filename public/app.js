@@ -2649,7 +2649,7 @@ const App = {
           ${a.year ? `<span class="meta-badge" title="Год первопресса: ${this.escapeHtml(a.year)}">📅 ${this.escapeHtml(a.year)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
         </td>
         <td class="cell-versions-count">
-          <button type="button" class="editions-count-badge ${countVal === 0 ? 'is-zero' : ''}" data-master-id="${resolvedMasterId || ''}" onclick="App.openMasterVersionsModal(${resolvedMasterId || 'null'}, '${this.escapeHtml(a.artist)}', '${this.escapeHtml(a.title)}', '${a.year || ''}', '${this.escapeHtml(coverUrl || '')}')" title="Виниловых изданий: ${displayCount}. Нажмите, чтобы открыть все прессы на Discogs">
+          <button type="button" class="editions-count-badge ${countVal === 0 ? 'is-zero' : ''}" data-master-id="${resolvedMasterId || ''}" onclick="App.openMasterVersionsModalById('${a.id}')" title="Виниловых изданий: ${displayCount}. Нажмите, чтобы открыть все прессы на Discogs">
             <span class="editions-count-icon">💿</span>
             <span class="editions-count-num">${displayCount}</span>
           </button>
@@ -3182,6 +3182,23 @@ const App = {
     }, 1500);
   },
 
+  openMasterVersionsModalById(albumId) {
+    const album = (this.getAllItemsInMode('albums') || []).find(x => String(x.id) === String(albumId));
+    if (!album) return;
+
+    let resolvedMasterId = album.masterId;
+    if (!resolvedMasterId && album.id && String(album.id).startsWith('master-')) {
+      const num = parseInt(String(album.id).replace('master-', ''), 10);
+      if (!isNaN(num)) resolvedMasterId = num;
+    }
+    if (!resolvedMasterId && album.uri && album.uri.includes('/master/')) {
+      const m = album.uri.match(/\/master\/(\d+)/);
+      if (m) resolvedMasterId = parseInt(m[1], 10);
+    }
+    const coverUrl = this.getSafeCoverUrl(album.coverImage || album.thumb, album.artist, album.title);
+    this.openMasterVersionsModal(resolvedMasterId, album.artist, album.title, album.year, coverUrl);
+  },
+
   // ----------------------------------------------------
   // MASTER ALBUM VERSIONS BREAKDOWN MODAL
   // Lists all vinyl pressings with country, year, format, prices
@@ -3193,8 +3210,12 @@ const App = {
     const coverImg = document.getElementById('masterModalCover');
     const versionsBody = document.getElementById('masterVersionsBody');
     const countryFilter = document.getElementById('masterCountryFilter');
+    const searchInput = document.getElementById('masterVersionsSearch');
 
     if (!modal) return;
+
+    if (searchInput) searchInput.value = '';
+    if (countryFilter) countryFilter.value = '';
 
     const safeCover = this.getSafeCoverUrl(coverUrl, artist, title);
     this.currentMasterModalData = { masterId, artist, title, year, coverUrl: safeCover, allVersions: [] };
@@ -3209,15 +3230,34 @@ const App = {
       };
     }
     if (versionsBody) {
-      versionsBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--accent-theme);">Загрузка всех виниловых изданий из базы Discogs...</td></tr>`;
+      versionsBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--accent-theme);">⏳ Загрузка всех виниловых изданий из базы Discogs...</td></tr>`;
     }
 
     modal.classList.add('open');
 
     try {
+      // If masterId is missing or null, automatically search Discogs by artist + title
+      if (!masterId || String(masterId) === 'null' || String(masterId) === 'undefined') {
+        try {
+          const searchRes = await DiscogsClient.searchAlbums(`${artist} ${title}`, 1, 5);
+          const found = searchRes && searchRes.results && searchRes.results.find(r => r.masterId || r.type === 'master');
+          if (found) {
+            masterId = found.masterId || (found.type === 'master' ? found.id : null);
+            this.currentMasterModalData.masterId = masterId;
+          }
+        } catch (sErr) {}
+      }
+
+      if (!masterId || String(masterId) === 'null') {
+        if (versionsBody) {
+          versionsBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">Не удалось определить Master ID альбома на Discogs.</td></tr>`;
+        }
+        return;
+      }
+
       const data = await DiscogsClient.getMasterVersions(masterId, 1, 100);
-      const versions = data.versions || [];
-      const totalCount = data.pagination ? data.pagination.items : versions.length;
+      const versions = (data && data.versions) || [];
+      const totalCount = data && data.pagination && typeof data.pagination.items === 'number' ? data.pagination.items : versions.length;
 
       // Calculate TRUE first press year across all versions
       const validYears = versions.map(v => parseInt(v.year || v.released, 10)).filter(y => !isNaN(y) && y > 1900 && y <= new Date().getFullYear());
@@ -3234,7 +3274,7 @@ const App = {
       if (firstPressYear) {
         this.updateAlbumYearToFirstPress(masterId, String(firstPressYear));
       }
-      if (typeof totalCount === 'number') {
+      if (typeof totalCount === 'number' && totalCount > 0) {
         this.updateAlbumVersionsCount(masterId, totalCount);
       }
 
@@ -3246,16 +3286,55 @@ const App = {
           Array.from(countries).sort().map(c => `<option value="${this.escapeHtml(c)}">${this.escapeHtml(c)}</option>`).join('');
       }
 
-      this.renderMasterVersionsTable(versions);
+      this.renderMasterVersionsTable(versions, false);
 
     } catch (err) {
       if (versionsBody) {
-        versionsBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger);">${this.escapeHtml(err.message)}</td></tr>`;
+        versionsBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--danger);">Ошибка при загрузке: ${this.escapeHtml(err.message)}</td></tr>`;
       }
     }
   },
 
-  renderMasterVersionsTable(versions) {
+  filterMasterVersions() {
+    if (!this.currentMasterModalData || !Array.isArray(this.currentMasterModalData.allVersions)) return;
+    const searchInput = document.getElementById('masterVersionsSearch');
+    const countryFilter = document.getElementById('masterCountryFilter');
+
+    const q = (searchInput ? searchInput.value : '').toLowerCase().trim();
+    const country = (countryFilter ? countryFilter.value : '').toLowerCase().trim();
+
+    let filtered = this.currentMasterModalData.allVersions;
+
+    if (country) {
+      filtered = filtered.filter(v => (v.country || '').toLowerCase() === country);
+    }
+
+    if (q) {
+      filtered = filtered.filter(v => {
+        const countryStr = (v.country || '').toLowerCase();
+        const yearStr = String(v.released || v.year || '').toLowerCase();
+        const labelStr = (v.label || '').toLowerCase();
+        const catStr = (v.catno || '').toLowerCase();
+        const formatStr = (Array.isArray(v.major_formats) ? v.major_formats.join(' ') : (v.format || '')).toLowerCase();
+        const titleStr = (v.title || '').toLowerCase();
+        return countryStr.includes(q) || yearStr.includes(q) || labelStr.includes(q) || catStr.includes(q) || formatStr.includes(q) || titleStr.includes(q);
+      });
+    }
+
+    this.renderMasterVersionsTable(filtered, Boolean(q || country));
+  },
+
+  clearMasterVersionsFilter() {
+    const searchInput = document.getElementById('masterVersionsSearch');
+    const countryFilter = document.getElementById('masterCountryFilter');
+    if (searchInput) searchInput.value = '';
+    if (countryFilter) countryFilter.value = '';
+    if (this.currentMasterModalData && this.currentMasterModalData.allVersions) {
+      this.renderMasterVersionsTable(this.currentMasterModalData.allVersions, false);
+    }
+  },
+
+  renderMasterVersionsTable(versions, isFiltered = false) {
     const versionsBody = document.getElementById('masterVersionsBody');
     if (!versionsBody) return;
 
@@ -3266,7 +3345,11 @@ const App = {
     this.lazyPriceQueue = [];
 
     if (!versions || versions.length === 0) {
-      versionsBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">Виниловых изданий не найдено</td></tr>`;
+      if (isFiltered) {
+        versionsBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">По вашему фильтру ничего не найдено. <a href="javascript:void(0)" onclick="App.clearMasterVersionsFilter()" style="color:var(--accent-theme); text-decoration:underline; font-weight:600;">Сбросить фильтр</a></td></tr>`;
+      } else {
+        versionsBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">Виниловых изданий не найдено в базе Discogs.</td></tr>`;
+      }
       return;
     }
 

@@ -507,7 +507,7 @@ const DiscogsClient = {
    * Get all Vinyl versions/pressings of a Master Album
    */
   async getMasterVersions(masterId, page = 1, perPage = 50) {
-    if (!masterId) return { versions: [], pagination: {} };
+    if (!masterId || String(masterId) === 'null' || String(masterId) === 'undefined') return { versions: [], pagination: {} };
 
     const cacheKey = `master_vers_${masterId}_${page}_${perPage}`;
     if (clientMemoryCache.has(cacheKey)) {
@@ -515,29 +515,68 @@ const DiscogsClient = {
     }
 
     try {
-      const res = await fetch(`/api/discogs/master/${masterId}/versions?format=Vinyl&page=${page}&per_page=${perPage}`, {
+      let res = await fetch(`/api/discogs/master/${masterId}/versions?format=Vinyl&page=${page}&per_page=${perPage}`, {
         headers: this.getHeaders()
       });
 
-      if (!res.ok) {
+      let data = null;
+      if (res.ok) {
+        data = await res.json();
+      }
+
+      // If format=Vinyl returned 0 items or failed, try without format filter
+      if (!data || !Array.isArray(data.versions) || data.versions.length === 0) {
+        try {
+          const fallbackRes = await fetch(`/api/discogs/master/${masterId}/versions?page=${page}&per_page=${perPage}`, {
+            headers: this.getHeaders()
+          });
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData && Array.isArray(fallbackData.versions) && fallbackData.versions.length > 0) {
+              data = fallbackData;
+            }
+          }
+        } catch (fbErr) {}
+      }
+
+      // Direct fallback to Discogs API if server proxy failed and token exists
+      if (!data || !Array.isArray(data.versions) || data.versions.length === 0) {
+        const token = this.getToken();
+        if (token) {
+          try {
+            const directRes = await fetch(`https://api.discogs.com/masters/${masterId}/versions?page=${page}&per_page=${perPage}`, {
+              headers: {
+                'User-Agent': 'VinylHunterApp/1.5.0',
+                'Authorization': `Discogs token=${token}`
+              }
+            });
+            if (directRes.ok) {
+              const directData = await directRes.json();
+              if (directData && Array.isArray(directData.versions) && directData.versions.length > 0) {
+                data = directData;
+              }
+            }
+          } catch (dErr) {}
+        }
+      }
+
+      if (!data || !Array.isArray(data.versions)) {
         return { versions: [], pagination: {} };
       }
 
-      const data = await res.json();
-      if (data && Array.isArray(data.versions) && data.versions.length > 0) {
-        data.versions.forEach(v => {
-          const yr = parseInt(v.released || v.year, 10);
-          if (yr && !isNaN(yr) && yr > 1900) {
-            v.year = String(yr);
-          }
-        });
-        const validYears = data.versions
-          .map(v => parseInt(v.year || v.released, 10))
-          .filter(y => !isNaN(y) && y > 1900 && y <= new Date().getFullYear());
-        if (validYears.length > 0) {
-          data.firstPressYear = Math.min(...validYears);
+      data.versions.forEach(v => {
+        const yr = parseInt(v.released || v.year, 10);
+        if (yr && !isNaN(yr) && yr > 1900) {
+          v.year = String(yr);
         }
+      });
+      const validYears = data.versions
+        .map(v => parseInt(v.year || v.released, 10))
+        .filter(y => !isNaN(y) && y > 1900 && y <= new Date().getFullYear());
+      if (validYears.length > 0) {
+        data.firstPressYear = Math.min(...validYears);
       }
+
       clientMemoryCache.set(cacheKey, data);
       return data;
     } catch (e) {

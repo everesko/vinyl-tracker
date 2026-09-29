@@ -482,7 +482,24 @@ function executeDeezerTrackSearch(q, limit = 10) {
 }
 
 const handleRequest = async (req, res) => {
-  const parsedUrl = url.parse(req.url, true);
+  let reqUrl = req.headers['x-forwarded-url'] || req.url;
+  let parsedUrl = url.parse(reqUrl, true);
+
+  if (parsedUrl.query && parsedUrl.query.__path) {
+    const rawPath = parsedUrl.query.__path;
+    const cleanQuery = { ...parsedUrl.query };
+    delete cleanQuery.__path;
+    const qs = new URLSearchParams(cleanQuery).toString();
+    reqUrl = '/api/' + String(rawPath).replace(/^\//, '') + (qs ? '?' + qs : '');
+    parsedUrl = url.parse(reqUrl, true);
+  } else if (parsedUrl.pathname === '/api/index.js' || parsedUrl.pathname === '/api/index') {
+    if (req.headers['x-matched-path'] && !req.headers['x-matched-path'].startsWith('/api/index')) {
+      const qs = reqUrl.includes('?') ? reqUrl.slice(reqUrl.indexOf('?')) : '';
+      reqUrl = req.headers['x-matched-path'] + qs;
+      parsedUrl = url.parse(reqUrl, true);
+    }
+  }
+
   const pathname = parsedUrl.pathname;
   const query = parsedUrl.query;
 
@@ -763,7 +780,15 @@ const handleRequest = async (req, res) => {
 
     try {
       const apiPath = `/masters/${masterId}/versions?format=${encodeURIComponent(format)}&page=${page}&per_page=${perPage}`;
-      const response = await discogsRequest(apiPath, 'GET', null, null, userToken);
+      let response = await discogsRequest(apiPath, 'GET', null, null, userToken);
+
+      // Fallback: If filtering by Vinyl returned 0 versions, fetch without format filter!
+      if (response.statusCode === 200 && response.data && (!response.data.versions || response.data.versions.length === 0) && format === 'Vinyl') {
+        const fallbackResp = await discogsRequest(`/masters/${masterId}/versions?page=${page}&per_page=${perPage}`, 'GET', null, null, userToken);
+        if (fallbackResp.statusCode === 200 && fallbackResp.data && Array.isArray(fallbackResp.data.versions) && fallbackResp.data.versions.length > 0) {
+          response = fallbackResp;
+        }
+      }
 
       if (response.statusCode === 200 && response.data) {
         if (Array.isArray(response.data.versions)) {
