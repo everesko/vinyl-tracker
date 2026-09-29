@@ -92,6 +92,8 @@ const FirebaseSync = {
   async syncModeTables(mode, tables, updatedAt = Date.now()) {
     if (!mode || !Array.isArray(tables)) return false;
 
+    this.notifyStatus('syncing', `Идет синхронизация (${mode})...`);
+
     // LocalStorage immediate backup
     try {
       localStorage.setItem(`vinyl_${mode}_tables`, JSON.stringify(tables));

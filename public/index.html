@@ -51,6 +51,13 @@
           <span class="version-date">22.09.2026</span>
         </div>
 
+        <!-- Cloud Sync Status Pill (Live Firebase Firestore Sync) -->
+        <div id="headerCloudSyncPill" class="cloud-sync-pill" onclick="App.openFirebaseModal()" title="Статус синхронизации с базой Firebase (нажмите для настроек)">
+          <span class="sync-pill-dot" id="syncPillDot"></span>
+          <span class="sync-pill-icon" id="syncPillIcon">☁️</span>
+          <span class="sync-pill-text" id="syncPillText">Облако: Подключение...</span>
+        </div>
+
         <!-- Global Settings Button (Discogs, Spotify, Cloud DB) -->
         <button id="btnOpenGlobalSettings" class="btn btn-secondary btn-sm" title="Настройки аккаунтов, синхронизации и баз данных" onclick="App.openGlobalSettingsModal()">
           ⚙️ Настройки
@@ -68,6 +75,12 @@
       </div>
     </div>
   </header>
+
+  <!-- Floating Live Toast for Sync Notifications -->
+  <div id="cloudSyncLiveToast" class="cloud-sync-toast" style="display: none;">
+    <span class="toast-icon" id="cloudSyncToastIcon">🔄</span>
+    <span class="toast-text" id="cloudSyncToastText">Синхронизация с сервером...</span>
+  </div>
 
   <!-- ==========================================
        Main Content & Table
@@ -967,9 +980,16 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <div class="modal-title">Настройки облачной базы Firebase Firestore</div>
-        <button class="modal-close-btn" title="Закрыть">✕</button>
+        <button class="modal-close-btn" title="Закрыть" onclick="document.getElementById('firebaseSettingsModal').classList.remove('open')">✕</button>
       </div>
       <div class="modal-body">
+        <!-- Live status box -->
+        <div id="modalFirebaseLiveStatus" class="firebase-modal-status-box" style="margin-bottom: 14px;">
+          <span id="modalFirebaseStatusIcon">☁️</span>
+          <span id="modalFirebaseStatusText" style="flex: 1;">Статус подключения: проверка...</span>
+          <button type="button" class="btn btn-secondary btn-xs" style="padding: 3px 8px; font-size: 11px;" onclick="App.forceCloudSync()">Синхронизировать сейчас</button>
+        </div>
+
         <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
           Вставьте ваш объект конфигурации веб-приложения из Firebase Console (Project Settings → General → Your apps).
           Приложение автоматически начнет синхронизировать пластинки с Firestore в реальном времени.
@@ -997,7 +1017,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary modal-cancel-btn">Отмена</button>
+        <button type="button" class="btn btn-secondary modal-cancel-btn" onclick="document.getElementById('firebaseSettingsModal').classList.remove('open')">Отмена</button>
         <button type="button" class="btn btn-primary" onclick="App.saveFirebaseConfig()">
           Сохранить и подключить
         </button>

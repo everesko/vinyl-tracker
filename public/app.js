@@ -445,6 +445,40 @@ const App = {
       }];
     }
 
+    // Merge real versionsCount and masterId from serverData if local is missing them
+    if (serverData && (serverData.tables || Array.isArray(serverData))) {
+      const serverTables = serverData.tables || serverData;
+      const serverItemMap = new Map();
+      serverTables.forEach(t => (t.items || []).forEach(i => {
+        if (i.id) serverItemMap.set(String(i.id), i);
+        if (i.masterId) serverItemMap.set(String(i.masterId), i);
+      }));
+      (this.tables.albums || []).forEach(t => (t.items || []).forEach(i => {
+        const match = serverItemMap.get(String(i.id)) || (i.masterId ? serverItemMap.get(String(i.masterId)) : null);
+        if (match) {
+          if ((i.versionsCount === undefined || i.versionsCount === null || isNaN(i.versionsCount)) && typeof match.versionsCount === 'number') {
+            i.versionsCount = match.versionsCount;
+          }
+          if (!i.masterId && match.masterId) {
+            i.masterId = match.masterId;
+          }
+        }
+      }));
+    }
+
+    // Ensure every album has masterId if resolvable
+    (this.tables.albums || []).forEach(t => (t.items || []).forEach(i => {
+      if (!i.masterId) {
+        if (i.id && String(i.id).startsWith('master-')) {
+          const num = parseInt(String(i.id).replace('master-', ''), 10);
+          if (!isNaN(num)) i.masterId = num;
+        } else if (i.uri && i.uri.includes('/master/')) {
+          const match = i.uri.match(/\/master\/(\d+)/);
+          if (match) i.masterId = parseInt(match[1], 10);
+        }
+      }
+    }));
+
     this.albums = this.getAllItemsInMode('albums');
 
     try {
@@ -453,7 +487,7 @@ const App = {
     } catch (e) {}
 
     // Auto-refresh real vinyl editions counts in background for any unverified albums
-    setTimeout(() => this.refreshMissingVersionsCounts(), 1500);
+    setTimeout(() => this.refreshMissingVersionsCounts(), 800);
   },
 
   async loadSpotifyTracks() {
@@ -2570,11 +2604,29 @@ const App = {
 
   renderAlbumRow(a, isSelected) {
     const coverUrl = this.getSafeCoverUrl(a.coverImage || a.thumb, a.artist, a.title);
-    const discogsLink = a.uri || `https://www.discogs.com/master/${a.masterId}`;
 
+    let resolvedMasterId = a.masterId;
+    if (!resolvedMasterId && a.id && String(a.id).startsWith('master-')) {
+      const num = parseInt(String(a.id).replace('master-', ''), 10);
+      if (!isNaN(num)) resolvedMasterId = num;
+    }
+    if (!resolvedMasterId && a.uri && a.uri.includes('/master/')) {
+      const match = a.uri.match(/\/master\/(\d+)/);
+      if (match) resolvedMasterId = parseInt(match[1], 10);
+    }
+    if (resolvedMasterId && !a.masterId) {
+      a.masterId = resolvedMasterId;
+    }
+
+    const discogsLink = a.uri || (resolvedMasterId ? `https://www.discogs.com/master/${resolvedMasterId}` : '');
     const trackCount = this.getAlbumTrackCount(a);
     const countVal = (typeof a.versionsCount === 'number') ? a.versionsCount : (a.versionsCount ? Number(a.versionsCount) : null);
-    const displayCount = countVal !== null && !isNaN(countVal) ? countVal : (a.masterId ? '—' : '1');
+    const displayCount = countVal !== null && !isNaN(countVal) ? countVal : (resolvedMasterId ? '—' : '1');
+
+    // Automatically enqueue background fetch if count is missing so user never stays on '—'
+    if (resolvedMasterId && (countVal === null || isNaN(countVal))) {
+      this.enqueueAlbumVersionsCount(resolvedMasterId, a.id);
+    }
 
     return `
       <tr id="record-row-${a.id}" class="record-row ${isSelected ? 'selected-row' : ''}" onclick="App.onTableRowClick(event, '${a.id}')">
@@ -2597,7 +2649,7 @@ const App = {
           ${a.year ? `<span class="meta-badge" title="Год первопресса: ${this.escapeHtml(a.year)}">📅 ${this.escapeHtml(a.year)}</span>` : '<span style="color:var(--text-muted)">—</span>'}
         </td>
         <td class="cell-versions-count">
-          <button type="button" class="editions-count-badge ${countVal === 0 ? 'is-zero' : ''}" onclick="App.openMasterVersionsModal(${a.masterId}, '${this.escapeHtml(a.artist)}', '${this.escapeHtml(a.title)}', '${a.year || ''}', '${this.escapeHtml(coverUrl || '')}')" title="Виниловых изданий: ${displayCount}. Нажмите, чтобы открыть все прессы на Discogs">
+          <button type="button" class="editions-count-badge ${countVal === 0 ? 'is-zero' : ''}" data-master-id="${resolvedMasterId || ''}" onclick="App.openMasterVersionsModal(${resolvedMasterId || 'null'}, '${this.escapeHtml(a.artist)}', '${this.escapeHtml(a.title)}', '${a.year || ''}', '${this.escapeHtml(coverUrl || '')}')" title="Виниловых изданий: ${displayCount}. Нажмите, чтобы открыть все прессы на Discogs">
             <span class="editions-count-icon">💿</span>
             <span class="editions-count-num">${displayCount}</span>
           </button>
@@ -2994,7 +3046,8 @@ const App = {
     // Update in DOM table rows immediately if present
     document.querySelectorAll('.editions-count-badge').forEach(btn => {
       const onclickAttr = btn.getAttribute('onclick') || '';
-      if (onclickAttr.includes(`openMasterVersionsModal(${strMaster}`) || onclickAttr.includes(`openMasterVersionsModal('${strMaster}'`)) {
+      const masterData = btn.getAttribute('data-master-id') || '';
+      if (masterData === strMaster || onclickAttr.includes(`openMasterVersionsModal(${strMaster}`) || onclickAttr.includes(`openMasterVersionsModal('${strMaster}'`)) {
         const numSpan = btn.querySelector('.editions-count-num');
         if (numSpan) numSpan.textContent = String(realCount);
         btn.classList.toggle('is-zero', realCount === 0);
@@ -3020,41 +3073,71 @@ const App = {
     }
   },
 
+  _versionsQueue: new Set(),
+  _versionsTimeout: null,
+
+  enqueueAlbumVersionsCount(masterId, albumId) {
+    if (!masterId) return;
+    this._versionsQueue.add(Number(masterId));
+    if (this._versionsTimeout) return;
+
+    this._versionsTimeout = setTimeout(async () => {
+      this._versionsTimeout = null;
+      const ids = Array.from(this._versionsQueue).filter(Boolean);
+      this._versionsQueue.clear();
+      if (ids.length === 0) return;
+
+      const chunkSize = 20;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        try {
+          const counts = await DiscogsClient.getBatchMasterVersionsCounts(chunk);
+          if (counts && typeof counts === 'object') {
+            for (const [mid, cnt] of Object.entries(counts)) {
+              if (typeof cnt === 'number') {
+                this.updateAlbumVersionsCount(mid, cnt);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[enqueueAlbumVersionsCount] error:', err);
+        }
+      }
+    }, 250);
+  },
+
   async refreshMissingVersionsCounts() {
     try {
       const allAlbums = this.getAllItemsInMode('albums') || [];
+      // Ensure all albums have masterId resolved
+      allAlbums.forEach(a => {
+        if (!a.masterId) {
+          if (a.id && String(a.id).startsWith('master-')) {
+            const num = parseInt(String(a.id).replace('master-', ''), 10);
+            if (!isNaN(num)) a.masterId = num;
+          } else if (a.uri && a.uri.includes('/master/')) {
+            const m = a.uri.match(/\/master\/(\d+)/);
+            if (m) a.masterId = parseInt(m[1], 10);
+          }
+        }
+      });
+
       const needed = allAlbums.filter(a => a.masterId && (typeof a.versionsCount !== 'number' || a.versionsCount <= 1));
       if (needed.length === 0) return;
 
-      const ids = Array.from(new Set(needed.map(a => a.masterId)));
+      const ids = Array.from(new Set(needed.map(a => Number(a.masterId)).filter(Boolean)));
       const chunkSize = 15;
-      let anyUpdated = false;
 
       for (let i = 0; i < ids.length; i += chunkSize) {
         const chunk = ids.slice(i, i + chunkSize);
         const counts = await DiscogsClient.getBatchMasterVersionsCounts(chunk).catch(() => null);
-        if (counts) {
-          allAlbums.forEach(a => {
-            if (a.masterId && counts[a.masterId] !== undefined) {
-              const realCount = Number(counts[a.masterId]);
-              if (!isNaN(realCount) && a.versionsCount !== realCount) {
-                a.versionsCount = realCount;
-                anyUpdated = true;
-                document.querySelectorAll('.editions-count-badge').forEach(btn => {
-                  const onclickAttr = btn.getAttribute('onclick') || '';
-                  if (onclickAttr.includes(`openMasterVersionsModal(${a.masterId}`)) {
-                    const numSpan = btn.querySelector('.editions-count-num');
-                    if (numSpan) numSpan.textContent = String(realCount);
-                  }
-                });
-              }
+        if (counts && typeof counts === 'object') {
+          for (const [mid, cnt] of Object.entries(counts)) {
+            if (typeof cnt === 'number') {
+              this.updateAlbumVersionsCount(mid, cnt);
             }
-          });
+          }
         }
-      }
-
-      if (anyUpdated) {
-        this.saveModeTables('albums', true);
       }
     } catch (e) {}
   },
@@ -7668,7 +7751,53 @@ const App = {
     if (configInput && config) {
       configInput.value = JSON.stringify(config, null, 2);
     }
+    this.renderCloudStatus({
+      status: FirebaseSync.isFirebaseActive ? 'synced' : 'local',
+      isFirebaseActive: FirebaseSync.isFirebaseActive,
+      details: FirebaseSync.isFirebaseActive ? `Подключено: ${config?.projectId || 'schallplatten-ecf93'}` : 'Локальный режим'
+    });
     document.getElementById('firebaseSettingsModal')?.classList.add('open');
+  },
+
+  async forceCloudSync() {
+    if (!window.FirebaseSync) return;
+    try {
+      this.renderCloudStatus({ status: 'syncing', details: 'Синхронизация всех таблиц с Firebase Firestore...' });
+      for (const mode of ['albums', 'releases', 'spotify']) {
+        const tables = this.tables[mode] || [];
+        if (tables.length > 0) {
+          await FirebaseSync.syncModeTables(mode, tables, Date.now());
+        }
+      }
+      this.renderCloudStatus({ status: 'synced', details: 'Все таблицы успешно сохранены в облаке Firebase!' });
+    } catch (e) {
+      this.renderCloudStatus({ status: 'error', details: e.message });
+    }
+  },
+
+  showSyncToast(icon, text, duration = 2500) {
+    const toast = document.getElementById('cloudSyncLiveToast');
+    const toastIcon = document.getElementById('cloudSyncToastIcon');
+    const toastText = document.getElementById('cloudSyncToastText');
+    if (!toast) return;
+
+    if (toastIcon) toastIcon.textContent = icon || '☁️';
+    if (toastText) toastText.textContent = text || '';
+    toast.style.display = 'flex';
+    toast.classList.toggle('toast-synced', icon === '✅' || icon === '☁️');
+
+    if (this._syncToastTimeout) clearTimeout(this._syncToastTimeout);
+    if (duration > 0) {
+      this._syncToastTimeout = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => {
+          toast.style.display = 'none';
+          toast.style.opacity = '';
+          toast.style.transform = '';
+        }, 300);
+      }, duration);
+    }
   },
 
   async saveFirebaseConfig() {
@@ -7686,8 +7815,18 @@ const App = {
     try {
       const parsed = JSON.parse(raw);
       FirebaseSync.setConfig(parsed);
-      alert('Конфигурация Firebase сохранена! Перезагрузка страницы.');
-      window.location.reload();
+      alert('Конфигурация Firebase сохранена! Подключение...');
+      document.getElementById('firebaseSettingsModal')?.classList.remove('open');
+      await FirebaseSync.init({
+        onModeUpdated: (mode, updatedTables) => {
+          if (!Array.isArray(updatedTables) || updatedTables.length === 0) return;
+          this.tables[mode] = updatedTables;
+          this.syncLegacyArrays();
+          if (this.appMode === mode) this.render();
+          this.updateModeToggleBadges();
+        }
+      });
+      this.renderCloudStatus({ status: 'synced', details: `Подключено: ${parsed.projectId}` });
     } catch (e) {
       alert('Ошибка парсинга JSON: ' + e.message);
     }
@@ -7695,8 +7834,9 @@ const App = {
 
   openGlobalSettingsModal() {
     this.renderCloudStatus({
-      isFirebaseActive: Boolean(window.firebaseSync && firebaseSync.db),
-      collectionName: (window.firebaseSync && firebaseSync.collectionName) || 'vinyl_records'
+      status: FirebaseSync.isFirebaseActive ? 'synced' : 'local',
+      isFirebaseActive: Boolean(window.FirebaseSync && FirebaseSync.isFirebaseActive),
+      details: (FirebaseSync.getConfig()?.projectId) || ''
     });
     this.updateDiscogsUIStatus();
     this.updateSpotifyUIStatus();
@@ -7710,22 +7850,77 @@ const App = {
   },
 
   renderCloudStatus(info) {
-    const badge = document.getElementById('cloudHeaderBadge');
-    if (badge) {
-      if (info.isFirebaseActive) {
-        badge.innerHTML = `<span class="dot online"></span> Firebase Cloud`;
-        badge.classList.add('active');
+    const pill = document.getElementById('headerCloudSyncPill');
+    const pillIcon = document.getElementById('syncPillIcon');
+    const pillText = document.getElementById('syncPillText');
+
+    const modalBox = document.getElementById('modalFirebaseLiveStatus');
+    const modalIcon = document.getElementById('modalFirebaseStatusIcon');
+    const modalText = document.getElementById('modalFirebaseStatusText');
+
+    const status = (info && info.status) || (info && info.isFirebaseActive ? 'synced' : 'local');
+    const details = (info && info.details) || '';
+
+    if (pill) {
+      pill.classList.remove('is-syncing', 'is-synced', 'is-error');
+      if (status === 'syncing') {
+        pill.classList.add('is-syncing');
+        if (pillIcon) pillIcon.textContent = '🔄';
+        if (pillText) pillText.textContent = 'Идет синхронизация...';
+        this.showSyncToast('🔄', details || 'Идет синхронизация с облаком...', 0);
+      } else if (status === 'synced' || status === 'connected') {
+        pill.classList.add('is-synced');
+        if (pillIcon) pillIcon.textContent = '☁️';
+        if (pillText) pillText.textContent = 'Облако: Синхронизировано';
+        if (status === 'synced') {
+          this.showSyncToast('✅', details || 'Облако синхронизировано (Firebase)', 2500);
+        }
+      } else if (status === 'error') {
+        pill.classList.add('is-error');
+        if (pillIcon) pillIcon.textContent = '⚠️';
+        if (pillText) pillText.textContent = 'Ошибка синхронизации';
+        this.showSyncToast('⚠️', details || 'Ошибка синхронизации', 4000);
       } else {
-        badge.innerHTML = `<span class="dot warn"></span> Локально (Offline)`;
-        badge.classList.remove('active');
+        if (pillIcon) pillIcon.textContent = '💾';
+        if (pillText) pillText.textContent = 'Локальный режим';
       }
     }
-    const stEl = document.getElementById('settingsFirebaseStatus');
-    if (stEl) {
-      if (info.isFirebaseActive) {
-        stEl.innerHTML = `<span class="dot" style="background:#22c55e;"></span> Подключено (Коллекция: ${this.escapeHtml(info.collectionName || 'vinyl_records')})`;
+
+    if (modalBox) {
+      modalBox.classList.remove('is-synced', 'is-error');
+      if (status === 'synced' || status === 'connected') {
+        modalBox.classList.add('is-synced');
+        if (modalIcon) modalIcon.textContent = '✅';
+        if (modalText) modalText.textContent = details ? `Firebase подключен: ${details}` : 'База данных Firebase Firestore активна и синхронизирована';
+      } else if (status === 'syncing') {
+        if (modalIcon) modalIcon.textContent = '🔄';
+        if (modalText) modalText.textContent = details || 'Идет синхронизация с базой данных...';
+      } else if (status === 'error') {
+        modalBox.classList.add('is-error');
+        if (modalIcon) modalIcon.textContent = '⚠️';
+        if (modalText) modalText.textContent = details || 'Ошибка подключения к Firebase';
       } else {
-        stEl.innerHTML = `<span class="dot warn"></span> Локально (Offline)`;
+        if (modalIcon) modalIcon.textContent = '💾';
+        if (modalText) modalText.textContent = 'Локальный режим (без облачной синхронизации)';
+      }
+    }
+
+    const legacyBadge = document.getElementById('cloudHeaderBadge');
+    if (legacyBadge) {
+      if (status === 'synced' || status === 'connected') {
+        legacyBadge.innerHTML = `<span class="dot online"></span> Firebase Cloud`;
+        legacyBadge.classList.add('active');
+      } else {
+        legacyBadge.innerHTML = `<span class="dot warn"></span> Локально (Offline)`;
+        legacyBadge.classList.remove('active');
+      }
+    }
+    const legacyStEl = document.getElementById('settingsFirebaseStatus');
+    if (legacyStEl) {
+      if (status === 'synced' || status === 'connected') {
+        legacyStEl.innerHTML = `<span class="dot" style="background:#22c55e;"></span> Подключено (Firebase Firestore)`;
+      } else {
+        legacyStEl.innerHTML = `<span class="dot warn"></span> Локально (Offline)`;
       }
     }
   },

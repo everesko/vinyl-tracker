@@ -29,6 +29,36 @@
           "createdAt": "2026-09-18T20:34:11.431Z"
         }
       ]
+    },
+    {
+      "id": "tbl_releases_1790287762735_w3cos",
+      "name": "Основная коллекция",
+      "isCollapsed": false,
+      "items": [
+        {
+          "id": "discogs-20930293",
+          "artist": "TwentyOnePilots",
+          "title": "Vessel",
+          "year": "2022",
+          "rating": 5,
+          "isHighValue": true,
+          "status": "buy",
+          "notes": "Найдено по запросу: car radio twenty",
+          "uri": "https://www.discogs.com/release/20930293-TwentyOnePilots-Vessel",
+          "createdAt": "2026-09-18T12:00:00.000Z",
+          "country": "USA, Canada & Europe",
+          "format": "Vinyl, LP, Album, Limited Edition, Reissue, Repress",
+          "label": "Fueled By Ramen · 531792-1",
+          "currency": "USD",
+          "priceMin": 12.17,
+          "priceMedian": 16.43,
+          "priceMax": 26.17,
+          "discogsId": 20930293
+        }
+      ]
     }
-  ]
+  ],
+  "userAction": true,
+  "forceSave": true,
+  "updatedAt": 1790287762735
 }

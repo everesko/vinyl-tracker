@@ -2,3 +2,10 @@ node_modules/
 .env
 npm-debug.log*
 .DS_Store
+*.bak
+data/*.bak
+Vinyl_Tracker_Export_22_23_Sep.xlsx
+public/Vinyl_Tracker_Export_22_23_Sep.xlsx
+public/Vinyl_Tracker_All_Data.xlsx
+
+
