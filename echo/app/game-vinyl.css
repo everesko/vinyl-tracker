@@ -1,0 +1,13 @@
+.echo-v5 [hidden] {display:none!important}
+.game-vinyl-control {position:relative;margin-left:auto;min-width:0;flex-shrink:1}
+.game-vinyl-button {display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid #9ce8ec55;background:linear-gradient(120deg,#9ce8ec14,#111d2c);color:#c8f2f3;border-radius:3px;padding:8px 11px;font-size:11px;line-height:1.2;white-space:nowrap;transition:background .2s,border-color .2s,transform .2s}
+.game-vinyl-button:hover:not(:disabled) {background:#9ce8ec21;border-color:#9ce8ec99;transform:translateY(-1px)}
+.game-vinyl-button:focus-visible {outline:2px solid #9ce8ec;outline-offset:3px}
+.game-vinyl-control.added .game-vinyl-button,.game-vinyl-control.exists .game-vinyl-button {border-color:#83d8bd66;color:#a7e8c9;background:#83d8bd13;opacity:1}
+.game-vinyl-notice {position:absolute;bottom:calc(100% + 9px);right:0;width:min(330px,78vw);padding:12px;border:1px solid #a2bbcc66;border-radius:4px;background:#111a29;box-shadow:0 8px 35px #000a;color:#c6d3df;font-size:12px;z-index:20;line-height:1.4;display:grid;gap:8px}
+.game-vinyl-notice a {color:#9ce8ec;text-decoration:underline;text-underline-offset:3px;width:fit-content}
+.quiz-window-footer .cancel-game-button {margin-left:0}
+.echo-v5 .topbar nav,.echo-v5 .mobile-nav {gap:5px}
+@media(max-width:650px){.game-vinyl-button{padding:7px;font-size:10px;gap:4px}.game-vinyl-button>svg:last-child:not(:first-child){display:none}.quiz-window-footer{gap:7px!important}.quiz-window-footer .compact-volume{max-width:85px!important}.quiz-window-footer .practice-label{font-size:9px!important;max-width:53px}.game-vinyl-button span{max-width:110px;overflow:hidden;text-overflow:ellipsis}.game-vinyl-notice{left:50%;right:auto;transform:translateX(-50%);width:72vw}.echo-v5 .mobile-nav button{flex:1;justify-content:center}}
+@media(max-height:500px){.game-vinyl-button{padding:4px 8px;font-size:10px}.game-vinyl-button>svg{width:13px;height:13px}}
+@media(prefers-reduced-motion:reduce){.game-vinyl-button{transition:none}.game-vinyl-button:hover:not(:disabled){transform:none}}

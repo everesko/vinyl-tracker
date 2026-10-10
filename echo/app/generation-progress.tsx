@@ -1,0 +1,8 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {LoaderCircle,Square} from 'lucide-react';
+import {useI18n} from '@/lib/i18n';
+export type GenerationState={phase:string;stage:number;available:number;required:number;tokens:number;started:number;found?:number;scanned?:number};
+export default function GenerationProgress({state,label,onCancel}:{state:GenerationState;label:string;onCancel:()=>void}){const {t}=useI18n(),[now,setNow]=useState(Date.now());useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);const percent=Math.floor(Math.min(100,state.available/Math.max(1,state.required)*100));
+ return <div className="generation-progress" role="status" aria-live="polite"><div className="generation-heading"><LoaderCircle className="spin" size={19}/><strong>{label}</strong><span>{Math.max(0,Math.floor((now-state.started)/1000))} {t('generation.seconds')}</span><button type="button" onClick={onCancel}><Square size={15}/>{t('generation.cancel')}</button></div><div className="generation-stages">{['planning','suggesting','searching','verifying','finishing'].map((phase,index)=><span className={index<=state.stage?'active':''} key={phase}>{t('generation.'+phase)}</span>)}</div><div className={`ai-progress-track ${['suggesting','searching','planning'].includes(state.phase)?'generation-active':''}`} role="progressbar" aria-label={t('generation.verified')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{width:`${percent}%`}}/></div><div className="generation-count"><span>{t('generation.count',{available:state.available,required:state.required})}</span>{state.found!==undefined&&<span>{t('generation.found',{count:state.found,scanned:state.scanned??0})}</span>}</div></div>;
+}

@@ -1,0 +1,11 @@
+'use client';
+import {request,RequestError} from './client-request';
+export type CloudState={provider:'local'|'gemini';configured:boolean;freeTier:boolean;loaded:boolean;working:boolean;connected:boolean;model:string|null};
+const initial:CloudState={provider:'local',configured:false,freeTier:false,loaded:false,working:false,connected:false,model:null};let state=initial,loading:Promise<void>|undefined,controller:AbortController|undefined;
+const listeners=new Set<()=>void>();function publish(patch:Partial<CloudState>){state={...state,...patch};listeners.forEach(fn=>fn());}
+export const subscribeCloud=(fn:()=>void)=>{listeners.add(fn);return()=>{listeners.delete(fn);};},getCloudState=()=>state,getCloudServerState=()=>initial;
+export async function inspectCloud(){if(state.loaded)return;if(loading)return loading;loading=request<any>('/api/settings').then(value=>publish({provider:value.aiProvider??'local',configured:!!value.gemini?.configured,freeTier:!!value.gemini?.freeTier,loaded:true})).finally(()=>{loading=undefined});return loading;}
+export async function saveCloud(patch:Record<string,unknown>){const value=await request<any>('/api/settings',patch,'PUT');publish({provider:value.aiProvider??'local',configured:!!value.gemini?.configured,freeTier:!!value.gemini?.freeTier,loaded:true,...('geminiKey' in patch?{connected:false,model:null}:{})});}
+export function cancelCloud(){controller?.abort();}
+export async function completeCloud(messages:{role:'system'|'user';content:string}[],purpose:string,signal?:AbortSignal,limit?:number){if(signal?.aborted)throw new RequestError('CANCELLED','');if(state.working)throw new RequestError('AI_BUSY','');controller=new AbortController();publish({working:true});try{const result=await request<{text:string;model:string}>('/api/ai/gemini',{messages,purpose,...(limit!==undefined?{limit}:{})},'POST',signal?AbortSignal.any([signal,controller.signal]):controller.signal);publish({connected:true,model:result.model});return result.text;}catch(error){publish({connected:false});throw error;}finally{controller=undefined;publish({working:false});}}
+export async function verifyCloud(){await completeCloud([{role:'user',content:'Return JSON only {"ok":true}'}],'test');}

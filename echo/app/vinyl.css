@@ -1,0 +1,16 @@
+.vinyl-workspace { width:100%; margin:0 auto; padding:0; }
+.echo-v5 .topbar nav button { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; }
+.echo-v5 .topbar nav button.active { color:#e9eff6; }
+.echo-v5 .topbar nav button.active::after { content:''; position:absolute; left:0; right:0; bottom:0; height:2px; background:#9ce8ec; box-shadow:0 0 14px #7ad5de55; }
+.vinyl-workspace-heading { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:20px; }
+.vinyl-workspace-heading h1 { margin:6px 0 8px; font-weight:600; letter-spacing:-.04em; font-size:32px; }
+.vinyl-workspace-heading p { color:#92a0b3; font-size:13px; }
+.vinyl-workspace-disc { width:60px; height:60px; border-radius:50%; border:1px solid #9ce8ec45; background:repeating-radial-gradient(circle,#9ce8ec13 0 1px,transparent 1px 5px); position:relative; }
+.vinyl-workspace-disc:after { content:''; position:absolute; inset:21px; background:#9ce8ec; border-radius:50%; border:6px solid #1b2938; }
+.vinyl-workspace-frame { width:100%; height:calc(100dvh - 190px); min-height:580px; border:1px solid #95bdd027; background:#0b1019; border-radius:8px; display:block; }
+.vinyl-workspace-loading { display:flex; align-items:center; gap:12px; color:#a5b4c6; padding:16px 0; font-size:13px; }
+.vinyl-workspace-loading button { border:1px solid #9ce8ec66; border-radius:4px; background:#9ce8ec10; padding:8px 12px; color:#c7f2f3; }
+.vinyl-workspace-spinner { width:15px; height:15px; border:2px solid #9ce8ec25; border-top-color:#9ce8ec; border-radius:50%; animation:vinyl-loading-turn .8s linear infinite; }
+@keyframes vinyl-loading-turn { to { transform:rotate(360deg); } }
+@media(max-width:700px) { .vinyl-workspace { padding:0; } .vinyl-workspace-heading h1 { font-size:25px; } .vinyl-workspace-heading { gap:12px; margin-bottom:16px; } .vinyl-workspace-frame { height:calc(100dvh - 190px); min-height:550px; } .vinyl-workspace-disc { width:44px; height:44px; flex-shrink:0; } .vinyl-workspace-disc:after { inset:13px; } }
+@media(prefers-reduced-motion:reduce) { .vinyl-workspace-spinner { animation:none; } }

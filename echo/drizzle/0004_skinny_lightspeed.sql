@@ -1,0 +1,1 @@
+ALTER TABLE `echo_collections` ADD `recipe` text;

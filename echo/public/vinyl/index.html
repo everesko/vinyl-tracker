@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECHO — Vinyl collection</title>
+  <link rel="stylesheet" href="style.css?v=5.2">
+  <link rel="stylesheet" href="echo-theme.css?v=1">
+  <script src="echo-translations.js?v=1"></script>
+  <script src="echo-bridge.js?v=1"></script>
+  <script src="assets/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- ==========================================
+       Header
+       ========================================== -->
+  <header class="site-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="logo-icon" title="Vinyl Hunter"></div>
+        <div>
+          <div class="brand-title">
+            Vinyl Hunter
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode Switcher: Vinyl Releases vs Master Albums vs Spotify Songs -->
+      <div class="mode-switcher-bar">
+        <button class="mode-toggle-btn active" id="btnModeReleases" onclick="App.setAppMode('releases')">
+          💽 Винилы (с ценами)
+        </button>
+        <button class="mode-toggle-btn" id="btnModeAlbums" onclick="App.setAppMode('albums')">
+          🎵 По альбомам
+        </button>
+        <button class="mode-toggle-btn" id="btnModeSpotify" onclick="App.setAppMode('spotify')">
+          🟢 Песни (Spotify)
+        </button>
+      </div>
+
+      <div class="header-right">
+        <!-- Golden Vinyl Button: Experimental Features -->
+        <button id="btnExperimentalModal" class="golden-vinyl-btn" title="Экспериментальные функции (нажмите для настройки)" onclick="App.openExperimentalModal()">
+          <span class="golden-vinyl-icon">📀</span>
+          <span class="golden-vinyl-glow"></span>
+        </button>
+
+        <!-- Version & Release Date Badge -->
+        <div class="app-version-badge" title="Версия приложения и дата релиза">
+          <span class="version-tag">v1.5.0</span>
+          <span class="version-dot">·</span>
+          <span class="version-date">22.09.2026</span>
+        </div>
+
+        <!-- Cloud Sync Status Pill (Live Firebase Firestore Sync) -->
+        <div id="headerCloudSyncPill" class="cloud-sync-pill" onclick="App.openFirebaseModal()" title="Статус синхронизации с базой Firebase (нажмите для настроек)">
+          <span class="sync-pill-dot" id="syncPillDot"></span>
+          <span class="sync-pill-icon" id="syncPillIcon">☁️</span>
+          <span class="sync-pill-text" id="syncPillText">Облако: Подключение...</span>
+        </div>
+
+        <!-- Global Settings Button (Discogs, Spotify, Cloud DB) -->
+        <button id="btnOpenGlobalSettings" class="btn btn-secondary btn-sm" title="Настройки аккаунтов, синхронизации и баз данных" onclick="App.openGlobalSettingsModal()">
+          ⚙️ Настройки
+        </button>
+
+        <button id="btnExportExcel" class="btn btn-secondary btn-sm" title="Экспорт вишлиста в файл Excel .xlsx">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Экспорт
+        </button>
+        <button id="btnImportExcel" class="btn btn-secondary btn-sm" title="Загрузить коллекции и таблицы из файла Excel (.xlsx)" onclick="document.getElementById('excelFileInput').click()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Загрузить
+        </button>
+        <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display:none;" onchange="App.handleExcelImport(event)">
+      </div>
+    </div>
+  </header>
+  <div class="echo-vinyl-transfer">
+    <button class="btn btn-secondary" data-echo-copy="import" onclick="EchoVinyl.importLegacy().catch(err=>alert(err.message))">Перенести прежнюю коллекцию</button>
+    <button class="btn btn-secondary" onclick="EchoVinyl.importFirebase(FirebaseSync.getConfig()).catch(err=>alert(err.message))">Firebase → ECHO</button>
+    <button class="btn btn-secondary" data-echo-copy="reload" onclick="EchoVinyl.refresh(true).catch(err=>alert(err.message))">Обновить данные</button>
+    <button class="btn btn-secondary" data-echo-copy="backup" onclick="EchoVinyl.backup()">Копия изменений</button>
+    <span id="echoVinylStatus" class="echo-vinyl-status" role="status" hidden></span>
+  </div>
+
+  <!-- Floating Live Toast for Sync Notifications -->
+  <div id="cloudSyncLiveToast" class="cloud-sync-toast" style="display: none;">
+    <span class="toast-icon" id="cloudSyncToastIcon">🔄</span>
+    <span class="toast-text" id="cloudSyncToastText">Синхронизация с сервером...</span>
+  </div>
+
+  <!-- ==========================================
+       Main Content & Table
+       ========================================== -->
+  <main class="main-content">
+    
+    <!-- Stats Strip (4 Neon Glassmorphism Cards) -->
+    <div class="stats-strip">
+      <div class="stat-card stat-card-vinyl">
+        <div class="stat-card-icon-wrap">
+          <div class="stat-vinyl-disc-icon">
+            <div class="stat-vinyl-disc-inner"></div>
+          </div>
+        </div>
+        <div class="stat-card-body">
+          <div class="stat-title">ВСЕГО В СПИСКЕ</div>
+          <div class="stat-value" id="statTotalCount">0</div>
+          <div class="stat-sub">виниловых пластинок</div>
+          <div class="stat-price-range-badge" id="statHeaderPriceRange" title="Потенциальный доход при продаже всей коллекции">💰 Оценка продажи: от $0 до $0 (медиана $0)</div>
+        </div>
+        <div class="stat-soundwave-decor">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-presses">
+        <div class="stat-card-icon-wrap stat-icon-purple">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        </div>
+        <div class="stat-card-body">
+          <div class="stat-title">ВСЕГО ВАРИАНТОВ ПРЕССОВ</div>
+          <div class="stat-value" id="statPressesCount">0</div>
+          <div class="stat-sub">по сохраненным альбомам</div>
+        </div>
+        <div class="stat-stack-decor">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.25"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-hunting">
+        <div class="stat-card-icon-wrap stat-icon-cyan">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        <div class="stat-card-body">
+          <div class="stat-title">В ПОИСКЕ НА БАРАХОЛКАХ</div>
+          <div class="stat-value" id="statHuntingCount" style="color: var(--accent-theme);">0</div>
+          <div class="stat-sub">активный вишлист</div>
+        </div>
+        <div class="stat-circle-decor"></div>
+      </div>
+
+      <div class="stat-card stat-card-owned">
+        <div class="stat-card-icon-wrap stat-icon-green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        </div>
+        <div class="stat-card-body">
+          <div class="stat-title">КУПЛЕНО В КОЛЛЕКЦИЮ</div>
+          <div class="stat-value" id="statOwnedCount" style="color: var(--status-owned);">0</div>
+          <div class="stat-sub">уже на полке</div>
+        </div>
+        <div class="stat-circle-decor"></div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         SMART RECOMMENDATIONS & CRATE DIGGER BAR
+         ========================================== -->
+    <div id="smartRecommendationsBar" class="smart-recommendations-bar" style="display: none;">
+      <div class="recs-header">
+        <div class="recs-title-wrap">
+          <span class="recs-icon">✨</span>
+          <div>
+            <div class="recs-title">Рекомендации Crate Digger</div>
+            <div class="recs-subtitle">На основе самых частых исполнителей в вашей коллекции</div>
+          </div>
+        </div>
+        <div class="recs-actions">
+          <button type="button" class="btn btn-sm btn-lucky-dice" onclick="App.rollLuckyVinyl()" title="Открыть случайную культовую пластинку">
+            🎲 Мне повезёт!
+          </button>
+        </div>
+      </div>
+      <div id="recsCardsDeck" class="recs-cards-deck">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+
+    <!-- ==========================================
+         PINNED SHOWCASE MINI-TABLE (ALWAYS ON TOP)
+         Displays items with 💎 High Value or 5★ Rating
+         ========================================== -->
+    <section class="pinned-showcase-section" id="pinnedShowcaseSection">
+      <div class="pinned-header">
+        <div class="pinned-title-wrapper">
+          <div class="pinned-title">
+            <span>💎</span> ВЫСОКАЯ ЦЕННОСТЬ &amp; ИЗБРАННОЕ
+          </div>
+          <span class="pinned-count-pill" id="pinnedCountPill">0</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; color: var(--text-secondary);">
+            Закрепленная мини-табличка важных позиций
+          </div>
+          <button id="btnTogglePinnedCollapse" class="btn btn-secondary btn-sm" onclick="App.togglePinnedCollapse()" style="font-size: 11px; padding: 3px 10px;">
+            <span id="pinnedCollapseIcon">▼</span> <span id="pinnedCollapseText">Свернуть</span>
+          </button>
+        </div>
+      </div>
+      <div class="pinned-table-container" id="pinnedTableContainer">
+        <table class="pinned-table">
+          <thead>
+            <tr>
+              <th style="width: 36px;"></th>
+              <th>Исполнитель и Альбом / Трек</th>
+              <th>Год / Страна / Альбом</th>
+              <th>Оценка</th>
+              <th>Ценность</th>
+              <th>Метрика</th>
+              <th>Статус</th>
+              <th style="text-align: right;">Действие</th>
+            </tr>
+          </thead>
+          <tbody id="pinnedTableBody">
+            <!-- Rendered by App.renderPinnedTable() -->
+          </tbody>
+        </table>
+        <div id="pinnedEmptyState" class="pinned-empty-msg" style="display: none;">
+          Нажмите на значок «💎» или поставьте оценку 5★ на любой пластинке/альбоме/песне, чтобы закрепить её здесь.
+        </div>
+      </div>
+    </section>
+
+    <!-- Table Toolbar -->
+    <div class="table-toolbar">
+      <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">Все (<span id="filterCountAll">0</span>)</button>
+        <button class="filter-btn filter-btn-buy" data-filter="buy">🔵 Купить (<span id="filterCountBuy">0</span>)</button>
+        <button class="filter-btn filter-btn-take" data-filter="take">🟣 Взять (<span id="filterCountTake">0</span>)</button>
+        <button class="filter-btn filter-btn-replace" data-filter="replace">🟠 Заменить (<span id="filterCountReplace">0</span>)</button>
+        <button class="filter-btn filter-btn-owned" data-filter="owned">🟢 В наличии (<span id="filterCountOwned">0</span>)</button>
+      </div>
+
+      <div class="action-buttons">
+
+        <button id="btnOpenFiltersModal" class="btn btn-secondary filter-modal-trigger" onclick="App.openFiltersModal()" title="Настроить расширенные фильтры (цены, страны, годы, 💎)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          <span>Фильтры</span>
+          <span id="activeFiltersBadge" class="filter-count-badge" style="display:none;">0</span>
+        </button>
+
+        <select id="tableSortSelect" class="table-sort-select" onchange="App.setSortFromSelect(this.value)" title="Сортировка записей в таблицах">
+          <option value="createdAt_desc">Сортировка: Сначала новые</option>
+          <option value="createdAt_asc">Сортировка: Сначала старые</option>
+          <option value="artist_asc">По исполнителю (А → Я)</option>
+          <option value="artist_desc">По исполнителю (Я → А)</option>
+          <option value="title_asc">По названию (А → Я)</option>
+          <option value="year_desc">По году (новые → старые)</option>
+          <option value="year_asc">По году (старые → новые)</option>
+          <option value="priceMedian_desc">По цене (убывание)</option>
+          <option value="priceMedian_asc">По цене (возрастание)</option>
+          <option value="rating_desc">По оценке (5★ → 1★)</option>
+          <option value="isHighValue_desc">По ценности (💎 первые)</option>
+          <option value="status_asc">По статусу</option>
+        </select>
+
+        <input 
+          type="text" 
+          id="tableSearchInput" 
+          class="table-search-input" 
+          placeholder="Фильтр по таблицам..."
+        >
+
+        <div class="destination-folder-wrap">
+          <span class="dest-label" title="Выберите папку (таблицу), в которую будут добавляться найденные песни или альбомы">📁 Папка:</span>
+          <select id="destTableSelect" class="dest-table-select" onchange="App.onDestinationTableChange(this.value)" title="Куда добавлять новые записи"></select>
+        </div>
+
+        <button id="btnCreateNewTable" class="btn btn-secondary" onclick="App.promptCreateTable()" title="Создать новую таблицу в текущем режиме">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          + Новая таблица
+        </button>
+
+        <button id="btnOpenDiscogsSearch" class="btn btn-primary btn-big-discogs">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Найти на Discogs
+        </button>
+
+        <button id="btnOpenManualAdd" class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Вручную
+        </button>
+
+        <button id="btnSyncSelectedRecords" class="btn btn-secondary" onclick="App.openDiscogsSettingsModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Перенести в Discogs
+        </button>
+
+        <button id="btnTransferToSpotify" class="btn btn-primary" style="display:none;" onclick="App.openSpotifyModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Перенести в Spotify
+        </button>
+      </div>
+    </div>
+
+    <!-- Divider line between toolbar and tables -->
+    <div class="toolbar-tables-divider"></div>
+
+    <!-- Multi-Tables Dynamic Container -->
+    <div id="tablesContainer" class="tables-container">
+      <!-- Tables rendered dynamically by App.renderTables() -->
+    </div>
+
+
+  </main>
+
+  <!-- ==========================================
+       Modal: Discogs Vinyl Search
+       ========================================== -->
+  <div id="discogsSearchModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title" id="discogsSearchModalTitle">Поиск виниловых пластинок на Discogs</div>
+        <button class="modal-close-btn" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Search Provider Tabs: Discogs vs Spotify & Dual Search Toggle -->
+        <div class="search-provider-bar">
+          <div class="search-provider-tabs">
+            <button type="button" class="search-provider-tab active" id="searchTabDiscogs" onclick="App.setSearchProvider('discogs')">
+              💽 Discogs (Винилы / Альбомы)
+            </button>
+            <button type="button" class="search-provider-tab" id="searchTabSpotify" onclick="App.setSearchProvider('spotify')">
+              🟢 Искать в Spotify
+            </button>
+            <button type="button" class="search-provider-tab" id="searchTabYouTube" onclick="App.setSearchProvider('youtube')">
+              <svg class="youtube-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px;"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              ▶ YouTube Чекер
+            </button>
+          </div>
+          <button type="button" class="dual-search-link-btn" id="btnDualSearchLink" onclick="App.toggleDualSearch()" title="Объединить два поиска: слева винилы Discogs, справа треки Spotify">
+            <span id="dualSearchIcon">🔗</span> <span id="dualSearchLabel">Объединить поиски</span>
+          </button>
+        </div>
+
+        <form id="discogsSearchForm" class="discogs-search-bar">
+          <input 
+            type="text" 
+            id="discogsSearchInput" 
+            class="discogs-search-input" 
+            placeholder="Исполнитель, альбом или название песни..." 
+            autocomplete="off"
+          >
+          <button type="submit" class="btn btn-primary">Искать</button>
+        </form>
+
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between;">
+          <span>✓ Поиск через официальный Discogs API</span>
+          <span>Цены подгружаются из Marketplace</span>
+        </div>
+
+        <!-- Sticky Multi-Select Action Bar (Мультивыделение) -->
+        <div id="searchMultiSelectBar" class="search-multiselect-bar" style="display: none;">
+          <div class="search-multiselect-left">
+            <span class="search-multiselect-count">Выбрано альбомов: <strong id="searchSelectedCount" style="color:var(--accent-theme);">0</strong></span>
+            <button type="button" class="btn btn-secondary btn-xs" onclick="App.selectAllSearchResults(true)" style="padding: 2px 7px; font-size: 11px;">Выбрать все</button>
+            <button type="button" class="btn btn-secondary btn-xs" onclick="App.selectAllSearchResults(false)" style="padding: 2px 7px; font-size: 11px;">Снять</button>
+          </div>
+          <div class="search-multiselect-right">
+            <button type="button" class="btn btn-primary btn-sm" id="btnBatchAddSearchAlbums" onclick="App.addSelectedSearchResults()">
+              + Добавить выбранные (<span id="searchSelectedAddCount">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <!-- Search View Mode Bar: 3D Acrylic Stands vs Classic Compact List -->
+        <div class="search-view-mode-bar">
+          <div class="search-view-pills">
+            <button type="button" class="search-view-pill active" id="btnSearchStandsView" onclick="App.setSearchViewMode('stands')">
+              🪞 3D Витрина на подставках
+            </button>
+            <button type="button" class="search-view-pill" id="btnSearchListView" onclick="App.setSearchViewMode('list')">
+              📜 Компактный список
+            </button>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted);">
+            Кликните на альбом для открытия инслива и треклиста
+          </div>
+        </div>
+
+        <!-- 3D Acrylic Stands Showcase Container -->
+        <div id="discogsSearchStandsContainer" class="search-stands-grid">
+          <!-- Stand cards with gatefold + sliding printed innersleeve rendered by App -->
+        </div>
+
+        <!-- Classic List Results Container -->
+        <div id="discogsSearchResults" class="search-results-list" style="display: none;">
+          <!-- Results injected here -->
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button class="btn btn-secondary btn-sm" onclick="App.switchToManualAdd()">
+          Не нашли нужное? Добавить вручную
+        </button>
+        <button class="btn btn-secondary modal-cancel-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Advanced Filters & Preferences
+       ========================================== -->
+  <div id="filtersModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 720px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          Расширенные фильтры и выборка
+        </div>
+        <button class="modal-close-btn" onclick="App.closeFiltersModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="filters-grid" id="filtersGrid">
+          <!-- Filter 1: Status Checkboxes -->
+          <div class="filter-block">
+            <div class="filter-title">Статус позиции</div>
+            <div class="filter-checkbox-group">
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="buy" checked onchange="App.applyFilters()"> 🔵 Купить</label>
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="take" checked onchange="App.applyFilters()"> 🟣 Взять</label>
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="replace" checked onchange="App.applyFilters()"> 🟠 Заменить</label>
+              <label class="filter-chip"><input type="checkbox" name="f_status" value="owned" checked onchange="App.applyFilters()"> 🟢 В наличии</label>
+            </div>
+          </div>
+
+          <!-- Filter 2: Ratings & High Value -->
+          <div class="filter-block">
+            <div class="filter-title">Оценка и ценность</div>
+            <div class="filter-checkbox-group">
+              <label class="filter-chip" style="color: var(--accent-theme); font-weight: 700;">
+                <input type="checkbox" id="filterHighValueOnly" onchange="App.applyFilters()"> 💎 Только ценные
+              </label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="5" onchange="App.applyFilters()"> 5★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="4" onchange="App.applyFilters()"> 4★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="3" onchange="App.applyFilters()"> 3★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="2" onchange="App.applyFilters()"> 2★</label>
+              <label class="filter-chip"><input type="checkbox" name="f_rating" value="1" onchange="App.applyFilters()"> 1★</label>
+            </div>
+          </div>
+
+          <!-- Filter 3: Year Range Slider & Inputs -->
+          <div class="filter-block">
+            <div class="filter-title">
+              <span>Год выпуска</span>
+              <span id="filterYearLabel" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-theme);">Все</span>
+            </div>
+            <div class="range-inputs-row">
+              <input type="number" id="filterYearMinInput" class="range-num-input" placeholder="От" min="1930" max="2030" oninput="App.onYearInputChange()">
+              <span style="color: var(--text-muted); font-size: 12px;">—</span>
+              <input type="number" id="filterYearMaxInput" class="range-num-input" placeholder="До" min="1930" max="2030" oninput="App.onYearInputChange()">
+            </div>
+            <input type="range" id="filterYearSlider" class="range-slider-bar" min="1950" max="2026" step="1" oninput="App.onYearSliderChange()">
+          </div>
+
+          <!-- Filter 4: Price / Versions Range -->
+          <div class="filter-block">
+            <div class="filter-title">
+              <span id="filterMetricTitle">Медианная цена ($)</span>
+              <span id="filterMetricLabel" style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-theme);">Все</span>
+            </div>
+            <div class="range-inputs-row">
+              <input type="number" id="filterMetricMinInput" class="range-num-input" placeholder="От $" min="0" oninput="App.onMetricInputChange()">
+              <span style="color: var(--text-muted); font-size: 12px;">—</span>
+              <input type="number" id="filterMetricMaxInput" class="range-num-input" placeholder="До $" min="0" oninput="App.onMetricInputChange()">
+            </div>
+            <input type="range" id="filterMetricSlider" class="range-slider-bar" min="0" max="300" step="5" oninput="App.onMetricSliderChange()">
+          </div>
+
+          <!-- Filter 5: Countries Checkboxes -->
+          <div class="filter-block" style="grid-column: 1 / -1;">
+            <div class="filter-title">
+              <span>Страны выпуска</span>
+              <div style="display: flex; gap: 8px;">
+                <a href="#" onclick="App.toggleAllCountries(true); return false;" style="font-size: 10.5px; color: var(--accent-theme);">Выбрать все</a>
+                <span style="color: var(--text-muted);">|</span>
+                <a href="#" onclick="App.toggleAllCountries(false); return false;" style="font-size: 10.5px; color: var(--text-muted);">Снять</a>
+              </div>
+            </div>
+            <div class="filter-checkbox-group" id="filterCountriesGroup">
+              <!-- Dynamically populated from active records -->
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btnResetFilters" class="btn btn-secondary btn-sm" onclick="App.resetAllFilters()">
+          ✕ Сбросить все фильтры
+        </button>
+        <button class="btn btn-primary" onclick="App.closeFiltersModal()">
+          Готово
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Experimental Lab (Golden Vinyl)
+       ========================================== -->
+  <div id="experimentalModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 700px; width: 95%;">
+      <div class="modal-header" style="border-bottom: 1px solid rgba(234, 179, 8, 0.25);">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 10px; color: #facc15;">
+          <span style="font-size: 22px;">📀</span>
+          <div>
+            <div style="font-size: 16px; font-weight: 700;">Экспериментальные функции Vinyl Hunter</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Настройте эксклюзивные возможности под свой стиль поиска и коллекции</div>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeExperimentalModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px; max-height: 70vh; overflow-y: auto;">
+        <!-- Master Toggle -->
+        <div class="exp-master-bar">
+          <div class="exp-master-text">
+            <div style="font-weight: 700; color: #ffffff; font-size: 13px;">Мастер-переключатель</div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Активировать или деактивировать все функции сразу</div>
+          </div>
+          <button type="button" id="btnToggleAllExp" class="btn btn-sm btn-gold-accent" onclick="App.toggleAllExperimentsMaster()">
+            Включить все
+          </button>
+        </div>
+
+        <div class="exp-features-grid">
+          <!-- 1. Smart Recommendations & "I'm Feeling Lucky" -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">✨</div>
+              <div class="exp-card-tag">РЕКОМЕНДАЦИИ</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expToggleSmartRecs" onchange="App.setExperimentState('smartRecs', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
+            </div>
+            <div class="exp-card-title">Умные рекомендации + «Мне повезёт 🎲»</div>
+            <div class="exp-card-desc">
+              Элегантная лента над таблицей с надежной каскадной подгрузкой 1000x1000 HD обложек (Spotify, Deezer, iTunes, Discogs) и поиском раритетов по культовым коллекциям.
+            </div>
+          </div>
+
+          <!-- 6. Compact Table Mode -->
+          <div class="exp-card">
+            <div class="exp-card-header">
+              <div class="exp-card-icon">⚡</div>
+              <div class="exp-card-tag">ПРОДУКТИВНОСТЬ</div>
+              <label class="exp-toggle-switch">
+                <input type="checkbox" id="expToggleCompactTable" onchange="App.setExperimentState('compactTable', this.checked)">
+                <span class="exp-slider"></span>
+              </label>
+            </div>
+            <div class="exp-card-title">Компактный режим таблицы</div>
+            <div class="exp-card-desc">
+              Сжатые строки таблицы для максимальной плотности данных: моментальный клик по строке для запуска аудио-превью и мгновенный доступ ко всем колонкам цен и статусов.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="App.closeExperimentalModal()">Готово</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ==========================================
+       Modal: Master Album Vinyl Pressings Breakdown
+       ========================================== -->
+  <div id="masterVersionsModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 860px; width: 95%;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+          <img id="masterModalCover" src="" alt="Cover" style="width: 44px; height: 44px; border-radius: 4px; object-fit: cover; background: #222; flex-shrink: 0;">
+          <div style="min-width: 0;">
+            <div class="modal-title" id="masterModalTitle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Альбом</div>
+            <div id="masterModalSub" style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">Загрузка данных...</div>
+          </div>
+        </div>
+        <button class="modal-close-btn" title="Закрыть">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 10px;">
+        <!-- Filters bar inside modal -->
+        <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
+          <input 
+            type="text" 
+            id="masterVersionsSearch" 
+            class="form-input" 
+            placeholder="Фильтр по стране, лейблу, номеру каталога..."
+            style="flex: 1; min-width: 180px;"
+            oninput="App.filterMasterVersions()"
+          >
+          <select id="masterCountryFilter" class="form-select" style="width: 220px;" onchange="App.filterMasterVersions()">
+            <option value="">Все страны выпуска</option>
+          </select>
+        </div>
+
+        <!-- Versions Table -->
+        <div style="max-height: 440px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+          <table class="versions-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;"></th>
+                <th>Страна</th>
+                <th>Год</th>
+                <th>Формат / Лейбл</th>
+                <th style="text-align: right; width: 75px;">Мин. ($)</th>
+                <th style="text-align: right; width: 85px;">Медиана ($)</th>
+                <th style="text-align: right; width: 75px;">Макс. ($)</th>
+                <th style="text-align: right; width: 110px;">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="masterVersionsBody">
+              <!-- Loaded dynamically via DiscogsClient.getMasterVersions -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <span style="font-size: 11px; color: var(--text-muted);">
+          Данные напрямую из Discogs API (/masters/{id}/versions?format=Vinyl)
+        </span>
+        <button class="btn btn-secondary modal-cancel-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Manual Add / Edit Record
+       ========================================== -->
+  <div id="manualRecordModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title" id="manualModalTitle">Добавить виниловую пластинку вручную</div>
+        <button class="modal-close-btn" title="Закрыть">✕</button>
+      </div>
+      <form id="manualRecordForm" onsubmit="event.preventDefault(); App.saveManualRecord();">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Исполнитель *</label>
+              <input type="text" id="manualArtist" class="form-input" placeholder="Например: Pink Floyd" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Название альбома *</label>
+              <input type="text" id="manualTitle" class="form-input" placeholder="The Dark Side Of The Moon" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Год выпуска</label>
+              <input type="text" id="manualYear" class="form-input" placeholder="1973">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Страна выпуска</label>
+              <input type="text" id="manualCountry" class="form-input" placeholder="UK, Japan, US...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Формат</label>
+              <input type="text" id="manualFormat" class="form-input" placeholder="Vinyl, LP, Album">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Лейбл / Номер каталога</label>
+              <input type="text" id="manualLabel" class="form-input" placeholder="Harvest – SHVL 804">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Статус</label>
+              <select id="manualStatus" class="form-select">
+                <option value="buy">🔵 Купить</option>
+                <option value="take">🟣 Взять</option>
+                <option value="replace">🟠 Заменить</option>
+                <option value="owned">🟢 В наличии</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Добавить в таблицу</label>
+            <select id="manualTargetTable" class="form-select">
+              <!-- Populated dynamically by App -->
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Мин. цена ($)</label>
+              <input type="number" step="0.01" id="manualPriceMin" class="form-input" placeholder="15.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Медиана ($) *</label>
+              <input type="number" step="0.01" id="manualPriceMedian" class="form-input" placeholder="30.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Макс. цена ($)</label>
+              <input type="number" step="0.01" id="manualPriceMax" class="form-input" placeholder="60.00">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Ссылка на изображение обложки (URL)</label>
+            <input type="url" id="manualCoverUrl" class="form-input" placeholder="https://...">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Заметки / Ссылка на YouTube</label>
+            <textarea id="manualNotes" class="form-textarea" rows="2" placeholder="Например: Услышал в ролике на 12:45. Искать оригинальный пресс."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Отмена</button>
+          <button type="button" class="btn btn-primary" onclick="App.saveManualRecord()">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Discogs Settings & OAuth Authorization
+       ========================================== -->
+  <div id="discogsSettingsModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">Авторизация в аккаунте Discogs</div>
+        <button class="modal-close-btn" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        
+        <div id="discogsProfileBox" style="display: none; margin-bottom: 16px;"></div>
+
+        <!-- Option 1: Official OAuth Authorization -->
+        <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="font-weight: 700; font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+              <span style="background:#000; color:#fff; border-radius:3px; padding:1px 6px; font-size:11px; font-weight:800;">DISCOGS</span>
+              Вход через Discogs (OAuth)
+            </div>
+            <span style="font-size: 11px; color: var(--accent-amber);">Официальный вход</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+            Вы будете перенаправлены на сайт Discogs для подтверждения доступа. После подтверждения приложение автоматически подключит ваш аккаунт.
+          </p>
+
+          <div style="margin-bottom: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <div>
+                <label class="form-label" style="font-size: 10px;">Consumer Key (опционально)</label>
+                <input type="text" id="discogsConsumerKey" class="form-input" style="font-size:11px;" placeholder="Вставьте Consumer Key">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 10px;">Consumer Secret (опционально)</label>
+                <input type="text" id="discogsConsumerSecret" class="form-input masked-secret" autocomplete="off" data-lpignore="true" data-form-type="other" style="font-size:11px;" placeholder="Вставьте Consumer Secret">
+              </div>
+            </div>
+            <div style="font-size: 10.5px; color: var(--text-muted); margin-bottom: 10px;">
+              Ключи приложения создаются в 
+              <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber);">
+                настройках разработчика Discogs ↗
+              </a>.
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="App.loginWithDiscogsOAuth()">
+            Войти через Discogs (OAuth) →
+          </button>
+        </div>
+
+        <!-- Option 2: Personal Access Token -->
+        <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px;">
+          <div style="font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 6px;">
+            Или быстрый вход по личному токену (Personal Access Token)
+          </div>
+          <p style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 10px;">
+            Сгенерируйте токен в один клик на 
+            <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber);">
+              discogs.com/settings/developers ↗
+            </a> (кнопка «Generate new token»).
+          </p>
+          <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+            <input 
+              type="text" 
+              id="discogsTokenInput" 
+              class="form-input masked-secret" 
+              autocomplete="off"
+              data-lpignore="true"
+              data-form-type="other"
+              placeholder="Вставьте токен Discogs..."
+            >
+            <button type="button" class="btn btn-secondary" onclick="App.verifyAndSaveDiscogsToken()">
+              Войти
+            </button>
+          </div>
+          <div id="discogsTokenStatus" style="font-size: 11.5px;"></div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 18px 0;">
+
+        <!-- Two-Way Sync: Export & Import Tabs -->
+        <div class="discogs-tabs">
+          <button type="button" class="discogs-tab-btn active" id="tabBtnExportDiscogs" onclick="App.switchDiscogsTab('export')">
+            📤 Экспорт в Discogs
+          </button>
+          <button type="button" class="discogs-tab-btn" id="tabBtnImportDiscogs" onclick="App.switchDiscogsTab('import')">
+            📥 Загрузить из Discogs в приложение
+          </button>
+        </div>
+
+        <!-- TAB 1: EXPORT TO DISCOGS -->
+        <div id="discogsExportTab">
+          <div style="font-weight: 700; font-size: 13.5px; color: var(--text-primary); margin-bottom: 6px;">
+            Выгрузка списка в ваш аккаунт Discogs
+          </div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+            Создает папку в коллекции или переносит пластинки в ваш официальный Wantlist.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Имя папки / коллекции на Discogs</label>
+            <input 
+              type="text" 
+              id="discogsFolderNameInput" 
+              class="form-input" 
+              value="YouTube Wishlist" 
+              placeholder="Например: YouTube Wishlist, Барахолка 2026..."
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Куда выгружать</label>
+            <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="discogsTargetMode" value="collection" checked>
+                В папку коллекции (Collection Folder)
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="discogsTargetMode" value="wantlist">
+                В официальный Wantlist Discogs
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Какие пластинки перенести</label>
+            <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="discogsScopeMode" value="all" checked>
+                Все винилы из текущего списка
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="discogsScopeMode" value="selected">
+                Только отмеченные галочками
+              </label>
+            </div>
+          </div>
+
+          <button type="button" id="btnStartTransfer" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;" onclick="App.startDiscogsTransfer()">
+            Начать выгрузку в Discogs →
+          </button>
+        </div>
+
+        <!-- TAB 2: IMPORT FROM DISCOGS -->
+        <div id="discogsImportTab" style="display: none;">
+          <div style="font-weight: 700; font-size: 13.5px; color: var(--text-primary); margin-bottom: 6px;">
+            Загрузка из ваших существующих коллекций Discogs
+          </div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+            Выберите папку в вашем профиле Discogs или Wantlist, чтобы загрузить пластинки в приложение.
+          </p>
+
+          <div class="form-group">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <label class="form-label" style="margin-bottom: 0;">Источник в Discogs</label>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 2px 6px;" onclick="App.loadDiscogsFolders()">
+                🔄 Обновить папки
+              </button>
+            </div>
+            <select id="discogsImportFolderSelect" class="form-select">
+              <option value="0">Все пластинки (All - папка 0)</option>
+              <option value="wantlist">⭐ Официальный Wantlist (Список желаемого)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Куда загружать в приложении</label>
+            <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="discogsImportDest" value="releases" checked>
+                В режим виниловых пластинок (Releases)
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="discogsImportDest" value="albums">
+                В каталог альбомов (Masters)
+              </label>
+            </div>
+          </div>
+
+          <button type="button" id="btnStartImport" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;" onclick="App.startDiscogsImport()">
+            Загрузить пластинки из Discogs в приложение 📥
+          </button>
+        </div>
+
+        <div id="discogsSyncProgressBox" class="sync-progress-box" style="display: none; margin-top: 14px;">
+          <div class="progress-bar-bg">
+            <div id="discogsProgressBar" class="progress-bar-fill"></div>
+          </div>
+          <div id="discogsProgressText" class="sync-status-text">Подготовка...</div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-cancel-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Unified Global Settings & Accounts
+       ========================================== -->
+  <div id="globalSettingsModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 540px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <span>⚙️ Настройки и аккаунты</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeGlobalSettingsModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <!-- Card 1: Firebase Cloud Sync -->
+        <div class="settings-service-card">
+          <div class="settings-service-left">
+            <div class="settings-service-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">☁️</div>
+            <div>
+              <div class="settings-service-title">Облачная база Firebase</div>
+              <div class="settings-service-status" id="settingsFirebaseStatus">
+                <span class="dot warn"></span> Локально (Offline)
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="App.openFirebaseModal()">
+            Настроить ➔
+          </button>
+        </div>
+
+        <!-- Card 2: Discogs Account -->
+        <div class="settings-service-card">
+          <div class="settings-service-left">
+            <div class="settings-service-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">💽</div>
+            <div>
+              <div class="settings-service-title">Аккаунт Discogs API</div>
+              <div class="settings-service-status" id="settingsDiscogsStatus">
+                <span class="dot"></span> Не подключен
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="App.openDiscogsSettingsModal()">
+            Подключить ➔
+          </button>
+        </div>
+
+        <!-- Card 3: Spotify Account -->
+        <div class="settings-service-card">
+          <div class="settings-service-left">
+            <div class="settings-service-icon" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;">🟢</div>
+            <div>
+              <div class="settings-service-title">Аккаунт Spotify</div>
+              <div class="settings-service-status" id="settingsSpotifyStatus">
+                <span class="dot"></span> Не авторизован
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="App.openSpotifyModal()">
+            Настроить ➔
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="App.closeGlobalSettingsModal()">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Firebase Cloud Settings
+       ========================================== -->
+  <div id="firebaseSettingsModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">Настройки облачной базы Firebase Firestore</div>
+        <button class="modal-close-btn" title="Закрыть" onclick="document.getElementById('firebaseSettingsModal').classList.remove('open')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Live status box -->
+        <div id="modalFirebaseLiveStatus" class="firebase-modal-status-box" style="margin-bottom: 14px;">
+          <span id="modalFirebaseStatusIcon">☁️</span>
+          <span id="modalFirebaseStatusText" style="flex: 1;">Статус подключения: проверка...</span>
+          <button type="button" class="btn btn-secondary btn-xs" style="padding: 3px 8px; font-size: 11px;" onclick="App.forceCloudSync()">Синхронизировать сейчас</button>
+        </div>
+
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+          Вставьте ваш объект конфигурации веб-приложения из Firebase Console (Project Settings → General → Your apps).
+          Таблицы будут прочитаны и перенесены в ваш профиль ECHO. Исходная база останется без изменений.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Firebase Config (JSON)</label>
+          <textarea 
+            id="firebaseConfigJson" 
+            class="form-textarea" 
+            rows="8" 
+            style="font-family: var(--font-mono); font-size: 11px;"
+            placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "my-vinyl-app.firebaseapp.com",
+  "projectId": "my-vinyl-app",
+  "storageBucket": "my-vinyl-app.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef"
+}'></textarea>
+        </div>
+
+        <div style="font-size: 11px; color: var(--text-muted);">
+          Ваша коллекция сохраняется в профиле ECHO. Firebase нужен только для переноса прежних таблиц.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-cancel-btn" onclick="document.getElementById('firebaseSettingsModal').classList.remove('open')">Отмена</button>
+        <button type="button" class="btn btn-primary" onclick="App.saveFirebaseConfig()">
+          Сохранить и подключить
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Spotify Integration & Playlist Transfer
+       ========================================== -->
+  <div id="spotifyModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent-theme)"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Spotify: Плейлисты &amp; Аккаунт
+        </div>
+        <button class="modal-close-btn" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Tabs: Account vs Playlist Transfer -->
+        <div class="discogs-tabs" style="margin-bottom: 14px;">
+          <button type="button" class="discogs-tab-btn active" id="tabBtnSpotifyTransfer" onclick="App.switchSpotifyTab('transfer')">
+            🎵 Создать плейлист
+          </button>
+          <button type="button" class="discogs-tab-btn" id="tabBtnSpotifyAccount" onclick="App.switchSpotifyTab('account')">
+            👤 Аккаунт Spotify
+          </button>
+        </div>
+
+        <!-- TAB 1: PLAYLIST TRANSFER -->
+        <div id="spotifyTransferTab">
+          <div id="spotifyAuthWarning" style="display: none; padding: 12px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 12.5px;">
+            <div style="font-weight: 700; color: var(--danger); margin-bottom: 4px;">⚠️ Spotify аккаунт не подключен</div>
+            <div>Чтобы создать реальный плейлист в Spotify, перейдите во вкладку <strong>«Аккаунт Spotify»</strong> и укажите ключи/войдите.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Название нового плейлиста в Spotify</label>
+            <input 
+              type="text" 
+              id="spotifyPlaylistNameInput" 
+              class="form-input" 
+              value="Vinyl Hunter Selection" 
+              placeholder="Например: YouTube Tracks, Любимое 2026..."
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Позиции для переноса в плейлист</label>
+            <div id="spotifySelectionInfo" style="padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 12.5px;">
+              <div>Выбрано галочками в таблице: <strong style="color: var(--accent-theme); font-size: 13.5px;"><span id="spotifyScopeSelCount">0</span> песен</strong></div>
+              <div id="spotifyZeroSelectedNotice" style="display: none; margin-top: 6px; color: var(--danger); font-size: 11.5px;">
+                ⚠️ Не выбрано ни одной песни! Отметьте галочками нужные треки в таблице или нажмите чекбокс «Выбрать все в таблице».
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-secondary);">
+              <input type="checkbox" id="spotifyPlaylistIsPublic" checked>
+              Сделать плейлист публичным
+            </label>
+          </div>
+
+          <button type="button" id="btnStartSpotifyTransfer" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;" onclick="App.startSpotifyPlaylistTransfer()">
+            Перенести выбранные песни в Spotify →
+          </button>
+
+          <div id="spotifyTransferProgressBox" class="sync-progress-box" style="display: none; margin-top: 14px;">
+            <div class="progress-bar-bg">
+              <div id="spotifyProgressBar" class="progress-bar-fill"></div>
+            </div>
+            <div id="spotifyProgressText" class="sync-status-text">Подготовка...</div>
+          </div>
+        </div>
+
+        <!-- TAB 2: ACCOUNT & KEYS -->
+        <div id="spotifyAccountTab" style="display: none;">
+          <div id="spotifyProfileBox" style="margin-bottom: 14px; display: none;"></div>
+
+          <!-- Instructions box for Redirect URI -->
+          <div style="background: rgba(30, 215, 96, 0.08); border: 1px solid rgba(30, 215, 96, 0.35); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; line-height: 1.5;">
+            <div style="font-weight: 700; color: var(--accent-theme); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span>ℹ️</span> Обязательно для работы кнопки «Войти через Spotify (OAuth)»:
+            </div>
+            <div style="color: var(--text-secondary); margin-bottom: 8px;">
+              1. Зайдите в <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: var(--accent-theme); text-decoration: underline; font-weight: 600;">Spotify Developer Dashboard</a> и откройте ваше приложение.<br>
+              2. Нажмите <strong>Settings</strong> и в секцию <strong>Redirect URIs</strong> добавьте этот адрес:
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" id="spotifyRedirectUriInput" readonly class="form-input" style="font-size: 11.5px; padding: 6px 10px; background: rgba(0,0,0,0.35); color: #fff; cursor: text;" value="">
+              <button type="button" class="btn btn-sm btn-secondary" onclick="App.copySpotifyRedirectUri()" title="Скопировать Redirect URI">
+                📋 Скопировать
+              </button>
+            </div>
+            <div style="color: var(--text-muted); font-size: 11px; margin-top: 6px;">
+              3. Нажмите <strong>Save</strong> внизу страницы в Spotify Dashboard.
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">1. Spotify Client ID</label>
+            <input 
+              type="text" 
+              id="spotifyClientIdInput" 
+              class="form-input" 
+              placeholder="32-значный Client ID из Spotify Dashboard..."
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">2. Spotify Client Secret</label>
+            <input 
+              type="text" 
+              id="spotifyClientSecretInput" 
+              class="form-input masked-secret" 
+              autocomplete="off"
+              data-lpignore="true"
+              data-form-type="other"
+              placeholder="Client Secret (для безопасной авторизации)..."
+            >
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary" onclick="App.saveSpotifyCredentials()">
+              💾 Сохранить и проверить ключи
+            </button>
+            <button type="button" class="btn btn-success" style="background: var(--accent-theme); color: #000; font-weight: 700;" onclick="App.loginWithSpotifyOAuth()">
+              🟢 Войти через Spotify (OAuth)
+            </button>
+          </div>
+
+          <div style="border-top: 1px dashed rgba(255,255,255,0.15); margin: 16px 0; padding-top: 14px;">
+            <div class="form-group">
+              <label class="form-label">Альтернатива: Прямой ввод Spotify User Access Token</label>
+              <input 
+                type="text" 
+                id="spotifyTokenInput" 
+                class="form-input masked-secret" 
+                autocomplete="off"
+                data-lpignore="true"
+                data-form-type="other"
+                placeholder="Если у вас уже есть готовый User Token, вставьте его сюда..."
+              >
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                Позволяет мгновенно авторизоваться без перехода на страницу OAuth.
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="App.verifyAndSaveSpotifyToken()">
+              🔍 Проверить токен
+            </button>
+          </div>
+
+          <div id="spotifyTokenStatus" style="font-size: 12px; margin-top: 8px; min-height: 20px;"></div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-cancel-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Album / Release Tracklist with Spotify Previews
+       ========================================== -->
+  <div id="albumTracklistModal" class="modal-backdrop">
+    <div class="modal-dialog modal-dialog-large" style="max-width: 1040px; width: 95vw;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+          <img id="tracklistModalCover" src="" alt="Album Cover" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: #181818; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+          <div style="min-width: 0;">
+            <div class="modal-title" id="tracklistModalTitle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">Список песен</div>
+            <div id="tracklistModalSub" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">Загрузка треков...</div>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeAlbumTracklistModal()" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 18px 22px; max-height: 72vh; overflow-y: auto;">
+        <div class="tracklist-modal-body-grid">
+          <!-- Left Column: Album Cover & Video Clip -->
+          <div class="tracklist-media-col">
+            <div class="tracklist-media-tabs">
+              <button type="button" class="tracklist-media-tab active" id="tabMediaCover" onclick="App.switchTracklistMedia('cover')">
+                💽 Обложка
+              </button>
+              <button type="button" class="tracklist-media-tab" id="tabMediaVideo" onclick="App.switchTracklistMedia('video')">
+                🎬 Видео / Клип
+              </button>
+            </div>
+
+            <!-- Cover Panel (Visible by default and when cover tab is selected) -->
+            <div id="tracklistCoverView" class="tracklist-cover-view">
+              <div class="tracklist-cover-waves-stage" id="tracklistCoverStage">
+                <div class="cover-ripple-wave wave-1"></div>
+                <div class="cover-ripple-wave wave-2"></div>
+                <div class="cover-ripple-wave wave-3"></div>
+                <div class="tracklist-large-cover-wrap" id="tracklistCoverWrap">
+                  <img id="tracklistModalLargeCover" src="" alt="Album Cover" class="tracklist-large-cover">
+                </div>
+              </div>
+              <div class="tracklist-album-meta" id="tracklistAlbumMeta">
+                <div class="tracklist-meta-artist" id="tracklistMetaArtist"></div>
+                <div class="tracklist-meta-album" id="tracklistMetaAlbum"></div>
+                <div class="tracklist-meta-badges" id="tracklistMetaBadges"></div>
+              </div>
+            </div>
+
+            <!-- Video Panel (Visible only when user clicks '🎬 Видео / Клип') -->
+            <div id="tracklistVideoView" class="tracklist-video-view" style="display:none;">
+              <div id="tracklistVideoContainer" class="tracklist-video-container">
+                <div id="tracklistVideoPlaceholder" class="tracklist-video-placeholder">
+                  <span style="font-size:32px; margin-bottom:8px;">🎬</span>
+                  <span>Выберите песню из списка, чтобы воспроизвести видеоряд</span>
+                </div>
+                <div id="tracklistVideoLoading" class="tracklist-video-loading" style="display:none;">
+                  <div class="spinner-sm"></div>
+                  <span id="tracklistVideoLoadingText">🎬 Загрузка официального клипа к песне...</span>
+                </div>
+                <iframe id="tracklistVideoFrame" class="tracklist-video-frame" style="display:none;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <video id="tracklistVideoPlayer" class="tracklist-video-player" style="display:none;" controls></video>
+              </div>
+              <div id="tracklistNowPlayingInfo" class="tracklist-now-playing-info" style="display:none;">
+                <span class="now-playing-badge">🎬 Клип:</span>
+                <span id="tracklistPlayingSongName" class="now-playing-title"></span>
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:6px;">
+                🔊 Звук воспроизводится напрямую из видео
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Tracks List -->
+          <div class="tracklist-content-col">
+            <!-- Real-time Filter & Manual Tracklist Search Bar -->
+            <div class="tracklist-search-toolbar" id="tracklistSearchToolbar">
+              <div class="tracklist-filter-box">
+                <span class="tracklist-filter-icon">🔍</span>
+                <input type="text" id="tracklistFilterInput" class="tracklist-filter-input" placeholder="Поиск песни в альбоме..." oninput="App.filterAlbumTracklist(this.value)">
+                <button type="button" class="tracklist-clear-btn" id="tracklistFilterClearBtn" onclick="App.clearTracklistFilter()" title="Очистить фильтр">✕</button>
+              </div>
+              <button type="button" class="tracklist-custom-search-toggle" onclick="App.toggleTracklistManualSearch()" title="Поиск треклиста по точному названию или другой версии">
+                ⚙️ Найти вручную
+              </button>
+            </div>
+
+            <div class="tracklist-manual-search-panel" id="tracklistManualSearchPanel" style="display:none;">
+              <input type="text" id="tracklistCustomQueryInput" class="tracklist-manual-query-input" placeholder="Исполнитель и название альбома (напр. Daft Punk - Discovery)...">
+              <button type="button" class="btn btn-sm btn-primary" onclick="App.searchCustomTracklist()" title="Запустить поиск треков">
+                🔍 Найти треки
+              </button>
+            </div>
+
+            <div id="tracklistModalLoading" style="text-align: center; padding: 28px; color: var(--text-muted); font-size: 13px;">
+              ⏳ Загрузка официального треклиста и аудио-превью...
+            </div>
+            <div id="tracklistModalList" class="album-tracklist-container" style="display: none;">
+              <!-- Track items injected dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <span style="font-size: 11px; color: var(--text-muted);">
+          🎵 Нажмите ▶ возле трека для воспроизведения и загрузки видеоряда слева
+        </span>
+        <button class="btn btn-secondary modal-cancel-btn" onclick="App.closeAlbumTracklistModal()">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Modal: Choose Destination Table
+       ========================================== -->
+  <div id="chooseTableModal" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title">Выберите таблицу</div>
+        <button class="modal-close-btn" title="Закрыть">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px;">
+          В какую таблицу вы хотите добавить эту запись?
+        </div>
+        <div id="chooseTableList" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Table choices dynamically rendered -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-cancel-btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Fixed Bottom Audio Player with Seek / Scrubber
+       ========================================== -->
+  <div id="bottomAudioPlayer" class="bottom-audio-player" style="display: none;">
+    <div class="bottom-player-container">
+      <div class="bottom-player-track-info">
+        <img id="playerTrackCover" src="" alt="" class="player-track-thumb">
+        <div class="player-track-text">
+          <div id="playerTrackTitle" class="player-track-title">Трек не выбран</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div id="playerTrackArtist" class="player-track-artist">—</div>
+            <span id="playerSourceBadge" class="audio-source-badge" style="display:none;"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-player-controls">
+        <div class="player-buttons-row">
+          <button type="button" class="player-icon-btn" onclick="App.seekAudioRelative(-5)" title="Назад на 5 секунд">⏪ 5с</button>
+          <button type="button" id="playerBtnPlayPause" class="player-play-btn" onclick="App.toggleAudioPlayPause()" title="Воспроизведение / Пауза">
+            <span id="playerPlayPauseIcon">▶</span>
+          </button>
+          <button type="button" class="player-icon-btn player-stop-btn" onclick="App.stopAudio()" title="Остановить воспроизведение">⏹ Стоп</button>
+          <button type="button" class="player-icon-btn" onclick="App.seekAudioRelative(5)" title="Вперед на 5 секунд">5с ⏩</button>
+        </div>
+
+        <div class="player-scrubber-row">
+          <span id="playerCurrentTime" class="player-time-label">0:00</span>
+          <input type="range" id="playerScrubber" class="player-scrubber" min="0" max="100" value="0" step="0.1" oninput="App.onAudioScrub(this.value)" onchange="App.onAudioScrub(this.value)">
+          <span id="playerDurationTime" class="player-time-label">0:30</span>
+        </div>
+      </div>
+
+      <div class="bottom-player-right">
+        <div class="player-volume-wrapper" title="Громкость">
+          <span style="font-size: 13px; opacity: 0.7;">🔊</span>
+          <input type="range" id="playerVolume" class="player-volume-slider" min="0" max="1" step="0.05" value="0.8" oninput="App.setAudioVolume(this.value)">
+        </div>
+        <button type="button" class="player-close-btn" onclick="App.stopAndCloseAudioPlayer()" title="Остановить и скрыть плеер">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Lightbox Modal (Увеличение обложки)
+       ========================================== -->
+  <div id="lightboxModal" class="lightbox-modal">
+    <img id="lightboxImg" class="lightbox-img" src="" alt="Enlarged Vinyl Cover">
+  </div>
+
+  <script src="discogs-client.js?v=6.0"></script>
+  <script src="spotify-client.js?v=6.0"></script>
+  <script src="firebase-sync.js?v=6.0"></script>
+  <script src="excel-export.js?v=6.0"></script>
+  <script src="app.js?v=echo1"></script>
+  <script src="echo-adapter.js?v=1"></script>
+
+</body>
+</html>
