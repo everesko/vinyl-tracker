@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "redirects": [
+    { "source": "/", "destination": "https://echo-music-quiz-danil.everesko1.chatgpt.site/", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js?__path=$1" },
     { "source": "/(.*)", "destination": "/public/$1" }
