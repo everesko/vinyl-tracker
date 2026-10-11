@@ -1,6 +1,6 @@
 import {readJson,storeJson} from './stored-json';
 import { collections, demoCollection, getCollectionTracks, tracks } from "@/lib/catalog";
-import type { Track, Collection, Settings } from "@/lib/quiz";
+import {difficultyLevel,type Track,type Collection,type Settings} from "@/lib/quiz";
 import { ApiError, database, runtime } from "./http";
 import { audiusCollections, audiusDeck, getCanonicalTracks } from "./audius";
 import { popularCollections, popularCards, popularDeck, validatePopularSnapshot, selectPopularTracks, constructPopularCollection, ukrainianPrompt, ukrainianTrackAllowed,constructArtistCollection,parsePopularPrompt } from "./popular";
@@ -41,11 +41,12 @@ export async function gameCollection(userId: string, id: string, settings?: Sett
   let collection = [...collections, demoCollection].find((item: Collection) => item.id === id);
   let snapshot: Track[] | undefined;
   let aiSongOnly: boolean | undefined;
+  let aiSelection: {version?:number;difficulty?:number;allowArtistRepeats?:boolean} | undefined;
   if (!collection && id.startsWith("custom-")) {
     const row = await database().prepare("SELECT * FROM echo_collections WHERE id = ? AND user_id = ?").bind(id, userId).first<CustomRow>();
     if (row) {
       collection = customCollection(row);
-      if(row.recipe&&JSON.parse(row.recipe).ai)aiSongOnly=JSON.parse(row.recipe).plan.artists.length===1;
+      if(row.recipe&&JSON.parse(row.recipe).ai){const recipe=JSON.parse(row.recipe);aiSongOnly=recipe.plan.artists.length===1;aiSelection=recipe;}
       if (row.track_data) snapshot = await readJson<Track[]>(row.track_data);
       if(!row.recipe||!JSON.parse(row.recipe).ai)if(snapshot?.every(track=>track.provider==="deezer")||ukrainianPrompt(row.title)){
         const recipe=row.recipe?JSON.parse(row.recipe):{prompt:row.title};
@@ -58,7 +59,16 @@ export async function gameCollection(userId: string, id: string, settings?: Sett
     }
   }
   if (!collection) throw new ApiError(404, "COLLECTION_NOT_FOUND", "Подборка не найдена.");
-  if (snapshot?.length && snapshot.every(track => track.provider === "deezer")) return { collection, deck: selectPopularTracks(validatePopularSnapshot(snapshot), settings, new Set(snapshot.map(track => track.artist)).size > 1), songOnly: aiSongOnly??new Set(snapshot.map(track=>track.artist)).size===1 };
+  if (snapshot?.length && snapshot.every(track => track.provider === "deezer")) {
+    const checked=validatePopularSnapshot(snapshot);
+    // Gemini v2 already selected this exact difficulty and artist distribution.
+    // Running the legacy weighted draw again would change its intended band.
+    if(aiSelection?.version===2){
+      if(settings&&(settings.count!==checked.length||difficultyLevel(settings.difficulty)!==aiSelection.difficulty||settings.allowArtistRepeats===false&&new Set(checked.map(track=>track.artist)).size<checked.length))throw new ApiError(409,'AI_SETTINGS_CHANGED','Обновите подборку с выбранными настройками.');
+      return {collection,deck:checked,songOnly:aiSongOnly??false};
+    }
+    return { collection, deck: selectPopularTracks(checked, settings, new Set(snapshot.map(track => track.artist)).size > 1), songOnly: aiSongOnly??new Set(snapshot.map(track=>track.artist)).size===1 };
+  }
   if (snapshot?.length && snapshot.every(track => track.provider === "audius")) {
     if (snapshot.length !== 50 || new Set(snapshot.map(track => track.id)).size !== 50) throw new ApiError(409, "INVALID_COLLECTION", "Подборка должна содержать 50 разных песен.");
     const chosen = selectPopularTracks(snapshot, settings);

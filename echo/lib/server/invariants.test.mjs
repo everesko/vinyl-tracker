@@ -41,7 +41,7 @@ function harness(customDeck = deck, songOnly = false, practice = false) {
   }; } }; } };
   class Clock extends Date { static now() { return now; } }
   const order=evaluateFile('../track-order.ts',{});
-  const games = evaluateFile('./games.ts', { './stored-json':{readJson:async text=>JSON.parse(text),storeJson:async(key,value)=>JSON.stringify(value)},'@/lib/track-order':order, '@/lib/quiz': quiz, './http': { ApiError, database: () => db },'./progression':{ensureSettings:async()=>({practice})}, './catalog': { gameCollection: async (userId, collectionId, configured) => { selections.push({ userId, collectionId, configured }); return { collection: { title: 'Demo' }, deck: customDeck, songOnly }; } } }, { Date: Clock });
+  const games = evaluateFile('./games.ts', { './stored-json':{readJson:async text=>JSON.parse(text),storeJson:async(key,value)=>JSON.stringify(value)},'./playlist-history':{playlistPromptForCollection:async()=>undefined,recordPlayedSong:async()=>{},playedSongsFromState:()=>[]},'@/lib/track-order':order, '@/lib/quiz': quiz, './http': { ApiError, database: () => db },'./progression':{ensureSettings:async()=>({practice})}, './catalog': { gameCollection: async (userId, collectionId, configured) => { selections.push({ userId, collectionId, configured }); return { collection: { title: 'Demo' }, deck: customDeck, songOnly }; } } }, { Date: Clock });
   return { games, rows, selections, tick: ms => { now += ms; } };
 }
 const settings = { duration: 3, timer: true, mode: 'both',difficulty:'medium' };

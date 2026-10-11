@@ -3,44 +3,33 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
-import {webcrypto} from 'node:crypto';
 class ApiError extends Error {constructor(status,code,message,extra){super(message);Object.assign(this,{status,code,extra});}}
-function load(file,imports){const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../'+file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:n=>{assert.ok(n in imports,n);return imports[n];},crypto:webcrypto,TextEncoder,Date,Math,JSON,Set,Map});return module.exports;}
-function catalog(){const rows=new Map(),calls=[],discovered=[];let dateChecks=0;
- const db={prepare(){return{bind(...args){return{first:async()=>rows.get(args[0])??null,run:async()=>rows.set(args[0],{track_data:args[1],updated_at:args[2]})};}}}};
- const api=load('lib/server/ai-playlists.ts',{'@/lib/quiz':{difficultyLevel:value=>typeof value==='number'?value:1},'@/lib/track-order':{spreadArtists:t=>t},'./http':{ApiError,database:()=>db},'./stored-json':{readJson:async v=>JSON.parse(v),storeJson:async(_,v)=>JSON.stringify(v)},'./popular':{
-  resolveArtist:async name=>({id:884422,name}),rememberDiscoveredArtist:async a=>discovered.push(a),
-  deezerRequest:async path=>{calls.push(path);const u=new URL(path,'https://api.deezer.com'),start=Number(u.searchParams.get('index')),limit=Number(u.searchParams.get('limit'));return{total:75,data:Array.from({length:Math.min(limit,75-start)},(_,i)=>({id:start+i+1,title:'Пісня '+(start+i+1),artist:{id:884422,name:'Новий український виконавець'},rank:900000-(start+i),release_date:'2023-02-01'}))};},
-  eligibleRecording:()=>true,recordingTrack:r=>({id:'deezer-'+r.id,provider:'deezer',providerId:String(r.id),title:r.title,artist:r.artist.name,popularityRank:r.rank,year:2023}),deduplicateRecordings:t=>[...new Map(t.map(v=>[v.id,v])).values()],selectPopularTracks:(t,o)=>{if(t.length<o.count)throw new ApiError(409,'NOT_ENOUGH_TRACKS','');return t;}
- },'./playlist-batches':{readMiniCategory:async()=>null,indexMiniCategory:async()=>0,readPlaylistMemory:async()=>({tracks:[],candidates:[]}),rememberPlaylistSongs:async()=>{},resolveSongBatch:async()=>[]},'./era-verification':{verifyYearRangePool:async(t,f,to)=>{dateChecks++;return t.filter(v=>v.year>=f&&v.year<=to);},verifyGenrePool:async t=>t},'./eurovision-registry':{eurovisionSongs:[]},'./collections':{persistCollection:async()=>({collection:{id:'saved'}})}});
- return{api,rows,calls,discovered,get dateChecks(){return dateChecks;}};
+function discovery(response={text:JSON.stringify({names:['alyona alyona','Invented performer']})}){
+ const saved=[],queries=[],calls=[],scans=[];
+ const imports={'./http':{ApiError},'./gemini':{geminiCompletion:async(...args)=>{calls.push(args);return response;}},'./popular':{resolveArtist:async name=>{if(name==='Invented performer')throw new ApiError(404,'ARTIST_NOT_FOUND','');return{id:54213952,name};},discoverArtistTracks:async artist=>{scans.push(artist);return 86;},rememberDiscoveredArtist:async artist=>saved.push(artist),rememberArtistQuery:async(query,artists)=>queries.push({query,artists}),publicArtistCard:artist=>artist}};
+ const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/artist-discovery.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>{assert.ok(name in imports,name);return imports[name];},Set,Map,JSON});
+ return{api:module.exports,saved,queries,calls,scans,response};
 }
-const plan={title:'Українські хіти 20-х',criteria:['Українською','2020–2029'],artists:[],genres:[],language:'Ukrainian',years:{from:2020,to:2029}};
-test('live catalog paginates past seven songs, discovers unknown performers and adds canonical provider IDs',async()=>{
- const h=catalog(),draft=await h.api.playlistDraft('owner',{action:'start',prompt:'Українські хіти 20-х',plan},{});let found=0;const all=new Set();
- for(let step=0;step<7;step++){const page=await h.api.playlistDraft('owner',{action:'catalog',id:draft.id,queries:step?[]:['Новий український виконавець']},{});found=page.found;
-  for(const song of page.candidates){assert.equal(all.has(song.providerId),false);all.add(song.providerId);}
-  for(let i=0;i<page.candidates.length;i+=8)await h.api.playlistDraft('owner',{action:'add',id:draft.id,candidates:page.candidates.slice(i,i+8)},{});
+
+test('AI performer discovery resolves inflected Ukrainian names and adds only verified live catalog identities',async()=>{
+ const h=discovery();const result=await h.api.discoverRequestedArtist('owner','пісні Альони Альони');
+ assert.equal(result.artists.length,1);assert.equal(result.artists[0].id,54213952);assert.equal(result.artists[0].availablePreviews,86);assert.equal(h.saved.length,1);assert.equal(h.queries[0].query,'пісні Альони Альони');
+ assert.equal(h.calls[0][1].purpose,'artist');assert.ok(h.calls[0][1].messages[0].content.includes('Never substitute related artists'));
+ h.response.text=JSON.stringify({names:[]});assert.equal((await h.api.discoverRequestedArtist('owner','невідомий артист')).artists.length,0);
+});
+
+test('aliases of the same canonical catalog performer are discovered and indexed only once',async()=>{
+ const h=discovery({text:JSON.stringify({names:['alyona alyona','Альона Альона']})});
+ const result=await h.api.discoverRequestedArtist('owner','Альона Альона');assert.equal(result.artists.length,1);assert.equal(h.saved.length,1);assert.equal(h.scans.length,1);
+});
+
+test('invalid, unsafe and ambiguous provider name lists are rejected before catalog lookup',async()=>{
+ for(const names of [null,['a','b','c','d'],[''],[42],['x'.repeat(101)]]){
+  const h=discovery({text:JSON.stringify({names})});await assert.rejects(h.api.discoverRequestedArtist('owner','artist'),error=>error.code==='AI_INVALID_RESPONSE');assert.equal(h.saved.length,0);
  }
- assert.equal(found,75);assert.equal(all.size,75);assert.ok(h.calls.some(p=>p.includes('index=50')));assert.equal(h.calls.length,3);assert.ok(h.discovered.some(a=>a.id===884422));
- const cache=await h.api.playlistDraft('owner',{action:'lookup',prompt:'Українські хіти 20-х'},{});assert.equal(cache.available,75);
- await h.api.playlistDraft('owner',{action:'finish',id:draft.id},{count:50});
 });
-test('catalog provenance, canonical identity, ownership and era remain mandatory',async()=>{
- const h=catalog(),draft=await h.api.playlistDraft('owner',{action:'start',prompt:'Ukraine 80s',plan:{...plan,years:{from:1980,to:1989}}},{});
- const page=await h.api.playlistDraft('owner',{action:'catalog',id:draft.id,queries:['Новий український виконавець']},{}),song=page.candidates[0];
- await assert.rejects(h.api.playlistDraft('owner',{action:'add',id:draft.id,candidates:[{...song,providerId:'99999'}]},{}),e=>e.code==='AI_INVALID_CANDIDATES');
- assert.equal((await h.api.playlistDraft('owner',{action:'add',id:draft.id,candidates:[{...song,title:'Fabricated title'}]},{})).available,0);
- assert.equal((await h.api.playlistDraft('owner',{action:'add',id:draft.id,candidates:[song]},{})).available,0);
- await assert.rejects(h.api.playlistDraft('other',{action:'catalog',id:draft.id,queries:[]},{}),e=>e.code==='AI_INVALID_DRAFT');
-});
-test('requests without an era do not require missing release-date records',async()=>{
- const h=catalog(),draft=await h.api.playlistDraft('owner',{action:'start',prompt:'Ukraine hits',plan:{...plan,years:null}},{}),page=await h.api.playlistDraft('owner',{action:'catalog',id:draft.id,queries:['Новий український виконавець']},{});
- assert.equal((await h.api.playlistDraft('owner',{action:'add',id:draft.id,candidates:page.candidates.slice(0,8)},{})).available,8);assert.equal(h.dateChecks,0);
-});
-test('AI artist discovery stores verified identities only and handles inflected spelling',async()=>{
- const saved=[],queries=[],response={text:JSON.stringify({names:['alyona alyona','Invented performer']})};
- const api=load('lib/server/artist-discovery.ts',{'./http':{ApiError},'./gemini':{geminiCompletion:async()=>response},'./popular':{resolveArtist:async name=>{if(name==='Invented performer')throw new ApiError(404,'ARTIST_NOT_FOUND','');return{id:54213952,name};},discoverArtistTracks:async()=>86,rememberDiscoveredArtist:async a=>saved.push(a),rememberArtistQuery:async(q,a)=>queries.push({q,a}),publicArtistCard:a=>a}});
- const result=await api.discoverRequestedArtist('owner','пісні Альони Альони');assert.equal(result.artists.length,1);assert.equal(result.artists[0].id,54213952);assert.equal(result.artists[0].availablePreviews,86);assert.equal(saved.length,1);assert.equal(queries[0].q,'пісні Альони Альони');
- response.text=JSON.stringify({names:[]});assert.equal((await api.discoverRequestedArtist('owner','невідомий артист')).artists.length,0);
+
+test('cancelled searches cannot scan or save a newly discovered artist',async()=>{
+ const h=discovery();const signal=AbortSignal.abort();
+ await assert.rejects(h.api.discoverRequestedArtist('owner','artist',signal),error=>error.code==='CANCELLED');assert.equal(h.scans.length,0);assert.equal(h.saved.length,0);assert.equal(h.calls[0][2],signal);
 });

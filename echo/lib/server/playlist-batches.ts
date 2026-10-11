@@ -1,8 +1,8 @@
 import type {Track} from '@/lib/quiz';
-import {ApiError,database} from './http';
+import {database} from './http';
 import {readJson,storeJson} from './stored-json';
 import {deezerRequest,eligibleRecording,recordingTrack,resolveArtist,rememberDiscoveredArtist} from './popular';
-import type {PlaylistPlan} from './ai-playlists';
+import type {PlaylistPlan} from '../playlist-plan';
 
 const norm=(v:string)=>v.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
 const canonical=(v:string)=>v.normalize('NFC').trim().toLowerCase().replace(/\s+/g,' ');
@@ -15,35 +15,6 @@ export async function mapConcurrent<T,R>(items:T[],limit:number,work:(item:T,ind
  await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{while(next<items.length){const index=next++;output[index]=await work(items[index],index);}}));
  return output;
 }
-type CatalogTrack=Track&{catalogArtistId:number};
-export type SongName={artist:string;title:string};
-export async function resolveSongBatch(draftId:string,candidates:SongName[],allowedArtistIds:number[]=[]){
- const artists=new Map<string,Promise<Awaited<ReturnType<typeof resolveArtist>>>>();
- const tracks=await mapConcurrent(candidates,4,async candidate=>{
-  const key='ai-song-batch-v2:'+await hash([norm(candidate.artist),norm(candidate.title)]),cached=await read<CatalogTrack|null>(key);
-  let track:CatalogTrack|null=null;
-  if(cached&&cached.at>Date.now()-(cached.value?21600000:900000))track=cached.value;
-  else{
-   const search=async(artist:string,id?:number)=>{
-    const response=await deezerRequest<{data?:any[]}>('/search?q='+encodeURIComponent(artist+' '+candidate.title)+'&limit=25&order=RANKING');
-    return (response.data??[]).filter(t=>eligibleRecording(t)&&norm(t.title_short||t.title)===norm(candidate.title)&&(id?t.artist.id===id:norm(t.artist.name)===norm(artist))).sort((a,b)=>(b.rank??0)-(a.rank??0))[0];
-   };
-   let record=await search(candidate.artist);
-   if(!record){
-    const name=norm(candidate.artist);if(!artists.has(name))artists.set(name,resolveArtist(candidate.artist));
-    try{const artist=await artists.get(name)!;record=await search(artist.name,artist.id);}catch(error){if(!(error instanceof ApiError)||error.code!=='ARTIST_NOT_FOUND')throw error;}
-   }
-   if(record){track={...recordingTrack(record,'AI'),catalogArtistId:record.artist.id,...(norm(candidate.artist)!==norm(record.artist.name)?{artistAliases:[candidate.artist]}:{})};await rememberDiscoveredArtist(record.artist);}
-   await put(key,track);
-  }
-  if(!track||allowedArtistIds.length&&!allowedArtistIds.includes(track.catalogArtistId))return null;
-  // Each parallel resolution batch writes independent provenance rows, never a shared draft.
-  await put('ai-batch-source:'+draftId+':'+track.providerId,track);
-  return track;
- });
- return [...new Map(tracks.filter((t):t is CatalogTrack=>!!t).map(t=>[t.providerId,t])).values()];
-}
-
 async function conditionKey(owner:string,plan:PlaylistPlan,difficulty:number,prompt:string){return hash([owner,canonical(prompt),difficulty,plan.criteria.map(canonical).sort(),plan.artists.map(norm).sort(),[...plan.genres].sort(),plan.language?.toLowerCase()??null,plan.years]);}
 type MiniCategory={owner:string;title:string;prompt:string;difficulty:number;expires:number;tracks:Track[];facets:{kind:string;label:string}[]};
 export async function readMiniCategory(owner:string,plan:PlaylistPlan,difficulty:number,prompt:string){
@@ -57,28 +28,6 @@ export async function indexMiniCategory(owner:string,plan:PlaylistPlan,difficult
  // Facet membership is indexed by primary key. Combined conditions still need their own proof.
  await mapConcurrent(facets,4,async facet=>{await put('ai-mini-facet-v1:'+await hash([owner,facet.kind,canonical(facet.label)])+':'+key,{category:key,facet,expires,count:tracks.length});});
  return facets.length;
-}
-
-type RememberedSong={owner:string;track:Track;verifiedUntil:number;classification?:Pick<PlaylistPlan,'criteria'|'artists'|'genres'|'language'|'years'>};
-async function memoryPrefix(owner:string,plan:PlaylistPlan,difficulty:number,prompt:string){return 'ai-song-memory-v1:'+await conditionKey(owner,plan,difficulty,prompt)+':';}
-/** Membership persists; expired availability is refreshed through Deezer before reuse.
- * Full combined conditions (including exclusions and difficulty) remain the key:
- * a genre match alone must never turn a romantic playlist into generic rock. */
-export async function rememberPlaylistSongs(owner:string,plan:PlaylistPlan,difficulty:number,tracks:Track[],verifiedUntil:number,prompt:string){
- const prefix=await memoryPrefix(owner,plan,difficulty,prompt);
- const {criteria,artists,genres,language,years}=plan;
- await mapConcurrent(tracks,4,async track=>{if(track.provider==='deezer'&&/^\d+$/.test(track.providerId??''))await put(prefix+track.providerId,{owner,track,verifiedUntil,classification:{criteria,artists,genres,language,years}});});
-}
-export async function readPlaylistMemory(owner:string,plan:PlaylistPlan,difficulty:number,prompt:string){
- const prefix=await memoryPrefix(owner,plan,difficulty,prompt);
- const rows=await database().prepare('SELECT track_data FROM echo_media_collections WHERE id >= ? AND id < ? ORDER BY updated_at DESC').bind(prefix,prefix.slice(0,-1)+';').all<{track_data:string}>();
- const saved=await mapConcurrent(rows.results,8,async row=>{try{return await readJson<RememberedSong>(row.track_data);}catch{return null;}});
- // Recover previously learned categories from older versions, retaining their
- // original validity rather than treating a software update as verification.
- if(!saved.length){const legacy=await read<MiniCategory>('ai-mini-v1:'+await hash(owner)+':'+await conditionKey(owner,plan,difficulty,prompt));if(legacy?.value.owner===owner&&Array.isArray(legacy.value.tracks)){await rememberPlaylistSongs(owner,plan,difficulty,legacy.value.tracks,legacy.value.expires,prompt);saved.push(...legacy.value.tracks.map(track=>({owner,track,verifiedUntil:legacy.value.expires})));}}
- const valid=saved.filter((item):item is RememberedSong=>!!item&&item.owner===owner&&item.track?.provider==='deezer'&&/^\d+$/.test(item.track.providerId??'')&&typeof item.track.artist==='string'&&typeof item.track.title==='string'&&Number.isFinite(item.verifiedUntil));
- const fresh=valid.filter(item=>item.verifiedUntil>Date.now()),stale=valid.filter(item=>item.verifiedUntil<=Date.now());
- return {tracks:fresh.map(item=>item.track),verifiedUntil:fresh.length?Math.min(...fresh.map(item=>item.verifiedUntil)):undefined,candidates:stale.map(item=>({artist:item.track.artist,title:item.track.title}))};
 }
 
 export async function listMiniCategories(owner:string){

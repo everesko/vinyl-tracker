@@ -5,73 +5,40 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import {webcrypto} from 'node:crypto';
 class ApiError extends Error{constructor(status,code,message,extra){super(message);Object.assign(this,{status,code,extra});}}
-function moduleFor(file,imports){const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../'+file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>{assert.ok(name in imports,name);return imports[name];},crypto:webcrypto,TextEncoder,Date,Math,JSON,Set,Map,Promise});return module.exports;}
 function harness(){
- const rows=new Map(),searches=[],discovered=[],persisted=[];let active=0,peak=0;
- const db={prepare(){return{bind(...args){return{first:async()=>rows.get(args[0])??null,all:async()=>({results:[...rows.entries()].filter(([key])=>key>=args[0]&&key<args[1]).map(([,row])=>row)}),run:async()=>rows.set(args[0],{track_data:args[1],updated_at:args[2]})};}}}};
- const common={'./http':{ApiError,database:()=>db},'./stored-json':{readJson:async v=>JSON.parse(v),storeJson:async(_,v)=>JSON.stringify(v)}};
- const popular={
-  resolveArtist:async name=>{if(name==='Alias')return{id:1,name:'Artist 1'};throw new ApiError(422,'ARTIST_NOT_FOUND','');},rememberDiscoveredArtist:async a=>discovered.push(a),
-  deezerRequest:async path=>{searches.push(path);active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,5));active--;const q=new URL(path,'https://api.deezer.com').searchParams.get('q');const number=Number(/Artist (\d+) Song (\d+)/.exec(q)?.[1]);return {data:number?[{id:number,title:'Song '+number,title_short:'Song '+number,artist:{id:number,name:'Artist '+number},rank:100000-number,preview:'https://cdn.deezer.com/preview.mp3',year:number===1?1978:1984},{id:number+1000,title:'Song '+number,artist:{id:999,name:'Tribute'},rank:999999},{id:number+2000,title:'Wrong song',artist:{id:number,name:'Artist '+number},rank:999999}]:[]};},
-  eligibleRecording:()=>true,recordingTrack:r=>({id:'deezer-'+r.id,provider:'deezer',providerId:String(r.id),title:r.title,artist:r.artist.name,popularityRank:r.rank,year:r.year,genres:[],audioUrl:r.preview}),deduplicateRecordings:t=>[...new Map(t.map(v=>[v.id,v])).values()],selectPopularTracks:(t,o)=>{if(t.length<o.count)throw new ApiError(409,'NOT_ENOUGH_TRACKS','');return t;}
- };
- const batches=moduleFor('lib/server/playlist-batches.ts',{...common,'./popular':popular});
- const api=moduleFor('lib/server/ai-playlists.ts',{...common,'./popular':popular,'./playlist-batches':batches,'@/lib/quiz':{difficultyLevel:value=>value??1},'@/lib/track-order':{spreadArtists:t=>t},'./era-verification':{verifyYearRangePool:async(t,from,to)=>t.filter(v=>v.year>=from&&v.year<=to),verifyGenrePool:async t=>t},'./eurovision-registry':{eurovisionSongs:[]},'./collections':{persistCollection:async(...args)=>{persisted.push(args);return {collection:{id:'saved',count:args[3].length}};}}});
- return{rows,searches,discovered,persisted,batches,api,get peak(){return peak;}};
+ const rows=new Map();
+ const db={prepare(){return{bind(...args){return{first:async()=>rows.get(args[0])??null,all:async()=>({results:[...rows.entries()].filter(([key])=>key>=args[0]&&key<args[1]).map(([,row])=>row).sort((a,b)=>b.updated_at-a.updated_at)}),run:async()=>rows.set(args[0],{track_data:args[1],updated_at:args[2]})};}}}};
+ const imports={'./http':{ApiError,database:()=>db},'./stored-json':{readJson:async value=>JSON.parse(value),storeJson:async(_,value)=>JSON.stringify(value)},'./popular':{}};
+ const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/playlist-batches.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>{assert.ok(name in imports,name);return imports[name];},crypto:webcrypto,TextEncoder,Date,Math,JSON,Set,Map,Promise});
+ return{rows,api:module.exports};
 }
-const plan={title:'1980s romance',criteria:['Romantic ballads','1980–1989','English lyrics'],artists:[],genres:[],language:'English',years:{from:1980,to:1989}};
+const plan={title:'1980s romance',criteria:['Romantic ballads','Original 1980–1989 releases'],artists:[],genres:['pop'],language:'English',years:{from:1980,to:1989}};
+const tracks=[{id:'deezer-1',provider:'deezer',providerId:'1',artist:'Artist 1',title:'Song 1'},{id:'deezer-2',provider:'deezer',providerId:'2',artist:'Artist 2',title:'Song 2'}];
 
-test('automatic prompt hints are resolved against the live artist identity; free-form phrases fall through to playlist composition',async()=>{const h=harness();const empty={title:'Alias',criteria:['Alias'],artists:[],genres:[],language:null,years:null};const direct=await h.api.playlistDraft('alice',{action:'start',prompt:'Alias',plan:empty,autoPlan:true},{count:20,allowArtistRepeats:false});assert.deepEqual(JSON.parse(JSON.stringify(direct.plan.artists)),['Artist 1']);const arbitrary=await h.api.playlistDraft('alice',{action:'start',prompt:'Songs for rainy afternoons',plan:{...empty,artists:['for rainy afternoons']},autoPlan:true},{count:20});assert.equal(arbitrary.plan.artists.length,0);assert.equal(arbitrary.prompt,'Songs for rainy afternoons');});
-const names=count=>Array.from({length:count},(_,i)=>({artist:'Artist '+(i+1),title:'Song '+(i+1)}));
-test('a song group resolves concurrently with bounded requests, preserves identities and caches canonical records',async()=>{
- const h=harness(),result=await h.batches.resolveSongBatch('draft-one',names(12));
- assert.equal(result.length,12);assert.equal(h.peak,4);assert.equal(h.searches.length,12);assert.equal(result[0].title,'Song 1');assert.ok(result.every(t=>t.artist!=='Tribute'));assert.equal(h.discovered.length,12);
- await h.batches.resolveSongBatch('draft-two',names(12));assert.equal(h.searches.length,12);assert.ok(h.rows.has('ai-batch-source:draft-two:12'));
-});
-test('parallel groups cannot overwrite provenance or inject another draft or owner recording; year mismatch is rejected',async()=>{
- const h=harness(),start=await h.api.playlistDraft('alice',{action:'start',prompt:'80s romance',plan},{difficulty:2});
- const group=await Promise.all([names(12).slice(0,6),names(12).slice(6)].map(candidates=>h.api.playlistDraft('alice',{action:'resolve-batch',id:start.id,candidates},{})));
- assert.equal(group.flatMap(g=>g.candidates).length,12);
- const committed=await h.api.playlistDraft('alice',{action:'commit-batch',id:start.id,candidates:group.flatMap(g=>g.candidates)},{});assert.equal(committed.available,11);assert.ok(!committed.added.some(t=>t.title==='Song 1'));
- const another=await h.api.playlistDraft('alice',{action:'start',prompt:'Different request',plan:{...plan,criteria:['Different']}},{});
- const wrong=await h.api.playlistDraft('alice',{action:'commit-batch',id:another.id,candidates:[group[0].candidates[0]]},{});assert.equal(wrong.available,0);
- await assert.rejects(h.api.playlistDraft('bob',{action:'resolve-batch',id:start.id,candidates:names(1)},{}),e=>e.code==='AI_INVALID_DRAFT');
- await assert.rejects(h.api.playlistDraft('alice',{action:'commit-batch',id:start.id,candidates:[{artist:'Artist 1',title:'Song 1'}]},{}),e=>e.code==='AI_INVALID_CANDIDATES');
- await h.api.playlistDraft('alice',{action:'finish',id:start.id},{count:11});assert.equal(h.persisted[0][3].length,11);
-});
-test('mini categories store verified facets, respect original conditions, owner, difficulty and proof expiry',async()=>{
- const h=harness(),tracks=await h.batches.resolveSongBatch('draft',names(2)),expires=Date.now()+60000;
- await h.batches.indexMiniCategory('alice',plan,2,tracks,expires,'80s romance');
- const menu=await h.batches.listMiniCategories('alice');assert.equal(menu.length,1);assert.equal(menu[0].count,2);assert.equal(menu[0].prompt,'80s romance');assert.equal(menu[0].tracks,undefined);assert.equal((await h.batches.listMiniCategories('bob')).length,0);
- const saved=await h.batches.readMiniCategory('alice',plan,2,'  80s   ROMANCE ');assert.equal(saved.tracks.length,2);assert.ok(saved.facets.some(f=>f.kind==='era'));assert.ok(saved.facets.some(f=>f.kind==='language'));
- for(const args of[['bob',plan,2,'80s romance'],['alice',plan,10,'80s romance'],['alice',{...plan,criteria:['No ballads']},2,'80s romance'],['alice',plan,2,'80s romance without Queen']])assert.equal(await h.batches.readMiniCategory(...args),null);
- await h.batches.indexMiniCategory('alice',plan,2,tracks,0,'80s romance');assert.equal(await h.batches.readMiniCategory('alice',plan,2,'80s romance'),null);
- assert.ok([...h.rows.keys()].some(k=>k.startsWith('ai-mini-facet-v1:')));
-});
-test('missing tracks are not fabricated; alias resolution stays canonical and explicit artist IDs cannot expand',async()=>{
- const h=harness();assert.equal((await h.batches.resolveSongBatch('draft',[{artist:'Unknown',title:'Invented'}])).length,0);
- const alias=await h.batches.resolveSongBatch('draft',[{artist:'Alias',title:'Song 1'}]);assert.equal(alias[0].artist,'Artist 1');
- assert.equal((await h.batches.resolveSongBatch('draft',names(2),[1])).length,1);
+test('bounded parallel work preserves input order and never degrades to serial song lookup',async()=>{
+  const {api}=harness();let active=0,peak=0;
+  const result=await api.mapConcurrent(Array.from({length:16},(_,i)=>i),4,async value=>{active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,5+(value%3)));active--;return value*2;});
+  assert.equal(peak,4);assert.deepEqual(JSON.parse(JSON.stringify(result)),Array.from({length:16},(_,i)=>i*2));
+  assert.deepEqual(JSON.parse(JSON.stringify(await api.mapConcurrent([],4,async()=>{throw Error('unexpected');}))),[]);
 });
 
-test('category memory accumulates independent verified batches and survives the short playlist cache',async()=>{
- const h=harness(),tracks=await h.batches.resolveSongBatch('draft',names(4));
- await Promise.all([h.batches.rememberPlaylistSongs('alice',plan,2,tracks.slice(0,2),Date.now()+60000,'80s romance'),h.batches.rememberPlaylistSongs('alice',plan,2,tracks.slice(2),Date.now()+60000,'80s romance')]);
- const memory=await h.batches.readPlaylistMemory('alice',plan,2,' 80s  ROMANCE ');assert.equal(memory.tracks.length,4);assert.equal(memory.candidates.length,0);
- const before=h.searches.length;
- const start=await h.api.playlistDraft('alice',{action:'start',prompt:'80s romance',plan},{difficulty:2,count:4});assert.equal(start.available,4);assert.equal(h.searches.length,before,'No Deezer lookup for fresh remembered members');
- for(const args of [['bob',plan,2,'80s romance'],['alice',plan,10,'80s romance'],['alice',{...plan,years:{from:1970,to:1979}},2,'80s romance'],['alice',plan,2,'80s romance without Queen']])assert.equal((await h.batches.readPlaylistMemory(...args)).tracks.length,0);
+test('parallel work propagates failures instead of silently reporting a completed batch',async()=>{
+  const {api}=harness();await assert.rejects(api.mapConcurrent([1,2,3],2,async value=>{if(value===2)throw new Error('provider failed');return value;}),/provider failed/);
 });
-test('expired category members remain suggestions and must be resolved again, never counted as available',async()=>{
- const h=harness(),tracks=await h.batches.resolveSongBatch('draft',names(2));
- await h.batches.rememberPlaylistSongs('alice',plan,2,tracks,0,'80s romance');
- const start=await h.api.playlistDraft('alice',{action:'start',prompt:'80s romance',plan},{difficulty:2,count:2});assert.equal(start.available,0);assert.equal(start.rememberedCandidates.length,2);
- const resolved=await h.api.playlistDraft('alice',{action:'resolve-batch',id:start.id,candidates:start.rememberedCandidates},{});
- const update=await h.api.playlistDraft('alice',{action:'commit-batch',id:start.id,candidates:resolved.candidates},{});assert.equal(update.available,1,'1978 recording still rejected in 1980s category');
+
+test('learned category cards expose counts and facets without leaking answer names or another owner',async()=>{
+  const {api,rows}=harness();
+  await api.indexMiniCategory('alice',plan,2,tracks,Date.now()+60000,'80s romantic ballads');
+  const menu=await api.listMiniCategories('alice');assert.equal(menu.length,1);assert.equal(menu[0].count,2);assert.equal(menu[0].prompt,'80s romantic ballads');assert.equal(menu[0].tracks,undefined);
+  assert.ok(menu[0].facets.some(facet=>facet.kind==='era'&&facet.label==='1980–1989'));assert.ok(menu[0].facets.some(facet=>facet.kind==='language'&&facet.label==='English'));assert.ok(menu[0].facets.some(facet=>facet.kind==='theme'&&facet.label==='Romantic ballads'));
+  assert.equal((await api.listMiniCategories('bob')).length,0);assert.ok([...rows.keys()].some(key=>key.startsWith('ai-mini-facet-v1:')));
 });
-test('previously indexed categories retain song memory after their availability proof expires',async()=>{
- const h=harness(),tracks=await h.batches.resolveSongBatch('draft',names(2));
- await h.batches.indexMiniCategory('alice',plan,2,tracks,0,'80s romance');
- const memory=await h.batches.readPlaylistMemory('alice',plan,2,'80s romance');assert.equal(memory.tracks.length,0);assert.equal(memory.candidates.length,2);
- assert.equal((await h.batches.readPlaylistMemory('alice',plan,2,'80s romance without Queen')).candidates.length,0);
+
+test('expired category cards disappear and normalized prompts are shown once',async()=>{
+  const {api}=harness();
+  await api.indexMiniCategory('alice',plan,1,tracks,Date.now()+60000,'  80s   ROMANTIC ballads ');
+  await api.indexMiniCategory('alice',plan,8,tracks,Date.now()+60000,'80s romantic ballads');
+  assert.equal((await api.listMiniCategories('alice')).length,1);
+  await api.indexMiniCategory('alice',{...plan,title:'Expired'},1,tracks,0,'expired request');
+  assert.ok(!(await api.listMiniCategories('alice')).some(category=>category.prompt==='expired request'));
 });

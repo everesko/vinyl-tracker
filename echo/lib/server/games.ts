@@ -4,8 +4,9 @@ import {spreadArtists} from "@/lib/track-order";
 import { ApiError, database } from "./http";
 import { ensureSettings } from "./progression";
 import { gameCollection } from "./catalog";
+import { playlistPromptForCollection, recordPlayedSong, playedSongsFromState, type PlayedSong } from './playlist-history';
 
-type State = { settings: Settings; creationRequest?:{collectionId:string;settings:Settings}; practice?:boolean; pauseRemaining?:number; passageStart?:number; excluded?:string[]; pendingSettings?: Settings; songOnly?: boolean; deck: Track[]; index: number; phase: "ready" | "paused" | "playing" | "reveal" | "finished" | "cancelled"; score: number; results: AnswerEvaluation[]; deadline?: number; clipEndsAt?: number; correct: number; cancelledAt?: number; mediaFailures?: Record<number, number>; hints?: Record<number, { used: boolean; start: number; attempted: boolean }> };
+type State = { playlistPrompt?: string; playedSongs?: PlayedSong[]; settings: Settings; creationRequest?:{collectionId:string;settings:Settings}; practice?:boolean; pauseRemaining?:number; passageStart?:number; excluded?:string[]; pendingSettings?: Settings; songOnly?: boolean; deck: Track[]; index: number; phase: "ready" | "paused" | "playing" | "reveal" | "finished" | "cancelled"; score: number; results: AnswerEvaluation[]; deadline?: number; clipEndsAt?: number; correct: number; cancelledAt?: number; mediaFailures?: Record<number, number>; hints?: Record<number, { used: boolean; start: number; attempted: boolean }> };
 export type GameRow = { id: string; user_id: string; collection_id: string; collection_title: string; state: string; version: number; finished: number; score_tenths: number; correct: number; total: number; xp: number; created_at: number; updated_at: number };
 function parse(row: GameRow): State {
   const state = JSON.parse(row.state) as State;
@@ -16,7 +17,7 @@ function parse(row: GameRow): State {
   return state;
 }
 async function hydrateState(text:string):Promise<State>{const parsed=JSON.parse(text);return parsed.$externalState?readJson<State>(JSON.stringify({$echoChunks:parsed.$externalState})):parsed;}
-async function storedState(id:string,state:State){const serialized=await storeJson(`game:${id}`,state),parsed=JSON.parse(serialized);return parsed.$echoChunks?JSON.stringify({$externalState:parsed.$echoChunks,phase:state.phase,practice:!!state.practice,deadline:state.deadline,index:state.index}):serialized;}
+async function storedState(id:string,state:State){const serialized=await storeJson(`game:${id}`,state),parsed=JSON.parse(serialized);return parsed.$echoChunks?JSON.stringify({$externalState:parsed.$echoChunks,phase:state.phase,practice:!!state.practice,deadline:state.deadline,index:state.index,playlistPrompt:state.playlistPrompt}):serialized;}
 function round1(value: number) { return Math.sign(value) * Math.round((Math.abs(value) + Number.EPSILON) * 10) / 10; }
 function terminal(state: State) { return state.phase === "finished" || state.phase === "cancelled"; }
 function settlement(state: State) {
@@ -96,7 +97,8 @@ export async function createGame(userId: string, collectionId: string, settings:
   const progress=await ensureSettings(userId,normalizedSettings);
   const { collection, deck, songOnly } = await gameCollection(userId, collectionId, normalizedSettings);
   if (!deck.length) throw new ApiError(409, "EMPTY_COLLECTION", "В подборке нет доступных фрагментов.");
-  const state: State = { ...(requestId!==undefined?{creationRequest:{collectionId,settings:normalizedSettings}}:{}),practice:progress.practice, settings: { ...normalizedSettings, ...(songOnly?{mode:"song" as const}:{}), ...(new Set(deck.map(track=>track.artist)).size < normalizedSettings.count! ? {allowArtistRepeats:true}: {}) }, songOnly, deck: spreadArtists(shuffleTracks(deck)), index: 0, phase: "ready", score: 0, results: [], correct: 0 };
+  const playlistPrompt = await playlistPromptForCollection(userId, collectionId);
+  const state: State = { ...(playlistPrompt?{playlistPrompt,playedSongs:[]}:{}), ...(requestId!==undefined?{creationRequest:{collectionId,settings:normalizedSettings}}:{}),practice:progress.practice, settings: { ...normalizedSettings, ...(songOnly?{mode:"song" as const}:{}), ...(new Set(deck.map(track=>track.artist)).size < normalizedSettings.count! ? {allowArtistRepeats:true}: {}) }, songOnly, deck: spreadArtists(shuffleTracks(deck)), index: 0, phase: "ready", score: 0, results: [], correct: 0 };
   const now = Date.now();
   await database().prepare("INSERT INTO echo_games (id, user_id, collection_id, collection_title, state, total, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING").bind(id, userId, collectionId, collection.title, await storedState(id,state), deck.length, now, now).run();
   const row=await loadGame(userId,id);if(requestId!==undefined){const creation=parse(row).creationRequest;if(!creation||creation.collectionId!==collectionId||JSON.stringify(creation.settings)!==JSON.stringify(normalizedSettings))throw new ApiError(409,'GAME_REQUEST_CONFLICT','Параметры повторного запуска изменились. Начните новую игру.');}return gameView(row);
@@ -128,6 +130,7 @@ export async function changeGame(userId: string, id: string, action: Action) {
     if (action.type !== "get" && action.type !== "cancel" && (!Number.isInteger(action.round) || action.round < 0)) throw new ApiError(400, "INVALID_ROUND", "Укажите номер раунда.");
     if (action.type !== "get" && action.type !== "cancel" && action.round > state.index) throw new ApiError(409, "STALE_ROUND", "Обновите состояние игры.");
     let changed = timeout(state, now);
+    let played: PlayedSong | undefined;
     if (action.type === "get") { if (!changed) return gameView(row, now); }
     else if (action.type === "cancel") {
       state.phase = "cancelled"; state.cancelledAt = now; state.deadline = undefined; state.clipEndsAt = undefined; changed = true;
@@ -151,6 +154,12 @@ export async function changeGame(userId: string, id: string, action: Action) {
       } else if (action.type === "play") {
         if (state.phase === "ready") {
           if ((state.mediaFailures?.[state.index] ?? 0) >= 3) throw new ApiError(409, "MEDIA_UNAVAILABLE", "Не удалось воспроизвести фрагмент после двух повторов. Начните другую игру; штраф за сбой не начислен.");
+          state.playlistPrompt ??= await playlistPromptForCollection(userId, row.collection_id);
+          if (state.playlistPrompt) {
+            state.playedSongs ??= playedSongsFromState(state);
+            const track = state.deck[state.index]; played = { artist: track.artist, title: track.title };
+            if (!state.playedSongs.some(song => song.artist === played!.artist && song.title === played!.title)) state.playedSongs.push(played);
+          }
           state.phase = "playing"; state.clipEndsAt = now + state.settings.duration * 1000;
           state.deadline = state.settings.timer ? state.clipEndsAt + 10000 : undefined; changed = true;
         }
@@ -188,7 +197,14 @@ export async function changeGame(userId: string, id: string, action: Action) {
     }
     if (!changed) return responseView(row, action, now);
     const saved = await save(row, state);
-    if (saved) return responseView(saved, action, now);
+    if (saved) {
+      if (played && state.playlistPrompt) {
+        // The CAS-saved state already contains the durable ledger. Its lookup index
+        // may be retried from that ledger without making accepted playback fail.
+        try { await recordPlayedSong(userId, state.playlistPrompt, played); } catch { /* The next history read recovers the game ledger. */ }
+      }
+      return responseView(saved, action, now);
+    }
   }
   throw new ApiError(409, "CONCURRENT_UPDATE", "Игра изменилась в другой вкладке. Обновите страницу.");
 }
