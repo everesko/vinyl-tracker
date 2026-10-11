@@ -60,6 +60,11 @@ test('every new generation calls Gemini even when exact Deezer identities are ca
  for(let i=0;i<2;i++)await h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},settings,new AbortController().signal);
  assert.equal(h.modelCalls.length,2);assert.equal(h.fetchCalls.length,5);assert.equal(h.persisted.length,2);
 });
+test('unused reserves stop resolving as soon as enough fresh distinct performers are verified',async()=>{
+ const songs=Array.from({length:20},(_,i)=>sample('Artist '+i,'Song '+i)),h=load({songs});
+ await h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},{...settings,count:10},new AbortController().signal);
+ assert.equal(h.persisted[0][3].length,10);assert.ok(h.fetchCalls.length<=15);assert.ok(h.fetchCalls.length<20);assert.equal(h.modelCalls.length,1);
+});
 
 test('only played exclusions are removed; the entire unplayed generated deck remains eligible',async()=>{
  const songs=Array.from({length:5},(_,i)=>sample('Artist '+i,'Song '+i)),h=load({songs,history:[{artist:'Artist 0',title:'Song 0'}]});
@@ -187,10 +192,10 @@ test('successful stream contains progress and one done result only',async()=>{
  assert.match(response.headers.get('content-type'),/application\/x-ndjson/);assert.equal(events.filter(event=>event.type==='done').length,1);assert.equal(events.filter(event=>event.type==='error').length,0);assert.equal(events.at(-1).result.collection.count,4);
 });
 
-test('fast Gemini configuration makes only one attempt, has schema and minimal thinking',async()=>{
+test('fast Gemini configuration makes only one attempt, has schema and low thinking',async()=>{
  const calls=[],module={exports:{}};
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,JSON,Error,console,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
  await assert.rejects(module.exports.geminiCompletion('owner',{purpose:'fast-playlist',limit:100,messages:[{role:'user',content:'a'.repeat(20000)}],responseSchema:{type:'object'}},new AbortController().signal),error=>error.code==='GEMINI_UNAVAILABLE');
- assert.equal(calls.length,1);assert.ok(calls[0].url.includes('gemini-3.6-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
- assert.equal(config.thinkingConfig.thinkingLevel,'MINIMAL');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
+ assert.equal(calls.length,1);assert.ok(calls[0].url.includes('gemini-3.8-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
+ assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
 });

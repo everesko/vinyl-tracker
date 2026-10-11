@@ -2,7 +2,7 @@ import {ApiError} from './http';
 import {geminiCredentials} from './settings';
 // Only models with a documented free API tier. Never fall back to paid-only models.
 const economyModels=['gemini-3.5-flash-lite','gemini-3.1-flash-lite'];
-const curatorModel='gemini-3.6-flash';
+const curatorModel='gemini-3.8-flash';
 type Message={role:'system'|'user';content:string};
 function providerError(status:number,data:any){
  const reasons=(data?.error?.details??[]).map((d:any)=>String(d?.reason??''));
@@ -20,10 +20,10 @@ export async function geminiCompletion(owner:string,payload:any,signal?:AbortSig
  // Legacy curation used more reasoning; the new bounded flow uses a single
  // compact factual list, then verifies its recording identities in Deezer.
  // One factual list needs accurate artist/title and original-year knowledge.
- // Full Flash with MINIMAL thinking preserves factual curation at low latency.
+ // Full Flash LOW preserves factual curation without extensive reasoning.
  // Its documented free API tier is used only with the billing-off credential gate.
  const models=fast||connectionTest?[curatorModel]:playlist?['gemini-3.8-flash','gemini-3.5-flash']:economyModels;
- const requestBody=JSON.stringify({...(messages.some(m=>m.role==='system')?{systemInstruction:{parts:messages.filter(m=>m.role==='system').map(m=>({text:m.content}))}}:{}),contents:[{role:'user',parts:messages.filter(m=>m.role==='user').map(m=>({text:m.content}))}],generationConfig:{...(!fast?{temperature:.1}:{}),maxOutputTokens:fast?Math.min(32768,2048+(payload.limit??20)*160):playlist?Math.min(8192,2048+(payload.limit??20)*96):payload.purpose==='planning'?1024:payload.purpose==='reviewing'?512:payload.purpose==='test'?256:payload.purpose==='suggesting'?Math.min(8192,256+(payload.limit??16)*80):768,responseMimeType:playlist?'text/plain':'application/json',...(playlist?{thinkingConfig:{thinkingLevel:'LOW'}}:{}),...(fast||connectionTest?{thinkingConfig:{thinkingLevel:'MINIMAL'},...(fast?{responseJsonSchema:payload.responseSchema}:{})}:{})}});
+ const requestBody=JSON.stringify({...(messages.some(m=>m.role==='system')?{systemInstruction:{parts:messages.filter(m=>m.role==='system').map(m=>({text:m.content}))}}:{}),contents:[{role:'user',parts:messages.filter(m=>m.role==='user').map(m=>({text:m.content}))}],generationConfig:{...(!fast?{temperature:.1}:{}),maxOutputTokens:fast?Math.min(32768,2048+(payload.limit??20)*160):playlist?Math.min(8192,2048+(payload.limit??20)*96):payload.purpose==='planning'?1024:payload.purpose==='reviewing'?512:payload.purpose==='test'?512:payload.purpose==='suggesting'?Math.min(8192,256+(payload.limit??16)*80):768,responseMimeType:playlist?'text/plain':'application/json',...(playlist?{thinkingConfig:{thinkingLevel:'LOW'}}:{}),...(fast||connectionTest?{thinkingConfig:{thinkingLevel:'LOW'},...(fast?{responseJsonSchema:payload.responseSchema}:{})}:{})}});
  for(let index=0;index<models.length;index++){
   if(combined.aborted)throw new ApiError(504,'GEMINI_TIMEOUT','Gemini не ответил за 45 секунд.');
   let response:Response;try{response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${models[index]}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:requestBody,signal:combined});}catch{throw new ApiError(504,'GEMINI_TIMEOUT','Gemini не ответил за 45 секунд.');}

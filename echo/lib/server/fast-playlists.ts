@@ -157,11 +157,13 @@ async function performFastPlaylist(owner:string,payload:Record<string,unknown>,o
  const response=await abortable(geminiCompletion(owner,request,signal),signal);check(signal);
  const proposed=parsePlaylistResponse(response.text,prompt,level,request.limit);
  const candidates=proposed.songs.filter(song=>!played.has(songKey(song))||proposed.historyExhausted),results:ResolvedSong[]=[],unmatched:{artist:string;title:string}[]=[];
+ const repeatsPermitted=allowArtistRepeats&&proposed.diversityExhausted&&proposed.plan.artists.length>0&&proposed.plan.artists.length<count;
+ const enoughFreshSongs=()=>{const fresh=results.filter(track=>!played.has(songKey(track)));return (repeatsPermitted?fresh.length:new Set(fresh.map(playlistArtistKey)).size)>=count;};
  report('resolving',30,0,0,candidates.length);
  let cursor=0,processed=0,nextLookup=Date.now(),providerFailure:ApiError|undefined;
  const pace=async()=>{const slot=Math.max(Date.now(),nextLookup);nextLookup=slot+LOOKUP_INTERVAL_MS;await delay(slot-Date.now(),signal);};
  await abortable(Promise.all(Array.from({length:Math.min(PARALLEL_LOOKUPS,candidates.length)},async()=>{
-  while(cursor<candidates.length){check(signal);const index=cursor++,song=candidates[index];
+  while(cursor<candidates.length&&!enoughFreshSongs()){check(signal);const index=cursor++,song=candidates[index];
    try{const track=await resolveSong(song,proposed.plan,signal,pace);if(!track&&unmatched.length<5)unmatched.push({artist:song.artist,title:song.title});if(track&&(!played.has(songKey(track))||proposed.historyExhausted)&&!results.some(existing=>existing.providerId===track.providerId||songKey(existing)===songKey(track)))results.push(track);}
    catch(error){check(signal);if(error instanceof ApiError){if(error.code==='MUSIC_RATE_LIMIT')throw error;providerFailure??=error;}else throw error;}
    processed++;report('resolving',30+Math.floor(58*processed/Math.max(1,candidates.length)),results.length,processed,candidates.length);
@@ -171,7 +173,6 @@ async function performFastPlaylist(owner:string,payload:Record<string,unknown>,o
  const distinct=new Set(results.map(playlistArtistKey)).size;
  // Broad categories contain many performers. A model's convenience claim is
  // not proof that all other performers have disappeared from those categories.
- const repeatsPermitted=allowArtistRepeats&&proposed.diversityExhausted&&proposed.plan.artists.length>0&&proposed.plan.artists.length<count;
  const unplayed=results.filter(track=>!played.has(songKey(track))),old=results.filter(track=>played.has(songKey(track)));
  const selected=selectDifficultyTracks(unplayed,count,level,{allowArtistRepeats:false});
  if(selected.length<count&&proposed.historyExhausted){
