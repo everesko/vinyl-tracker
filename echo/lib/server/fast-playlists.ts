@@ -25,6 +25,7 @@ const romanticFit=/romanti|love|loving|affection|devotion|beloved|tender|ром�
 const ballad=/ballad|бал+ад/i;
 const transliteration:Record<string,string>={а:'a',б:'b',в:'v',г:'h',ґ:'g',д:'d',е:'e',є:'ie',ж:'zh',з:'z',и:'y',і:'i',ї:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ь:'',ы:'y',э:'e',ю:'iu',я:'ia',ё:'io',ъ:''};
 const artistIdentity=(value:string)=>norm(value).replace(/[а-яіїєґ]/g,char=>transliteration[char]??char).replace(/[iy]/g,'i');
+const languageIdentity=(value:string)=>/^(?:uk|ukr|ua|ukrainian|українська|украинский|украинская)$/i.test(value.trim())?'Ukrainian':/^(?:en|eng|english|англійська|английский|английская)$/i.test(value.trim())?'English':value;
 
 function abortError(signal:AbortSignal){return signal.reason instanceof ApiError?signal.reason:new ApiError(499,'CANCELLED','Подбор отменён.');}
 function check(signal:AbortSignal){if(signal.aborted)throw abortError(signal);}
@@ -89,8 +90,8 @@ export function parsePlaylistResponse(text:string,prompt:string,level:number,max
   if(romantic.test(prompt)&&!romanticFit.test(song.fit))return false;
   if(ballad.test(prompt)&&!ballad.test(song.fit))return false;
   if(romantic.test(prompt)&&norm(song.title)==='highwaytohell')return false;
-  if(plan.language==='Ukrainian'&&!/ukrain|укра[їи]н/i.test(song.language))return false;
-  if(plan.language==='English'&&!/english|англ/i.test(song.language))return false;
+  if(plan.language==='Ukrainian'&&languageIdentity(song.language)!=='Ukrainian'&&!/ukrain|укра[їи]н/i.test(song.language))return false;
+  if(plan.language==='English'&&languageIdentity(song.language)!=='English'&&!/english|англ/i.test(song.language))return false;
   const key=songKey(song);if(seen.has(key))return false;seen.add(key);return true;
  });
  return {plan,songs,diversityExhausted:value.diversityExhausted,historyExhausted:value.historyExhausted};
@@ -113,10 +114,16 @@ async function resolveSong(song:ProposedSong,plan:PlaylistPlan,signal:AbortSigna
   // syntax. Ordinary search resolves the pair; strict identity checks below
   // prevent similarly titled songs or covers from entering the collection.
   const query=(song.artist+' '+song.title).replace(/[‘’]/g,"'");
+  const identityMatches=(records:any[])=>records.filter((record:any)=>eligibleRecording(record)&&artistIdentity(record.artist.name)===artistIdentity(song.artist)&&artistIdentity(baseTitle(record.title_short||record.title))===artistIdentity(baseTitle(song.title))).sort((a:any,b:any)=>(b.rank??0)-(a.rank??0));
   const result=await catalogJson('/search?q='+encodeURIComponent(query)+'&limit=15&order=RANKING',signal,pace);
-  const matches=(result.data??[]).filter((record:any)=>eligibleRecording(record)&&artistIdentity(record.artist.name)===artistIdentity(song.artist)&&norm(baseTitle(record.title_short||record.title))===norm(baseTitle(song.title))).sort((a:any,b:any)=>(b.rank??0)-(a.rank??0));
+  let matches=identityMatches(result.data??[]);
+  // Catalog artist spelling can be Latin while the user's song is Cyrillic.
+  // A single title-only fallback still requires BOTH identities to match; it
+  // cannot substitute a cover or a different song. Same queue and deadline.
+  if(!matches.length){const fallback=await catalogJson('/search?q='+encodeURIComponent(song.title)+'&limit=30&order=RANKING',signal,pace);matches=identityMatches(fallback.data??[]);}
   if(!matches.length)return null;
   track={...recordingTrack(matches[0],'AI'),catalogArtistId:matches[0].artist.id,...(norm(song.artist)!==norm(matches[0].artist.name)?{artistAliases:[song.artist]}:{})};
+  if(norm(track.title)!==norm(song.title))track.titleAliases=[...new Set([...(track.titleAliases??[]),song.title])];
   await cache(key,track,signal);
   await cache('deezer-discovered-artist:'+track.catalogArtistId,matches[0].artist,signal);
  }
@@ -143,13 +150,13 @@ async function performFastPlaylist(owner:string,payload:Record<string,unknown>,o
  const request=playlistRequest(prompt,count,level,allowArtistRepeats,history);
  const response=await abortable(geminiCompletion(owner,request,signal),signal);check(signal);
  const proposed=parsePlaylistResponse(response.text,prompt,level,request.limit);
- const candidates=proposed.songs.filter(song=>!played.has(songKey(song))||proposed.historyExhausted),results:ResolvedSong[]=[];
+ const candidates=proposed.songs.filter(song=>!played.has(songKey(song))||proposed.historyExhausted),results:ResolvedSong[]=[],unmatched:{artist:string;title:string}[]=[];
  report('resolving',30,0,0,candidates.length);
  let cursor=0,processed=0,nextLookup=Date.now(),providerFailure:ApiError|undefined;
  const pace=async()=>{const slot=Math.max(Date.now(),nextLookup);nextLookup=slot+LOOKUP_INTERVAL_MS;await delay(slot-Date.now(),signal);};
  await abortable(Promise.all(Array.from({length:Math.min(PARALLEL_LOOKUPS,candidates.length)},async()=>{
   while(cursor<candidates.length){check(signal);const index=cursor++,song=candidates[index];
-   try{const track=await resolveSong(song,proposed.plan,signal,pace);if(track&&(!played.has(songKey(track))||proposed.historyExhausted)&&!results.some(existing=>existing.providerId===track.providerId||songKey(existing)===songKey(track)))results.push(track);}
+   try{const track=await resolveSong(song,proposed.plan,signal,pace);if(!track&&unmatched.length<5)unmatched.push({artist:song.artist,title:song.title});if(track&&(!played.has(songKey(track))||proposed.historyExhausted)&&!results.some(existing=>existing.providerId===track.providerId||songKey(existing)===songKey(track)))results.push(track);}
    catch(error){check(signal);if(error instanceof ApiError){if(error.code==='MUSIC_RATE_LIMIT')throw error;providerFailure??=error;}else throw error;}
    processed++;report('resolving',30+Math.floor(58*processed/Math.max(1,candidates.length)),results.length,processed,candidates.length);
   }
@@ -172,7 +179,7 @@ async function performFastPlaylist(owner:string,payload:Record<string,unknown>,o
   const remaining=[...selectDifficultyTracks(unplayed,unplayed.length,level,{allowArtistRepeats:true}),...(proposed.historyExhausted?selectDifficultyTracks(old,old.length,level,{allowArtistRepeats:true}):[])];
   for(const track of remaining){if(selected.length===count)break;if(selected.some(t=>t.providerId===track.providerId))continue;selected.push(track);}
  }
- if(selected.length!==count)throw new ApiError(409,'AI_SEARCH_INCOMPLETE','Не удалось найти полную подборку с выбранными условиями за один поиск. Уточните запрос или повторите поиск.',{available:selected.length,required:count,availableArtists:distinct,providerError:providerFailure?.code});
+ if(selected.length!==count){console.warn('ECHO playlist incomplete',{requested:count,eligible:proposed.songs.length,processed,resolved:results.length,distinct,providerError:providerFailure?.code,unmatched});throw new ApiError(409,'AI_SEARCH_INCOMPLETE','Не удалось найти полную подборку с выбранными условиями за один поиск. Уточните запрос или повторите поиск.',{available:selected.length,required:count,availableArtists:distinct,providerError:providerFailure?.code});}
  check(signal);report('saving',96,count,processed,candidates.length);
  const id=typeof existingId==='string'?existingId:'custom-'+crypto.randomUUID();
  const recipe={ai:true,version:2,prompt,plan:proposed.plan,difficulty:level,allowArtistRepeats,model:response.model,generatedAt:Date.now(),difficultyPolicy:difficultyPolicy(level),classificationSource:'gemini'};

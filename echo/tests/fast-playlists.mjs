@@ -110,6 +110,20 @@ test('wrong Deezer artist/title identities and missing previews are never replac
  await assert.rejects(h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},settings,new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE');assert.equal(h.persisted.length,0);
 });
 
+test('ISO Ukrainian language and Latin catalog spelling resolve the same song',async()=>{
+ const songs=[{...sample('Океан Ельзи','Не питай'),language:'uk'}],h=load({songs,fetch:async()=>Response.json({data:[{id:91,title:'Ne pytai',artist:{id:92,name:'Okean Elzy'},rank:900000,preview:'https://cdn.test/song.mp3'}]})});
+ const result=await h.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal);
+ assert.equal(result.collection.count,1);assert.equal(h.persisted[0][3][0].providerId,'91');
+ const other=load({songs,fetch:async()=>Response.json({data:[{id:91,title:'Bez boiu',artist:{id:92,name:'Okean Elzy'},rank:900000,preview:'https://cdn.test/song.mp3'}]})});
+ await assert.rejects(other.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE');
+});
+
+test('Cyrillic artist lookup falls back once to the title and verifies the canonical performer',async()=>{
+ const songs=[{...sample('Тіна Кароль','Вище хмар'),language:'ukr'}],h=load({songs,fetch:async url=>Response.json({data:new URL(url).searchParams.get('q')==='Вище хмар'?[{id:93,title:'Вище хмар',artist:{id:94,name:'Tina Karol'},rank:900000,preview:'https://cdn.test/song.mp3'},{id:95,title:'Вище хмар',artist:{id:96,name:'SHUMEI'},rank:950000,preview:'https://cdn.test/song.mp3'}]:[]})});
+ await h.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal);
+ assert.equal(h.fetchCalls.length,2);assert.equal(h.persisted[0][3][0].artist,'Tina Karol');assert.equal(h.persisted[0][3][0].providerId,'93');
+});
+
 test('explicit artist requests cannot receive other artists suggested by the model',()=>{
  const h=load(),result=h.api.parsePlaylistResponse(JSON.stringify({plan:{...plan,artists:['Queen']},songs:[sample('Queen','Love of My Life'),sample('Aerosmith','I Do Not Want to Miss a Thing')],diversityExhausted:true,historyExhausted:false}),'romantic ballads by Queen',1,10);
  assert.equal(result.songs.length,1);assert.equal(result.songs[0].artist,'Queen');
