@@ -18,6 +18,9 @@ const App = {
   spotifyTracks: [],   // spotify songs / tracks (synced view)
   playingAudio: null,  // active HTML5 Audio element for preview
   selectedIds: new Set(),
+  tablePages: new Map(),
+  tablePageSize: 100,
+  tableFilterSignature: '',
   selectedSearchAlbumIds: new Set(),
   filterStatus: 'all',
   tableSearchQuery: '',
@@ -70,7 +73,7 @@ const App = {
     }
     // Fetch server saved Spotify credentials if local is missing
     try {
-      const spCredsRes = await fetch('/api/vinyl/legacy/spotify/credentials');
+      const spCredsRes = await fetch('/api/vinyl/legacy/spotify/credentials', { signal: AbortSignal.timeout(30_000) });
       if (spCredsRes.ok) {
         const spCreds = await spCredsRes.json();
         if (spCreds.clientId) {
@@ -127,9 +130,7 @@ const App = {
     });
 
     // 1. Load all data from storage & server (recovering from backup if VinylStorage is empty)
-    await this.loadAllReleases();
-    await this.loadAlbums();
-    await this.loadSpotifyTracks();
+    await Promise.all([this.loadAllReleases(), this.loadAlbums(), this.loadSpotifyTracks()]);
 
     // Connect to Google Cloud Firebase Firestore
     try {
@@ -162,7 +163,7 @@ const App = {
     this.initTurntableWidgetDragging();
     this.updateFloatingPlayerButtonUI();
     this.prefetchCollectionTracklists();
-    parent.postMessage({type:'echo-vinyl-ready'}, window.location.origin);
+    EchoVinyl.markReady();
   },
 
   handleOAuthCallback() {},
@@ -344,7 +345,7 @@ const App = {
   async loadAllReleases() {
     let serverData = null;
     try {
-      const res = await fetch('/api/vinyl/legacy/storage/records?type=release');
+      const res = await fetch('/api/vinyl/legacy/storage/records?type=release', { signal: AbortSignal.timeout(30_000) });
       if (res.ok) serverData = await res.json();
     } catch (e) {}
 
@@ -382,7 +383,7 @@ const App = {
   async loadAlbums() {
     let serverData = null;
     try {
-      const res = await fetch('/api/vinyl/legacy/storage/records?type=album');
+      const res = await fetch('/api/vinyl/legacy/storage/records?type=album', { signal: AbortSignal.timeout(30_000) });
       if (res.ok) serverData = await res.json();
     } catch (e) {}
 
@@ -457,7 +458,7 @@ const App = {
   async loadSpotifyTracks() {
     let serverData = null;
     try {
-      const res = await fetch('/api/vinyl/legacy/storage/records?type=spotify');
+      const res = await fetch('/api/vinyl/legacy/storage/records?type=spotify', { signal: AbortSignal.timeout(30_000) });
       if (res.ok) serverData = await res.json();
     } catch (e) {}
 
@@ -522,7 +523,7 @@ const App = {
     this.spotifyTracks = this.getAllItemsInMode('spotify');
   },
 
-  saveModeTables(mode = this.appMode) {
+  saveModeTables(mode = this.appMode, userAction = false) {
     this.syncLegacyArrays();
     const tables = this.tables[mode] || [];
     const now = Date.now();
@@ -534,7 +535,7 @@ const App = {
 
       // 1. Sync to Google Cloud Firebase Firestore
       if (window.FirebaseSync && typeof FirebaseSync.syncModeTables === 'function') {
-        FirebaseSync.syncModeTables(mode, tables, now).catch((err) => {
+        FirebaseSync.syncModeTables(mode, tables, now, userAction).catch((err) => {
           console.warn(`[FirebaseSync] Error syncing ${mode}:`, err);
         });
       }
@@ -633,7 +634,7 @@ const App = {
     if (found) {
       found.table.items.splice(found.index, 1);
       this.selectedIds.delete(String(itemId));
-      this.saveModeTables(mode);
+      this.saveModeTables(mode, true);
       return true;
     }
     return false;
@@ -687,7 +688,7 @@ const App = {
     if (this.activeTableId === tableId) {
       this.activeTableId = this.tables[this.appMode][0]?.id || null;
     }
-    this.saveModeTables();
+    this.saveModeTables(this.appMode, true);
     this.render();
   },
 
@@ -1375,6 +1376,11 @@ const App = {
     }
 
     this.render();
+    if (found?.table) {
+      const position = this.filterAndSortItems(found.table.items || []).findIndex(item => String(item.id) === String(id));
+      this.tablePages.set(`${this.appMode}:${found.table.id}`, Math.max(0, Math.floor(position / this.tablePageSize)));
+      this.renderTables();
+    }
 
     if (shouldScroll) {
       setTimeout(() => {
@@ -2178,11 +2184,20 @@ const App = {
     this.renderTables();
   },
 
+  setTablePage(tableId, page) {
+    this.tablePages.set(`${this.appMode}:${tableId}`, Math.max(0, Number(page) || 0));
+    this.renderTables();
+    const card = [...document.querySelectorAll('.user-table-card')].find(node => node.dataset.tableId === tableId);
+    card?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+  },
+
   renderTables() {
     const container = document.getElementById('tablesContainer');
     if (!container) return;
 
     const tables = this.getActiveModeTables();
+    const signature = JSON.stringify([this.appMode, this.tableSearchQuery, this.filterStatus, this.sortCol, this.sortAsc, ...Object.values(this.filters).map(value => value instanceof Set ? [...value].sort() : value)]);
+    if (signature !== this.tableFilterSignature) { this.tableFilterSignature = signature; this.tablePages.clear(); }
     if (tables.length === 0) {
       container.innerHTML = `
         <div class="empty-table">
@@ -2198,19 +2213,30 @@ const App = {
     container.innerHTML = tables.map(tbl => {
       const items = tbl.items || [];
       const filtered = this.filterAndSortItems(items);
+      const pageKey = `${this.appMode}:${tbl.id}`;
+      const lastPage = Math.max(0, Math.ceil(filtered.length / this.tablePageSize) - 1);
+      const page = Math.min(this.tablePages.get(pageKey) || 0, lastPage);
+      this.tablePages.set(pageKey, page);
+      const offset = page * this.tablePageSize;
+      const locale = window.EchoVinyl?.locale || 'ru';
+      const labels = { uk: ['Попередня', 'Наступна', 'із'], en: ['Previous', 'Next', 'of'], ru: ['Назад', 'Далее', 'из'] }[locale];
+      const safeTableId = encodeURIComponent(tbl.id).replace(/'/g, '%27');
+      const pager = lastPage > 0 ? `<div class="echo-table-pagination"><span>${offset + 1}–${Math.min(filtered.length, offset + this.tablePageSize)} ${labels[2]} ${filtered.length}</span><div><button type="button" ${page === 0 ? 'disabled' : ''} onclick="App.setTablePage(decodeURIComponent('${safeTableId}'),${page - 1})" aria-label="${labels[0]}">← ${labels[0]}</button><span>${page + 1} / ${lastPage + 1}</span><button type="button" ${page === lastPage ? 'disabled' : ''} onclick="App.setTablePage(decodeURIComponent('${safeTableId}'),${page + 1})" aria-label="${labels[1]}">${labels[1]} →</button></div></div>` : '';
       const isAllSelected = items.length > 0 && items.every(it => this.selectedIds.has(String(it.id)));
       const collapsedClass = tbl.isCollapsed ? 'collapsed' : '';
       const chevron = tbl.isCollapsed ? '▶' : '▼';
 
       let rowsHtml = '';
-      if (filtered.length === 0) {
+      if (tbl.isCollapsed) {
+        rowsHtml = '';
+      } else if (filtered.length === 0) {
         const colSpan = this.appMode === 'spotify' ? 10 : 9;
         const msg = items.length === 0 
           ? 'Таблица пуста. Нажмите «+ Добавить» или воспользуйтесь поиском.' 
           : 'Нет записей, соответствующих активным фильтрам.';
         rowsHtml = `<tr><td colspan="${colSpan}" class="empty-user-table-msg">${msg}</td></tr>`;
       } else {
-        rowsHtml = filtered.map(it => this.renderTableRow(it)).join('');
+        rowsHtml = filtered.slice(offset, offset + this.tablePageSize).map(it => this.renderTableRow(it)).join('');
       }
 
       return `
@@ -2239,6 +2265,7 @@ const App = {
             </div>
 
             <div class="user-table-body">
+              ${pager}
               <div class="table-responsive">
                 <table class="records-table">
                   <thead>
@@ -2249,6 +2276,7 @@ const App = {
                   </tbody>
                 </table>
               </div>
+              ${pager}
             </div>
           </div>
           ${tbl.isCollapsed ? `

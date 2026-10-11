@@ -2,18 +2,21 @@
 (() => {
   'use strict';
   const nativeFetch = window.fetch.bind(window);
-  const originalStorage = window.localStorage;
+  let originalStorage;
+  try { originalStorage = window.localStorage; } catch (_) { originalStorage = null; }
+  const temporaryStorage = new Map();
   let owner = 'guest';
   let prefix = 'echo:vinyl:guest:';
   let locale = ['uk', 'en', 'ru'].includes(new URLSearchParams(location.search).get('locale')) ? new URLSearchParams(location.search).get('locale') : 'uk';
-  const versions = new Map(), originalsByType = new Map(), queues = new Map(), pending = new Map(), blocked = new Set();
+  const versions = new Map(), queues = new Map(), pending = new Map(), blocked = new Set();
   const storage = {
-    getItem(key) { return originalStorage.getItem(prefix + key); },
-    setItem(key, value) { originalStorage.setItem(prefix + key, value); },
-    removeItem(key) { originalStorage.removeItem(prefix + key); },
-    key(index) { return Object.keys(originalStorage).filter(k => k.startsWith(prefix))[index]?.slice(prefix.length) || null; },
-    get length() { return Object.keys(originalStorage).filter(k => k.startsWith(prefix)).length; },
-    clear() { for (const key of Object.keys(originalStorage)) if (key.startsWith(prefix)) originalStorage.removeItem(key); },
+    getItem(key) { const fullKey = prefix + key; if (temporaryStorage.has(fullKey)) return temporaryStorage.get(fullKey); try { return originalStorage?.getItem(fullKey) ?? null; } catch (_) { return null; } },
+    setItem(key, value) { const fullKey = prefix + key; try { if (!originalStorage) throw Error(); originalStorage.setItem(fullKey, value); temporaryStorage.delete(fullKey); } catch (_) { temporaryStorage.set(fullKey, String(value)); } },
+    removeItem(key) { const fullKey = prefix + key; temporaryStorage.delete(fullKey); try { originalStorage?.removeItem(fullKey); } catch (_) {} },
+    keys() { let saved = []; try { saved = Object.keys(originalStorage || {}); } catch (_) {} return [...new Set([...saved, ...temporaryStorage.keys()])].filter(k => k.startsWith(prefix)); },
+    key(index) { return this.keys()[index]?.slice(prefix.length) || null; },
+    get length() { return this.keys().length; },
+    clear() { for (const key of this.keys()) this.removeItem(key.slice(prefix.length)); },
   };
   window.VinylStorage = storage;
   const texts = {
@@ -44,7 +47,7 @@
     const method = (init.method || 'GET').toUpperCase();
     if (method === 'GET') {
       const response = await nativeFetch(url, { ...init, credentials: 'same-origin', cache: 'no-store' });
-      if (response.ok && !(pending.get(type) > 0)) { const data = await response.clone().json(); versions.set(type, data.version ?? 0); originalsByType.set(type, data.tables || []); }
+      if (response.ok && !(pending.get(type) > 0)) { const data = await response.clone().json(); versions.set(type, data.version ?? 0); }
       return response;
     }
     const body = JSON.parse(init.body || '{}');
@@ -56,12 +59,12 @@
       if (!versions.has(type)) {
         const read = await nativeFetch(url, { credentials:'same-origin', cache:'no-store' });
         if (!read.ok) { notify(read.status === 401 ? 'signin' : 'error', true); return read; }
-        const data = await read.json(); versions.set(type, data.version ?? 0); originalsByType.set(type, data.tables || []);
+        const data = await read.json(); versions.set(type, data.version ?? 0);
       }
       let response;
-      try { response = await nativeFetch(url, { ...init, credentials: 'same-origin', body: JSON.stringify({ ...body, version: versions.get(type), originalTables: originalsByType.get(type) }) }); }
+      try { response = await nativeFetch(url, { ...init, credentials: 'same-origin', body: JSON.stringify({ ...body, version: versions.get(type) }) }); }
       catch(error) { storage.setItem('echo_unsaved_' + type, JSON.stringify(body)); blocked.add(type); notify('error', true); throw error; }
-      if (response.ok) { const data = await response.clone().json().catch(() => ({})); versions.set(type, data.version ?? versions.get(type) + 1); originalsByType.set(type, data.tables || body.tables || []); notify('saved'); }
+      if (response.ok) { const data = await response.clone().json().catch(() => ({})); versions.set(type, data.version ?? versions.get(type) + 1); if (!data.protected) notify('saved'); }
       else {
         storage.setItem('echo_unsaved_' + type, JSON.stringify(body));
         if (response.status === 409) { blocked.add(type); notify('conflict', true); } else notify(response.status === 401 ? 'signin' : 'error', true);
@@ -82,12 +85,13 @@
   };
 
   async function json(path, options) {
-    const response = await fetch('/api/vinyl/legacy/' + path, options);
+    const response = await fetch('/api/vinyl/legacy/' + path, { ...options, signal: options?.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `${response.status}`);
+    if (!response.ok) throw new Error(data.message || data.error || `${response.status}`);
     return data;
   }
-  function sendReady() { if (parent !== window) parent.postMessage({ type: 'echo-vinyl-ready' }, location.origin); }
+  let ready = false;
+  function sendReady() { if (ready && parent !== window) parent.postMessage({ type: 'echo-vinyl-ready' }, location.origin); }
   async function bootstrap() {
     try {
       const status = await json('status');
@@ -123,14 +127,16 @@
   async function importLegacy() {
     if (!confirm(tr('importQuestion'))) return;
     const input = {};
-    for (const mode of ['albums', 'releases', 'spotify']) { try { const raw = originalStorage.getItem(`vinyl_${mode}_tables`); if (raw) input[mode] = JSON.parse(raw); } catch (_) {} }
+    for (const mode of ['albums', 'releases', 'spotify']) { try { const raw = originalStorage?.getItem(`vinyl_${mode}_tables`); if (raw) input[mode] = JSON.parse(raw); } catch (_) {} }
     if (!Object.values(input).some(tables => Array.isArray(tables) && tables.length)) { alert(tr('empty')); return; }
     await importTables(input);
     // Secret migration is optional, after the collection succeeds; failed secrets remain in the original browser store.
-    const discogsToken = originalStorage.getItem('vinyl_discogs_token');
-    if (discogsToken) { try { await DiscogsClient.checkIdentity(discogsToken); originalStorage.removeItem('vinyl_discogs_token'); } catch (_) {} }
-    const clientId = originalStorage.getItem('spotify_client_id'), secret = originalStorage.getItem('spotify_client_secret');
-    if (clientId && secret && secret !== '••••••••') { try { await SpotifyClient.saveCredentials(clientId, secret); originalStorage.removeItem('spotify_client_secret'); } catch (_) {} }
+    try {
+      const discogsToken = originalStorage?.getItem('vinyl_discogs_token');
+      if (discogsToken) { try { await DiscogsClient.checkIdentity(discogsToken); originalStorage.removeItem('vinyl_discogs_token'); } catch (_) {} }
+      const clientId = originalStorage?.getItem('spotify_client_id'), secret = originalStorage?.getItem('spotify_client_secret');
+      if (clientId && secret && secret !== '••••••••') { try { await SpotifyClient.saveCredentials(clientId, secret); originalStorage.removeItem('spotify_client_secret'); } catch (_) {} }
+    } catch (_) {}
   }
   async function importFirebase(config) {
     if (!confirm(tr('firebaseQuestion'))) return;
@@ -201,10 +207,11 @@
     }
     translating = false;
   }
-  function setLocale(value) { if (['uk', 'en', 'ru'].includes(value)) locale = value; document.documentElement.lang = locale; translateTree(); document.querySelectorAll('[data-echo-copy]').forEach(node => node.textContent = tr(node.dataset.echoCopy)); sendReady(); }
-  window.EchoVinyl = { bootstrap, refresh, importLegacy, importTables, importFirebase, backup, json, notify, tr, setLocale, pendingRefresh: false, get owner() { return owner; }, get locale() { return locale; } };
+  function setLocale(value) { const changed = ['uk', 'en', 'ru'].includes(value) && locale !== value; if (['uk', 'en', 'ru'].includes(value)) locale = value; document.documentElement.lang = locale; if (changed && ready) window.App?.renderTables(); translateTree(); document.querySelectorAll('[data-echo-copy]').forEach(node => node.textContent = tr(node.dataset.echoCopy)); sendReady(); }
+  window.EchoVinyl = { bootstrap, refresh, importLegacy, importTables, importFirebase, backup, json, notify, tr, setLocale, markReady() { ready = true; sendReady(); }, pendingRefresh: false, get owner() { return owner; }, get locale() { return locale; } };
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.source !== parent) return;
+    if (event.data?.type === 'echo-vinyl-status') sendReady();
     if (event.data?.type === 'echo-vinyl-locale') setLocale(event.data.locale);
     if (event.data?.type === 'echo-vinyl-refresh') { setLocale(event.data.locale); refresh().catch(() => notify('error', true)); }
   });

@@ -12,6 +12,8 @@ const copy = {
 /** The complete tracker stays mounted: edits, filters and open dialogs survive tab switches. */
 export default function VinylPanel({ locale, userId }: { locale: Locale; userId?: string }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  const currentLocale = useRef(locale);
+  currentLocale.current = locale;
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -26,17 +28,17 @@ export default function VinylPanel({ locale, userId }: { locale: Locale; userId?
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
       if (event.data?.type === 'echo-vinyl-ready') { setReady(true); setFailed(false); window.clearTimeout(timeout); }
     }
-    function refresh() { frame.current?.contentWindow?.postMessage({ type: 'echo-vinyl-refresh', locale }, window.location.origin); }
+    function refresh() { frame.current?.contentWindow?.postMessage({ type: 'echo-vinyl-refresh', locale: currentLocale.current }, window.location.origin); }
     window.addEventListener('message', receive);
     window.addEventListener('echo-vinyl-refresh', refresh);
     return () => { window.clearTimeout(timeout); window.removeEventListener('message', receive); window.removeEventListener('echo-vinyl-refresh', refresh); };
-  }, [src, locale]);
+  }, [src]);
 
   useEffect(() => { frame.current?.contentWindow?.postMessage({ type: 'echo-vinyl-locale', locale }, window.location.origin); }, [locale]);
 
   return <section className="vinyl-workspace" aria-label={c.title}>
     <div className="vinyl-workspace-heading"><div><span className="eyebrow">ECHO / VINYL</span><h1>{c.title}</h1><p>{c.text}</p></div><span className="vinyl-workspace-disc" aria-hidden="true" /></div>
     {!ready && <div className="vinyl-workspace-loading" role="status"><span className={failed ? '' : 'vinyl-workspace-spinner'} />{failed ? c.error : c.loading}{failed && <button onClick={() => setRevision(n => n + 1)}>{c.retry}</button>}</div>}
-    <iframe ref={frame} src={src} title={c.title} className="vinyl-workspace-frame" allow="autoplay; clipboard-write" />
+    <iframe ref={frame} src={src} title={c.title} className="vinyl-workspace-frame" allow="autoplay; clipboard-write" onLoad={() => frame.current?.contentWindow?.postMessage({ type: 'echo-vinyl-status' }, window.location.origin)} />
   </section>;
 }

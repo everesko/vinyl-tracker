@@ -5,7 +5,7 @@ import {deezerRequest,eligibleRecording,recordingTrack,deduplicateRecordings,sel
 import {verifyYearRangePool,verifyGenrePool} from './era-verification';
 import {eurovisionSongs} from './eurovision-registry';
 import {persistCollection} from './collections';
-import {resolveSongBatch,readMiniCategory,indexMiniCategory} from './playlist-batches';
+import {resolveSongBatch,readMiniCategory,indexMiniCategory,readPlaylistMemory,rememberPlaylistSongs} from './playlist-batches';
 import {spreadArtists} from '@/lib/track-order';
 export type PlaylistPlan={title:string;criteria:string[];artists:string[];genres:string[];language:string|null;years:{from:number;to:number}|null};
 type SearchCursor={query:string;index:number;total?:number;artistId?:number;resolved?:boolean;done?:boolean};
@@ -43,8 +43,10 @@ export async function playlistDraft(owner:string,payload:any,options:DeckOptions
   const hints=plan.artists.length?plan.artists:automatic&&!plan.years&&!plan.language&&!plan.genres.length&&prompt.length<=80&&prompt.split(/\s+/).length<=5?[prompt]:[];
   for(const name of hints){try{const artist=await resolveArtist(name);if(!artists.some(a=>a.id===artist.id))artists.push(artist);}catch(error){if(!automatic||!(error instanceof ApiError)||error.code!=='ARTIST_NOT_FOUND')throw error;}}
   plan={...plan,artists:artists.map(a=>a.name)};
-  const mini=await readMiniCategory(owner,plan,difficultyLevel(options.difficulty),prompt);
-  const id='ai-draft-'+crypto.randomUUID();await save(id,{owner,prompt,plan,difficulty:difficultyLevel(options.difficulty),allowArtistRepeats:options.allowArtistRepeats!==false||plan.artists.length>0&&plan.artists.length<(options.count??50),collectionId,allowedArtistIds:artists.map(a=>a.id),deck:mini?.tracks??[],verifiedUntil:mini?.expires,expires:Date.now()+86400000});return{id,available:mini?.tracks.length??0,availableArtists:new Set(mini?.tracks.map(t=>norm(t.artist))??[]).size,candidates:mini?.tracks.map(t=>({artist:t.artist,title:t.title}))??[],plan,prompt};
+  const [mini,memory]=await Promise.all([readMiniCategory(owner,plan,difficultyLevel(options.difficulty),prompt),readPlaylistMemory(owner,plan,difficultyLevel(options.difficulty),prompt)]);
+  const deck=deduplicateRecordings([...(mini?.tracks??[]),...memory.tracks]);
+  const verifiedUntil=mini?.expires&&memory.verifiedUntil?Math.min(mini.expires,memory.verifiedUntil):mini?.expires??memory.verifiedUntil;
+  const id='ai-draft-'+crypto.randomUUID();await save(id,{owner,prompt,plan,difficulty:difficultyLevel(options.difficulty),allowArtistRepeats:options.allowArtistRepeats!==false||plan.artists.length>0&&plan.artists.length<(options.count??50),collectionId,allowedArtistIds:artists.map(a=>a.id),deck,verifiedUntil,expires:Date.now()+86400000});return{id,available:deck.length,availableArtists:new Set(deck.map(t=>norm(t.artist))).size,candidates:deck.map(t=>({artist:t.artist,title:t.title})),rememberedCandidates:memory.candidates,plan,prompt};
  }
  const draft=await draftFor(owner,payload.id),id=payload.id as string;
  if(payload.action==='keep-alive'){
@@ -114,6 +116,9 @@ export async function playlistDraft(owner:string,payload:any,options:DeckOptions
   draft.deck=deduplicateRecordings([...draft.deck,...verified]);if(draft.deck.length)draft.verifiedUntil??=Date.now()+21600000;await save(id,draft);
   if(draft.deck.length){const verifiedUntil=draft.verifiedUntil??Date.now()+21600000;await save(await cacheKey(owner,draft.prompt,draft.difficulty),{...draft,collectionId:undefined,verifiedUntil,expires:verifiedUntil});}
   if(payload.action==='commit-batch'&&draft.deck.length)await indexMiniCategory(owner,draft.plan,difficultyLevel(draft.difficulty),draft.deck,draft.verifiedUntil??Date.now()+21600000,draft.prompt);
+  // Only newly verified songs renew their availability. Older pool entries retain
+  // their original expiry, even while a long search continues.
+  if(verified.length)await rememberPlaylistSongs(owner,draft.plan,difficultyLevel(draft.difficulty),verified,Date.now()+21600000,draft.prompt);
   return{id,available:draft.deck.length,availableArtists:new Set(draft.deck.map(t=>norm(t.artist))).size,added:verified.map(t=>({id:t.id,artist:t.artist,title:t.title,year:t.year})),rejected:missing+raw.length-verified.length};
  }
  if(payload.action==='finish'){

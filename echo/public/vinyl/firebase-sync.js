@@ -19,14 +19,15 @@ const FirebaseSync = {
     try { const data = await EchoVinyl.json('storage/records?type=' + type); return data.tables || []; }
     catch (_) { try { return JSON.parse(VinylStorage.getItem(`vinyl_${mode}_tables`)) || []; } catch (_) { return []; } }
   },
-  async syncModeTables(mode, tables, updatedAt = Date.now()) {
+  async syncModeTables(mode, tables, updatedAt = Date.now(), userAction = false) {
     if (!Array.isArray(tables)) return false;
     const type = mode === 'releases' ? 'release' : mode === 'albums' ? 'album' : 'spotify';
     VinylStorage.setItem(`vinyl_${mode}_tables`, JSON.stringify(tables));
     VinylStorage.setItem(`vinyl_${mode}_updated_at`, String(updatedAt));
     this.notifyStatus('syncing', EchoVinyl.tr('connecting'));
     try {
-      await EchoVinyl.json('storage/records?type=' + type, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tables, updatedAt }) });
+      const result = await EchoVinyl.json('storage/records?type=' + type, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tables, updatedAt, userAction }) });
+      if (result.protected) { EchoVinyl.notify('conflict', true); this.notifyStatus('error', EchoVinyl.tr('conflict')); return false; }
       this.notifyStatus('synced', EchoVinyl.tr('saved')); return true;
     } catch (_) { this.notifyStatus('error', EchoVinyl.tr('error')); return false; }
   },

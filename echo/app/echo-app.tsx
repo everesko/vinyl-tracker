@@ -111,7 +111,7 @@ export default function EchoApp(){
   const retry=<T,>(work:()=>Promise<T>)=>generationRetry(work,control.signal,error=>setAIStatus(errorRef.current(error)));
   const send=<T,>(payload:unknown)=>retry(()=>request<T>('/api/collections/local-ai',payload,'POST',control.signal));
   try{
-   type DraftStart={id:string;plan:PlaylistPlan;prompt?:string;available?:number;availableArtists?:number;candidates?:{artist:string;title:string}[];queries?:string[];activeQueries?:number;remaining?:number};
+   type DraftStart={id:string;plan:PlaylistPlan;prompt?:string;available?:number;availableArtists?:number;candidates?:{artist:string;title:string}[];rememberedCandidates?:Candidate[];queries?:string[];activeQueries?:number;remaining?:number};
    const cached=await send<({hit:false}|({hit:true}&DraftStart))>({action:'lookup',prompt:text,collectionId,count:target,allowArtistRepeats:gameSettings.allowArtistRepeats,difficulty:gameSettings.difficulty});
    if(cached.hit)setAIStatus(t('ai.reusing'));
    const initial=cached.hit?cached.plan:initialPlan??planFromPrompt(text);if(control.signal.aborted)throw new RequestError('CANCELLED','');
@@ -120,6 +120,7 @@ export default function EchoApp(){
    const repeats=gameSettings.allowArtistRepeats||(plan.artists.length>0&&plan.artists.length<target);repeatsForStatus=repeats;let available=(repeats?draft.available:draft.availableArtists)??0;
    const normalize=(v:string)=>v.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
    const committed:Candidate[]=[...(draft.candidates??[])],exclude:Candidate[]=[...committed],seen=new Set(exclude.map(t=>normalize(t.artist)+':'+normalize(t.title))),usedArtists=new Set(exclude.map(t=>normalize(t.artist)));
+   const remembered=[...(draft.rememberedCandidates??[])];if(draft.available||remembered.length)setAIStatus(t('ai.reusing'));
    let found=0,scanned=0,proposalRound=0,lastKeepAlive=started;const showAvailable=(value:number)=>{availableForStatus=Math.min(value,target);setPreparing({available:availableForStatus,required:target});setGenerationState(previous=>previous?{...previous,available:Math.max(previous.available,availableForStatus)}:previous);};showAvailable(available);
    // Compose the complete requested list first; replacements are only for missing or rejected records.
    while(available<target){
@@ -127,6 +128,9 @@ export default function EchoApp(){
     // A live search can take as long as needed; only abandoned drafts expire.
     if(Date.now()-lastKeepAlive>=600000){await send({action:'keep-alive',id:draft.id});lastKeepAlive=Date.now();}
     const beforeRound=available,needed=target-available,names:Candidate[]=[];
+    // Known category members are resolved as a group first. Ask the model only
+    // for the missing part, rather than paying for the same list again.
+    while(remembered.length&&names.length<needed){const candidate=remembered.shift()!,key=normalize(candidate.artist)+':'+normalize(candidate.title),artist=normalize(candidate.artist);if(seen.has(key)||!repeats&&usedArtists.has(artist))continue;seen.add(key);if(!repeats)usedArtists.add(artist);names.push(candidate);exclude.push(candidate);}
     for(let page=0;names.length<needed&&page<Math.ceil(needed/64);page++){
      const proposed=await retry(()=>suggestPlaylist(text,plan,exclude,progress,Math.min(64,needed-names.length),control.signal,gameSettings.difficulty,repeats,[...committed,...names].map(t=>t.artist),proposalRound++));
      if(!proposed.length)break;

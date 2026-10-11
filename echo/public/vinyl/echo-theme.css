@@ -124,3 +124,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .records-table,.vinyl-table { min-width:820px; } .table-responsive { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+/* Search and export use every record; only the current page occupies the DOM. */
+.echo-table-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;color:#93a7ba;font-size:12px;border-bottom:1px solid #9ce8ec18;font-variant-numeric:tabular-nums}
+.echo-table-pagination>div{display:flex;align-items:center;gap:12px}.echo-table-pagination button{border:1px solid #9ce8ec35;background:#9ce8ec0a;color:#c7e7eb;border-radius:4px;padding:6px 10px;cursor:pointer}.echo-table-pagination button:disabled{opacity:.3;cursor:default}.echo-table-pagination button:hover:not(:disabled){background:#9ce8ec18}.echo-table-pagination button:focus-visible{outline:2px solid #9ce8ec;outline-offset:2px}
+@media(max-width:600px){.echo-table-pagination{padding:8px;gap:8px;font-size:10px}.echo-table-pagination>div{gap:6px}.echo-table-pagination button{padding:6px}}

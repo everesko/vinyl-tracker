@@ -59,6 +59,28 @@ export async function indexMiniCategory(owner:string,plan:PlaylistPlan,difficult
  return facets.length;
 }
 
+type RememberedSong={owner:string;track:Track;verifiedUntil:number;classification?:Pick<PlaylistPlan,'criteria'|'artists'|'genres'|'language'|'years'>};
+async function memoryPrefix(owner:string,plan:PlaylistPlan,difficulty:number,prompt:string){return 'ai-song-memory-v1:'+await conditionKey(owner,plan,difficulty,prompt)+':';}
+/** Membership persists; expired availability is refreshed through Deezer before reuse.
+ * Full combined conditions (including exclusions and difficulty) remain the key:
+ * a genre match alone must never turn a romantic playlist into generic rock. */
+export async function rememberPlaylistSongs(owner:string,plan:PlaylistPlan,difficulty:number,tracks:Track[],verifiedUntil:number,prompt:string){
+ const prefix=await memoryPrefix(owner,plan,difficulty,prompt);
+ const {criteria,artists,genres,language,years}=plan;
+ await mapConcurrent(tracks,4,async track=>{if(track.provider==='deezer'&&/^\d+$/.test(track.providerId??''))await put(prefix+track.providerId,{owner,track,verifiedUntil,classification:{criteria,artists,genres,language,years}});});
+}
+export async function readPlaylistMemory(owner:string,plan:PlaylistPlan,difficulty:number,prompt:string){
+ const prefix=await memoryPrefix(owner,plan,difficulty,prompt);
+ const rows=await database().prepare('SELECT track_data FROM echo_media_collections WHERE id >= ? AND id < ? ORDER BY updated_at DESC').bind(prefix,prefix.slice(0,-1)+';').all<{track_data:string}>();
+ const saved=await mapConcurrent(rows.results,8,async row=>{try{return await readJson<RememberedSong>(row.track_data);}catch{return null;}});
+ // Recover previously learned categories from older versions, retaining their
+ // original validity rather than treating a software update as verification.
+ if(!saved.length){const legacy=await read<MiniCategory>('ai-mini-v1:'+await hash(owner)+':'+await conditionKey(owner,plan,difficulty,prompt));if(legacy?.value.owner===owner&&Array.isArray(legacy.value.tracks)){await rememberPlaylistSongs(owner,plan,difficulty,legacy.value.tracks,legacy.value.expires,prompt);saved.push(...legacy.value.tracks.map(track=>({owner,track,verifiedUntil:legacy.value.expires})));}}
+ const valid=saved.filter((item):item is RememberedSong=>!!item&&item.owner===owner&&item.track?.provider==='deezer'&&/^\d+$/.test(item.track.providerId??'')&&typeof item.track.artist==='string'&&typeof item.track.title==='string'&&Number.isFinite(item.verifiedUntil));
+ const fresh=valid.filter(item=>item.verifiedUntil>Date.now()),stale=valid.filter(item=>item.verifiedUntil<=Date.now());
+ return {tracks:fresh.map(item=>item.track),verifiedUntil:fresh.length?Math.min(...fresh.map(item=>item.verifiedUntil)):undefined,candidates:stale.map(item=>({artist:item.track.artist,title:item.track.title}))};
+}
+
 export async function listMiniCategories(owner:string){
  const prefix='ai-mini-v1:'+await hash(owner)+':';
  // Indexed range avoids D1's short LIKE/GLOB pattern limit for SHA-256 keys.

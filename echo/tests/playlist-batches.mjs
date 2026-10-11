@@ -53,3 +53,25 @@ test('missing tracks are not fabricated; alias resolution stays canonical and ex
  const alias=await h.batches.resolveSongBatch('draft',[{artist:'Alias',title:'Song 1'}]);assert.equal(alias[0].artist,'Artist 1');
  assert.equal((await h.batches.resolveSongBatch('draft',names(2),[1])).length,1);
 });
+
+test('category memory accumulates independent verified batches and survives the short playlist cache',async()=>{
+ const h=harness(),tracks=await h.batches.resolveSongBatch('draft',names(4));
+ await Promise.all([h.batches.rememberPlaylistSongs('alice',plan,2,tracks.slice(0,2),Date.now()+60000,'80s romance'),h.batches.rememberPlaylistSongs('alice',plan,2,tracks.slice(2),Date.now()+60000,'80s romance')]);
+ const memory=await h.batches.readPlaylistMemory('alice',plan,2,' 80s  ROMANCE ');assert.equal(memory.tracks.length,4);assert.equal(memory.candidates.length,0);
+ const before=h.searches.length;
+ const start=await h.api.playlistDraft('alice',{action:'start',prompt:'80s romance',plan},{difficulty:2,count:4});assert.equal(start.available,4);assert.equal(h.searches.length,before,'No Deezer lookup for fresh remembered members');
+ for(const args of [['bob',plan,2,'80s romance'],['alice',plan,10,'80s romance'],['alice',{...plan,years:{from:1970,to:1979}},2,'80s romance'],['alice',plan,2,'80s romance without Queen']])assert.equal((await h.batches.readPlaylistMemory(...args)).tracks.length,0);
+});
+test('expired category members remain suggestions and must be resolved again, never counted as available',async()=>{
+ const h=harness(),tracks=await h.batches.resolveSongBatch('draft',names(2));
+ await h.batches.rememberPlaylistSongs('alice',plan,2,tracks,0,'80s romance');
+ const start=await h.api.playlistDraft('alice',{action:'start',prompt:'80s romance',plan},{difficulty:2,count:2});assert.equal(start.available,0);assert.equal(start.rememberedCandidates.length,2);
+ const resolved=await h.api.playlistDraft('alice',{action:'resolve-batch',id:start.id,candidates:start.rememberedCandidates},{});
+ const update=await h.api.playlistDraft('alice',{action:'commit-batch',id:start.id,candidates:resolved.candidates},{});assert.equal(update.available,1,'1978 recording still rejected in 1980s category');
+});
+test('previously indexed categories retain song memory after their availability proof expires',async()=>{
+ const h=harness(),tracks=await h.batches.resolveSongBatch('draft',names(2));
+ await h.batches.indexMiniCategory('alice',plan,2,tracks,0,'80s romance');
+ const memory=await h.batches.readPlaylistMemory('alice',plan,2,'80s romance');assert.equal(memory.tracks.length,0);assert.equal(memory.candidates.length,2);
+ assert.equal((await h.batches.readPlaylistMemory('alice',plan,2,'80s romance without Queen')).candidates.length,0);
+});
