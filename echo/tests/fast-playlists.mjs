@@ -41,7 +41,7 @@ const settings={count:4,difficulty:1,allowArtistRepeats:true};
 
 test('one Gemini list preserves all request settings and actual played history',()=>{
  const h=load(),request=h.api.playlistRequest('українські романтичні хіти 00-х',20,6,false,[{artist:'Океан Ельзи',title:'Обійми'}]);
- assert.equal(request.purpose,'fast-playlist');assert.equal(request.limit,25);assert.equal(request.messages.length,2);
+ assert.equal(request.purpose,'fast-playlist');assert.equal(request.limit,40);assert.equal(request.messages.length,2);
  const prompt=request.messages[1].content;assert.match(prompt,/20 песен/);assert.match(prompt,/6\/10/);assert.match(prompt,/без повторов/);assert.match(prompt,/українські романтичні хіти 00-х/);assert.match(prompt,/Океан Ельзи:Обійми/);
  assert.match(request.messages[0].content,/ballads AND romantically themed/);assert.match(request.messages[0].content,/EVEN IF repeats are enabled/);
 });
@@ -176,10 +176,10 @@ test('successful stream contains progress and one done result only',async()=>{
  assert.match(response.headers.get('content-type'),/application\/x-ndjson/);assert.equal(events.filter(event=>event.type==='done').length,1);assert.equal(events.filter(event=>event.type==='error').length,0);assert.equal(events.at(-1).result.collection.count,4);
 });
 
-test('fast Gemini configuration makes only one attempt, has schema and minimal thinking',async()=>{
+test('fast Gemini configuration makes only one attempt, has schema and low thinking',async()=>{
  const calls=[],module={exports:{}};
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,JSON,Error,console,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
  await assert.rejects(module.exports.geminiCompletion('owner',{purpose:'fast-playlist',limit:100,messages:[{role:'user',content:'a'.repeat(20000)}],responseSchema:{type:'object'}},new AbortController().signal),error=>error.code==='GEMINI_UNAVAILABLE');
- assert.equal(calls.length,1);assert.ok(calls[0].url.includes('gemini-3.5-flash-lite'));const config=JSON.parse(calls[0].options.body).generationConfig;
- assert.equal(config.thinkingConfig.thinkingLevel,'MINIMAL');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
+ assert.equal(calls.length,1);assert.ok(calls[0].url.includes('gemini-3.8-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
+ assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
 });

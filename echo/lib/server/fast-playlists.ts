@@ -50,7 +50,7 @@ async function cache(id:string,value:unknown,signal:AbortSignal){
 }
 
 export function playlistRequest(prompt:string,count:number,level:number,allowArtistRepeats:boolean,history:{artist:string;title:string}[]){
- const policy=difficultyPolicy(level),reserve=Math.min(20,Math.ceil(count*.25)),total=Math.min(Number.MAX_SAFE_INTEGER,count+reserve);
+ const policy=difficultyPolicy(level),reserve=Math.min(40,count),total=Math.min(Number.MAX_SAFE_INTEGER,count+reserve);
  // Recent history is sent once, compactly. The full history is still checked
  // against resolved tracks below, including entries exceeding this token budget.
  const exclusions:string[]=[];let size=0;
