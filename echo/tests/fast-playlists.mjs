@@ -6,7 +6,7 @@ import ts from 'typescript';
 import {webcrypto} from 'node:crypto';
 
 class ApiError extends Error {constructor(status,code,message,extra){super(message);Object.assign(this,{status,code,extra});}}
-const sample=(artist,title,recognition=10,year=2004,fit='Romantic love ballad about devotion')=>({artist,title,recognition,year,fit,language:'Ukrainian'});
+const sample=(artist,title,recognition=10,year=2004,fit='Ukrainian romantic love ballad about devotion')=>({artist,title,recognition,year,fit,language:'Ukrainian'});
 const plan={title:'Romantic ballads',criteria:['romantic ballads'],artists:[],genres:['pop'],language:null,years:null};
 function load(options={}){
  const stored=new Map(),modelCalls=[],fetchCalls=[],persisted=[],historyCalls=[],modules=new Map();
@@ -100,9 +100,20 @@ test('artist diversity wins even with repeats enabled; insufficient no-repeat co
 test('incorrect mood, explicit era/language and wrong difficulty never qualify',()=>{
  const h=load();
  const rows=[sample('A','Highway to Hell',10,2004),sample('B','Wrong Mood',10,2004,'Slow melancholy ballad'),sample('C','Wrong Era',10,1979),sample('D','Wrong Difficulty',2,2004),{...sample('E','Wrong Language'),language:'English'},sample('G','Heartbreak Rock',10,2004,'Heartbreak rock anthem'),sample('H','Love Rock',10,2004,'Romantic love rock anthem'),sample('F','Correct')];
- const result=h.api.parsePlaylistResponse(JSON.stringify({plan,songs:rows,diversityExhausted:false,historyExhausted:false}),'українські романтичні балади 00-х',1,20);
+ const result=h.api.parsePlaylistResponse(JSON.stringify({plan,songs:rows,diversityExhausted:false,historyExhausted:false}),'українські романтичні балади українською 00-х',1,20);
  assert.equal(result.songs.length,1);assert.equal(result.songs[0].title,'Correct');assert.deepEqual(JSON.parse(JSON.stringify(result.plan.years)),{from:2000,to:2009});assert.equal(result.plan.language,'Ukrainian');
  assert.ok(result.plan.criteria.some(criterion=>criterion.includes('українські романтичні балади')));
+});
+
+test('Ukrainian scene allows regional Russian-language hits but rejects unrelated American hits',()=>{
+ const h=load(),regional={...sample('Бумбокс','Вахтерам',10,2007,'Ukrainian scene iconic 2000s hit'),language:'Russian'},american={...sample('Eminem','Without Me',10,2002,'American hip-hop hit'),language:'English'};
+ const response=JSON.stringify({plan:{...plan,language:'Ukrainian'},songs:[regional,american],diversityExhausted:false,historyExhausted:false});
+ const broad=h.api.parsePlaylistResponse(response,'українські хіти 00-х',1,20);assert.equal(broad.songs.length,1);assert.equal(broad.songs[0].title,'Вахтерам');assert.equal(broad.plan.language,null);
+ const lyrics=h.api.parsePlaylistResponse(response,'українські хіти українською 00-х',1,20);assert.equal(lyrics.songs.length,0);assert.equal(lyrics.plan.language,'Ukrainian');
+});
+test('excluded ballads/country/decade are not imposed as positive conditions',()=>{
+ const h=load(),song={...sample('Queen','Somebody to Love',10,1976,'British rock love anthem'),language:'English'},response=JSON.stringify({plan:{...plan,years:{from:1970,to:1979}},songs:[song],diversityExhausted:false,historyExhausted:false});
+ const parsed=h.api.parsePlaylistResponse(response,'rock hits without Ukrainian ballads from the 1980s',1,10);assert.equal(parsed.songs.length,1);assert.equal(parsed.plan.years.from,1970);assert.ok(parsed.plan.criteria.some(c=>c.includes('without Ukrainian')));
 });
 
 test('wrong Deezer artist/title identities and missing previews are never replaced with unrelated tracks',async()=>{
@@ -176,10 +187,10 @@ test('successful stream contains progress and one done result only',async()=>{
  assert.match(response.headers.get('content-type'),/application\/x-ndjson/);assert.equal(events.filter(event=>event.type==='done').length,1);assert.equal(events.filter(event=>event.type==='error').length,0);assert.equal(events.at(-1).result.collection.count,4);
 });
 
-test('fast Gemini configuration makes only one attempt, has schema and low thinking',async()=>{
+test('fast Gemini configuration makes only one attempt, has schema and minimal thinking',async()=>{
  const calls=[],module={exports:{}};
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,JSON,Error,console,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
  await assert.rejects(module.exports.geminiCompletion('owner',{purpose:'fast-playlist',limit:100,messages:[{role:'user',content:'a'.repeat(20000)}],responseSchema:{type:'object'}},new AbortController().signal),error=>error.code==='GEMINI_UNAVAILABLE');
- assert.equal(calls.length,1);assert.ok(calls[0].url.includes('gemini-3.8-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
- assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
+ assert.equal(calls.length,1);assert.ok(calls[0].url.includes('gemini-3.6-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
+ assert.equal(config.thinkingConfig.thinkingLevel,'MINIMAL');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
 });

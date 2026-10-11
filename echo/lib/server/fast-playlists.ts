@@ -12,7 +12,7 @@ import {readJson, storeJson} from './stored-json';
 
 export const PLAYLIST_DEADLINE_MS=29000;
 const PARALLEL_LOOKUPS=6;
-const LOOKUP_INTERVAL_MS=100;
+const LOOKUP_INTERVAL_MS=125;
 type ProposedSong={artist:string;title:string;year:number;recognition:number;fit:string;language:string};
 type ResolvedSong=Track&{catalogArtistId:number;recognition:number;selectionReason:string};
 type ModelList={plan:PlaylistPlan;songs:ProposedSong[];diversityExhausted:boolean;historyExhausted:boolean};
@@ -24,7 +24,7 @@ const romantic=/романт|romanti|кохан|любов|love\s+(?:songs?|ball
 const romanticFit=/romanti|love|loving|affection|devotion|beloved|tender|романт|любов|кохан|ніжн|нежн|amour/i;
 const ballad=/ballad|бал+ад/i;
 const transliteration:Record<string,string>={а:'a',б:'b',в:'v',г:'h',ґ:'g',д:'d',е:'e',є:'ie',ж:'zh',з:'z',и:'y',і:'i',ї:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ь:'',ы:'y',э:'e',ю:'iu',я:'ia',ё:'io',ъ:''};
-const artistIdentity=(value:string)=>norm(value).replace(/[а-яіїєґ]/g,char=>transliteration[char]??char).replace(/[iy]/g,'i');
+const artistIdentity=(value:string)=>norm(value).replace(/[а-яіїєґ]/g,char=>transliteration[char]??char).replace(/iu|yu/g,'u').replace(/ia|ya/g,'a').replace(/ie|ye/g,'e').replace(/[iy]/g,'i').replace(/h/g,'g');
 const languageIdentity=(value:string)=>/^(?:uk|ukr|ua|ukrainian|українська|украинский|украинская)$/i.test(value.trim())?'Ukrainian':/^(?:en|eng|english|англійська|английский|английская)$/i.test(value.trim())?'English':value;
 
 function abortError(signal:AbortSignal){return signal.reason instanceof ApiError?signal.reason:new ApiError(499,'CANCELLED','Подбор отменён.');}
@@ -60,9 +60,10 @@ export function playlistRequest(prompt:string,count:number,level:number,allowArt
  return {purpose:'fast-playlist',limit:total,responseSchema,messages:[{role:'system',content:[
   'You are a careful music curator. Return only the JSON schema requested, in one response. Propose real existing original songs likely to have playable Deezer previews. Use their official Deezer artist and song names. Never invent titles or availability.',
   'EVERY semantic condition in the user request is mandatory, simultaneously: mood, lyrical subject, genre, country/language, original-release era, artist restrictions and exclusions. Do not replace a narrow request with its broader genre. Romantic ballads must be ballads AND romantically themed love songs, not merely slow songs, sad songs, or tracks by ballad artists. A romantic playlist must never contain Highway to Hell.',
-  'For requests for Ukrainian songs/hits, use Ukrainian music relevant to the requested Ukrainian scene and language; never substitute American hits. For an era use the original song release year, never a compilation/reissue/remaster year. In fit, explicitly explain BOTH the requested mood/subject AND musical form (for romantic ballads say romantic/love AND ballad), as well as other explicit criteria. State its sung language.',
+  'For Ukrainian hits/music use performers from the Ukrainian scene, never American or Russian-scene substitutes. The country/scene and sung language are different constraints: Ukrainian artists singing in Russian or English can qualify for Ukrainian hits, unless the user explicitly asks for Ukrainian-language lyrics (українською, україномовні, in Ukrainian). Include Ukrainian origin/scene in fit. Set plan.language=null when no sung language was explicitly requested. For an era use the original song release year, never a compilation/reissue/remaster year. In fit, explicitly explain BOTH the requested mood/subject AND musical form (for romantic ballads say romantic/love AND ballad), as well as other explicit criteria. State its sung language.',
   'plan.artists must contain ONLY artists explicitly requested by the user, not the performers you chose. plan.criteria must preserve every requested condition. Supported plan.genres: rock,classic-rock,indie-rock,pop-punk,synth-pop,alternative,pop,metal,hiphop,dance,rnb,punk,country,jazz; other styles belong in criteria, never replace them with an unrelated supported genre.',
   'Artist diversity is mandatory: choose different performers whenever other qualifying performers exist at this difficulty, EVEN IF repeats are enabled. For a broad category supply one song per artist before any repeated artist. diversityExhausted may be true ONLY when the exact requested category/difficulty or explicitly named artists has fewer different qualifying performers than the requested count. Do not use this flag as a convenience. If repeats are disabled never repeat.',
+  'For an unrestricted category, ALL primary AND reserve songs must be by DISTINCT performers. A reserve by an already listed performer cannot replace an unavailable artist in a no-repeat quiz and is therefore useless. Count the distinct artists before returning. Only explicitly requested named-artist collections may use repeated performers. Do not silently interpret Ukrainian as a short list of familiar bands; consider the whole relevant Ukrainian scene.',
   'Exclude already-played songs whenever there are unplayed qualifying alternatives. historyExhausted may be true ONLY if the exact category/difficulty has fewer qualifying unplayed songs than requested. Then list all qualifying unplayed songs first; already-played songs are a last resort. Never claim exhaustion just because remembering other songs is difficult.',
   'The primary list is exactly the requested count; append the specified number of equally suitable reserve songs from additional artists for unavailable previews. Do not broaden criteria or loosen difficulty to reach a count. If not enough qualifying songs exist return only real qualifying songs, rather than fabricate or substitute.',
   policy.promptInstruction,
@@ -72,11 +73,15 @@ export function playlistRequest(prompt:string,count:number,level:number,allowArt
 
 export function parsePlaylistResponse(text:string,prompt:string,level:number,maxSongs:number):ModelList{
  let value:any;try{value=JSON.parse(text);}catch{throw new ApiError(502,'AI_INVALID_RESPONSE','Gemini вернул некорректный список песен.');}
- const plan=validatePlan(value?.plan),explicit=planFromPrompt(prompt);
+ // Exclusions stay in the full Gemini instruction/criteria. They must not be
+ // reinterpreted as positive mood, country, language or decade requirements.
+ const positive=prompt.replace(/(?:^|\s)(?:без|не|without|excluding|except|not|no)\s+[^,;.]+/gi,' ');
+ const plan=validatePlan(value?.plan),explicit=planFromPrompt(positive);
  // Deterministic, explicit years cannot be silently weakened by the model.
  if(explicit.years)plan.years=explicit.years;
  if(explicit.language)plan.language=explicit.language;
- plan.criteria=[...new Set([...explicit.criteria,...plan.criteria])].slice(0,16);
+ else if(/укра[їи]н|ukrain/i.test(positive)&&/^(?:uk|ukr|ua|ukrainian|українська)$/i.test(plan.language??''))plan.language=null;
+ plan.criteria=[...new Set([...planFromPrompt(prompt).criteria,...plan.criteria])].slice(0,16);
  // A model-selected performer is not an explicit artist restriction. The
  // prompt parser protects artist-only games from generic one-artist lists.
  if(!explicit.artists.length)plan.artists=plan.artists.filter(name=>norm(prompt).includes(norm(name))||artistIdentity(prompt).includes(artistIdentity(name)));
@@ -87,9 +92,10 @@ export function parsePlaylistResponse(text:string,prompt:string,level:number,max
   if(!song||typeof song.artist!=='string'||!song.artist.trim()||song.artist.length>150||typeof song.title!=='string'||!song.title.trim()||song.title.length>200||!Number.isInteger(song.year)||song.year<1900||song.year>new Date().getUTCFullYear()+1||!Number.isInteger(song.recognition)||!recognitionMatchesDifficulty(song.recognition,level)||typeof song.fit!=='string'||song.fit.trim().length<8||song.fit.length>200||typeof song.language!=='string'||song.language.length>80)return false;
   if(plan.years&&(song.year<plan.years.from||song.year>plan.years.to))return false;
   if(plan.artists.length&&!plan.artists.some(artist=>artistIdentity(artist)===artistIdentity(song.artist)))return false;
-  if(romantic.test(prompt)&&!romanticFit.test(song.fit))return false;
-  if(ballad.test(prompt)&&!ballad.test(song.fit))return false;
-  if(romantic.test(prompt)&&norm(song.title)==='highwaytohell')return false;
+  if(romantic.test(positive)&&!romanticFit.test(song.fit))return false;
+  if(ballad.test(positive)&&!ballad.test(song.fit))return false;
+  if(romantic.test(positive)&&norm(song.title)==='highwaytohell')return false;
+  if(/укра[їи]н|ukrain/i.test(positive)&&!/ukrain|укра[їи]н/i.test(song.fit))return false;
   if(plan.language==='Ukrainian'&&languageIdentity(song.language)!=='Ukrainian'&&!/ukrain|укра[їи]н/i.test(song.language))return false;
   if(plan.language==='English'&&languageIdentity(song.language)!=='English'&&!/english|англ/i.test(song.language))return false;
   const key=songKey(song);if(seen.has(key))return false;seen.add(key);return true;

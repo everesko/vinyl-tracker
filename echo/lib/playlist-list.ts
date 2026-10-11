@@ -39,7 +39,10 @@ export function planFromPrompt(prompt:string):PlaylistPlan{
  else if(new Set(decades).size===1)years={from:decades[0],to:decades[0]+9};
  else if(/\b(?:noughties|2000s)\b/.test(lower))years={from:2000,to:2009};
  const englishRequested=!/(?:без|не|except|excluding)\s+(?:англ|english)/i.test(lower)&&/англ[іи]йськ|английск|\benglish\b/i.test(lower);
- const language=englishRequested?'English':!/(?:без|не|except|excluding)\s+(?:укра[їи]н|ukrain)/i.test(lower)&&/укра[їи]н|ukrain/i.test(lower)?'Ukrainian':null;
+ const ukrainianLanguageRequested=/українською|украинском|украинск\w*\s+язык|україномов|украиноязыч|ukrainian[ -]language|\bin ukrainian\b/i.test(lower);
+ // A Ukrainian scene/artist request is a country constraint, not automatically
+ // a sung-language restriction. Its original wording remains in criteria.
+ const language=englishRequested?'English':ukrainianLanguageRequested?'Ukrainian':null;
  const definitions:[string,RegExp][]=[['classic-rock',/класичн\w* рок|классическ\w* рок|classic rock/],['indie-rock',/інді.рок|инди.рок|indie rock/],['pop-punk',/поп.п[ау]нк|pop.punk/],['synth-pop',/синт.поп|synth.pop/],['alternative',/альтернатив|alternative/],['metal',/метал|metal/],['hiphop',/хіп.хоп|хип.хоп|hip.hop/],['rnb',/r[&n]b|ар.ен.бі/],['country',/кантрі|кантри|country/],['jazz',/джаз|jazz/],['dance',/танцювальн|танцевальн|dance/],['punk',/панк|punk/],['rock',/рок|rock/],['pop',/(?:^|\s)поп(?:\s|$)|(?:^|\s)pop(?:\s|$)/]];
  const positive=lower.replace(/(?:без|except|excluding)\s+[^,;.]+/g,'');let genres=definitions.filter(([,re])=>re.test(positive)).map(([name])=>name);
  if(genres.some(g=>['classic-rock','indie-rock','pop-punk'].includes(g)))genres=genres.filter(g=>g!=='rock'&&g!=='punk'&&g!=='pop');if(genres.includes('synth-pop'))genres=genres.filter(g=>g!=='pop');
