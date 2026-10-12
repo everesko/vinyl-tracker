@@ -175,3 +175,42 @@ test('public Discogs details need no key, while database search and account muta
     assert.equal(h.calls.length, 1);
   } finally { h.db.close(); }
 });
+test('missing imported cover resolves the correct remastered album, redirects to an approved real CDN and caches public metadata', async () => {
+  const h = harness(async url => {
+    if (url.includes('/search/album')) return Response.json({data:[{id:123,title:'The Miracle (Deluxe Edition)',artist:{name:'Queen'},cover_big:'https://cdn-images.dzcdn.net/images/cover/real.jpg'},{id:999,title:'The Miracle',artist:{name:'Other'},cover_big:'https://cdn-images.dzcdn.net/images/cover/wrong.jpg'}]});
+    if (url.includes('itunes.apple.com/search')) return Response.json({results:[]});
+    throw new Error('Cover endpoint must not download the image server-side');
+  });
+  try {
+    const response=await h.dispatch('alice','cover-image?artist=Queen&album=The%20Miracle');
+    assert.equal(response.status,302);assert.equal(response.headers.get('location'),'https://cdn-images.dzcdn.net/images/cover/real.jpg');
+    assert.equal(h.calls.length,2);const second=await h.dispatch('alice','cover-image?artist=Queen&album=The%20Miracle');assert.equal(second.status,302);assert.equal(h.calls.length,2);
+    assert.equal(h.db.prepare("SELECT COUNT(*) AS n FROM echo_media_collections WHERE id LIKE 'vinyl-albums-v2:%'").get().n,1);
+  }finally{h.db.close();}
+});
+test('quiz album listens directly by its Deezer album ID, includes album previews and never confuses the ID with a Discogs master', async () => {
+  const h=harness(async url=>{
+    assert.equal(url,'https://api.deezer.com/album/456');
+    return Response.json({id:456,title:'A Night At The Opera',artist:{name:'Queen'},cover_big:'https://cdn-images.dzcdn.net/cover.jpg',tracks:{data:[{id:123,title:'Bohemian Rhapsody',duration:354,preview:'https://cdns-preview.dzcdn.net/actual.mp3'}]}});
+  });
+  try{const data=await(await h.dispatch('alice','discogs/tracklist?id=999&type=master&deezerAlbumId=456&artist=Queen&album=A%20Night%20At%20The%20Opera')).json();assert.equal(data.source,'Deezer');assert.equal(data.tracklist[0].title,'Bohemian Rhapsody');assert.equal(data.tracklist[0].artist,'Queen');assert.equal(data.tracklist[0].previewUrl,'https://cdns-preview.dzcdn.net/actual.mp3');assert.equal(h.calls.length,1);}finally{h.db.close();}
+});
+test('album matching does not substitute a live recording or an arbitrary album with an overlapping title', async () => {
+  const h=harness(async url=>url.includes('/search/album')?Response.json({data:[{id:1,title:'The Dark Side of the Moon (Live at Wembley)',artist:{name:'Pink Floyd'},cover_big:'https://cdn-images.dzcdn.net/wrong.jpg'},{id:2,title:'The Dark Side of the Moon Tribute',artist:{name:'Pink Floyd'},cover_big:'https://cdn-images.dzcdn.net/wrong2.jpg'}]}):Response.json({results:[]}));
+  try{const response=await h.dispatch('alice','cover-image?artist=Pink%20Floyd&album=The%20Dark%20Side%20of%20the%20Moon');assert.equal(response.status,404);assert.equal(response.headers.get('location'),null);}finally{h.db.close();}
+});
+test('an imported pressing outside digital catalogs loads its actual Discogs primary image by stored master ID', async () => {
+  const h=harness(async url=>{
+    if(url.includes('/search/album'))return Response.json({data:[]});
+    if(url.includes('itunes.apple.com/search'))return Response.json({results:[]});
+    assert.equal(url,'https://api.discogs.com/masters/999');return Response.json({id:999,title:'Rare Album',artists:[{name:'Known Artist'}],images:[{type:'secondary',uri:'https://i.discogs.com/secondary.jpg'},{type:'primary',uri:'https://i.discogs.com/primary.jpg',resource_url:'https://api.discogs.com/images/metadata'}]});
+  });
+  try{const response=await h.dispatch('alice','cover-image?artist=Known%20Artist&album=Rare%20Album&masterId=999');assert.equal(response.status,302);assert.equal(response.headers.get('location'),'https://i.discogs.com/primary.jpg');}finally{h.db.close();}
+});
+test('album playback follows every trusted album track page, upgrading Deezer legacy HTTP pagination to HTTPS', async () => {
+  const h=harness(async url=>{
+    if(url==='https://api.deezer.com/album/456')return Response.json({id:456,title:'Large Album',artist:{name:'Queen'},tracks:{data:[{id:1,title:'First',preview:'https://cdns-preview.dzcdn.net/1.mp3'}],next:'http://api.deezer.com/album/456/tracks?index=1'}});
+    assert.equal(url,'https://api.deezer.com/album/456/tracks?index=1');return Response.json({data:[{id:2,title:'Second',preview:'https://cdns-preview.dzcdn.net/2.mp3'}]});
+  });
+  try{const data=await(await h.dispatch('alice','discogs/tracklist?deezerAlbumId=456')).json();assert.deepEqual(data.tracklist.map(track=>track.title),['First','Second']);assert.equal(h.calls.length,2);}finally{h.db.close();}
+});

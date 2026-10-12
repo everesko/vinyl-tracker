@@ -451,8 +451,7 @@ const App = {
       VinylStorage.setItem('vinyl_albums_local', JSON.stringify(this.albums));
     } catch (e) {}
 
-    // Auto-refresh real vinyl editions counts in background for any unverified albums
-    setTimeout(() => this.refreshMissingVersionsCounts(), 800);
+    // Pressing counts load from the editions button, avoiding a catalog-wide background queue.
   },
 
   async loadSpotifyTracks() {
@@ -2581,7 +2580,7 @@ const App = {
   },
 
   renderAlbumRow(a, isSelected) {
-    const coverUrl = this.getSafeCoverUrl(a.coverImage || a.thumb, a.artist, a.title);
+    const coverUrl = this.getSafeCoverUrl(a.coverImage || a.thumb, a.artist, a.title, a);
 
     let resolvedMasterId = a.masterId;
     if (!resolvedMasterId && a.id && String(a.id).startsWith('master-')) {
@@ -2599,12 +2598,9 @@ const App = {
     const discogsLink = a.uri || (resolvedMasterId ? `https://www.discogs.com/master/${resolvedMasterId}` : '');
     const trackCount = this.getAlbumTrackCount(a);
     const countVal = (typeof a.versionsCount === 'number') ? a.versionsCount : (a.versionsCount ? Number(a.versionsCount) : null);
-    const displayCount = countVal !== null && !isNaN(countVal) ? countVal : '—';
+    const displayCount = countVal !== null && !isNaN(countVal) ? countVal : a.vinylVerified === false ? (EchoVinyl.locale === 'en' ? 'Unverified' : EchoVinyl.locale === 'ru' ? 'Не подтверждено' : 'Не підтверджено') : '—';
 
-    // Automatically enqueue background fetch if count is missing so user never stays on '—'
-    if (resolvedMasterId && (countVal === null || isNaN(countVal))) {
-      this.enqueueAlbumVersionsCount(resolvedMasterId, a.id);
-    }
+    // Pressing details load on demand, so large collections never queue hundreds of requests.
 
     return `
       <tr id="record-row-${a.id}" class="record-row ${isSelected ? 'selected-row' : ''}" onclick="App.onTableRowClick(event, '${a.id}')">
@@ -2612,7 +2608,7 @@ const App = {
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${a.id}', this.checked)">
         </td>
         <td class="cell-cover">
-          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
+          <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${a.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.openAlbumTracklistModal('${a.id}')}" title="Відкрити пісні альбому">
             ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy" onerror="if (!this.dataset.err) { this.dataset.err='1'; this.src='/api/vinyl/legacy/cover-image?artist='+encodeURIComponent('${this.escapeHtml(a.artist)}')+'&album='+encodeURIComponent('${this.escapeHtml(a.title)}'); }">` : `<div class="cover-placeholder">ALBUM</div>`}
           </div>
         </td>
@@ -2665,7 +2661,7 @@ const App = {
   },
 
   renderReleaseRow(r, isSelected) {
-    const coverUrl = this.getSafeCoverUrl(r.coverImage || r.thumb, r.artist, r.title);
+    const coverUrl = this.getSafeCoverUrl(r.coverImage || r.thumb, r.artist, r.title, r);
     const discogsLink = r.uri || (r.discogsId ? `https://www.discogs.com/release/${r.discogsId}` : '');
     const trackCount = this.getAlbumTrackCount(r);
     
@@ -2709,7 +2705,7 @@ const App = {
           <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="App.toggleSelectRecord('${r.id}', this.checked)">
         </td>
         <td class="cell-cover">
-          <div class="cover-thumb-wrapper" onclick="App.openLightbox('${coverUrl || ''}')">
+          <div class="cover-thumb-wrapper" onclick="App.openAlbumTracklistModal('${r.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.openAlbumTracklistModal('${r.id}')}" title="Відкрити пісні альбому">
             ${coverUrl ? `<img src="${this.escapeHtml(coverUrl)}" alt="Cover" loading="lazy" onerror="if (!this.dataset.err) { this.dataset.err='1'; this.src='/api/vinyl/legacy/cover-image?artist='+encodeURIComponent('${this.escapeHtml(r.artist)}')+'&album='+encodeURIComponent('${this.escapeHtml(r.title)}'); }">` : `<div class="cover-placeholder">VINYL</div>`}
           </div>
         </td>
@@ -2963,15 +2959,17 @@ const App = {
     this.render();
   },
 
-  getSafeCoverUrl(url, artist = '', album = '') {
+  getSafeCoverUrl(url, artist = '', album = '', item = null) {
+    const identifiers = item ? '&'+new URLSearchParams({deezerAlbumId:String(item.deezerAlbumId||''),masterId:String(item.masterId||(/^master-\d+$/.test(String(item.id))?String(item.id).slice(7):'')),releaseId:String(item.discogsId||(/^discogs-\d+$/.test(String(item.id))?String(item.id).slice(8):''))}) : '';
     if (!url) {
       if (artist && album) {
-        return `/api/vinyl/legacy/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`;
+        return `/api/vinyl/legacy/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}${identifiers}`;
       }
       return '';
     }
     const str = String(url).trim();
-    if (str.includes('discogs.com') || str.includes('i.discogs.com')) {
+    if (str.includes('discogs.com') || str.includes('discogsusercontent.com')) {
+      if (artist && album) return `/api/vinyl/legacy/cover-image?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}${identifiers}`;
       const art = encodeURIComponent(artist || '');
       const alb = encodeURIComponent(album || '');
       return `/api/vinyl/legacy/image-proxy?url=${encodeURIComponent(str)}&artist=${art}&album=${alb}`;
@@ -3121,43 +3119,7 @@ const App = {
   },
 
   prefetchCollectionTracklists() {
-    setTimeout(async () => {
-      try {
-        const albums = (this.getAllItemsInMode('albums') || []);
-        const releases = (this.getAllItemsInMode('releases') || []);
-        const combined = [...albums, ...releases];
-        for (const item of combined) {
-          if (!item) continue;
-          const cacheKey = item.masterId || item.discogsId || item.id;
-          const nameKey = (item.artist && (item.album || item.title))
-            ? `${String(item.artist).toLowerCase().trim()}:::${String(item.album || item.title).toLowerCase().trim()}`
-            : null;
-
-          if (this.getTracklistFromCache(cacheKey) || (nameKey && this.getTracklistFromCache(nameKey))) {
-            continue;
-          }
-
-          const queryId = item.masterId || item.discogsId || (String(item.id || '').replace(/^master-|^discogs-/, ''));
-          const queryType = (item.masterId || item.type === 'master' || String(item.id || '').startsWith('master-')) ? 'master' : 'release';
-          const qArtist = item.artist || '';
-          const qAlbum = item.album || item.title || '';
-          const qFull = [qArtist, qAlbum].filter(Boolean).join(' - ');
-
-          try {
-            const res = await fetch(`/api/vinyl/legacy/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}&q=${encodeURIComponent(qFull)}`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.tracklist && data.tracklist.length > 0) {
-                if (cacheKey) this.saveTracklistToCache(cacheKey, data);
-                if (nameKey) this.saveTracklistToCache(nameKey, data);
-              }
-            }
-          } catch (e) {}
-
-          await new Promise(r => setTimeout(r, 200));
-        }
-      } catch (err) {}
-    }, 1500);
+    // Album songs load and enter the cache on demand; background scans compete with playback.
   },
 
   openMasterVersionsModalById(albumId) {
@@ -3174,6 +3136,7 @@ const App = {
       if (m) resolvedMasterId = parseInt(m[1], 10);
     }
     const coverUrl = this.getSafeCoverUrl(album.coverImage || album.thumb, album.artist, album.title);
+    if (!resolvedMasterId) { this.openDiscogsSearchModal([album.artist,album.title].filter(Boolean).join(' ')); return; }
     this.openMasterVersionsModal(resolvedMasterId, album.artist, album.title, album.year, coverUrl);
   },
 
@@ -5169,7 +5132,7 @@ const App = {
     if (trackArtistEl) trackArtistEl.textContent = artist || '—';
     if (sourceBadge) {
       if (source) {
-        sourceBadge.textContent = `🔊 Источник: ${source}`;
+        sourceBadge.textContent = `🔊 ${EchoVinyl.locale === 'uk' ? 'Джерело' : EchoVinyl.locale === 'en' ? 'Source' : 'Источник'}: ${source}`;
         sourceBadge.style.display = 'inline-flex';
       } else {
         sourceBadge.style.display = 'none';
@@ -6011,6 +5974,9 @@ const App = {
   },
 
   async openAlbumTracklistModal(itemId, fallbackObj = null) {
+    this._albumRequest?.abort();
+    const albumRequest = new AbortController();
+    this._albumRequest = albumRequest;
     let item = (fallbackObj && typeof fallbackObj === 'object') ? fallbackObj : null;
     if (!item && this.searchItemsMap) {
       item = this.searchItemsMap.get(String(itemId)) || null;
@@ -6171,7 +6137,7 @@ const App = {
 
     try {
       let queryId = item.masterId || item.discogsId || null;
-      let queryType = (this.appMode === 'albums' || item.type === 'master') ? 'master' : 'release';
+      let queryType = (item.masterId || item.type === 'master' || String(item.id || '').startsWith('master-')) ? 'master' : 'release';
 
       const strId = String(item.id || itemId || '');
       if (!queryId && strId) {
@@ -6198,18 +6164,19 @@ const App = {
       let data = null;
       if (rawSpId && this.searchProvider === 'spotify' && !queryId) {
         try {
-          const spRes = await fetch(`/api/vinyl/legacy/spotify/album/tracks?id=${encodeURIComponent(rawSpId)}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}`);
+          const spRes = await fetch(`/api/vinyl/legacy/spotify/album/tracks?id=${encodeURIComponent(rawSpId)}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}`, {signal:AbortSignal.any([albumRequest.signal,AbortSignal.timeout(30000)])});
           if (spRes.ok) data = await spRes.json().catch(() => null);
         } catch (e) {}
       }
 
       if (!data || !data.tracklist || data.tracklist.length === 0) {
         try {
-          const dRes = await fetch(`/api/vinyl/legacy/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}&q=${encodeURIComponent(qFull)}`);
+          const dRes = await fetch(`/api/vinyl/legacy/discogs/tracklist?id=${encodeURIComponent(queryId || '')}&type=${queryType}&deezerAlbumId=${encodeURIComponent(item.deezerAlbumId || '')}&artist=${encodeURIComponent(qArtist)}&album=${encodeURIComponent(qAlbum)}&q=${encodeURIComponent(qFull)}`, {signal:AbortSignal.any([albumRequest.signal,AbortSignal.timeout(30000)])});
           if (dRes.ok) data = await dRes.json().catch(() => null);
         } catch (e) {}
       }
 
+      if (albumRequest.signal.aborted || this._albumRequest !== albumRequest) return;
       if (data && data.tracklist && data.tracklist.length > 0) {
         if (cacheKey) this.saveTracklistToCache(cacheKey, data);
         if (nameKey) this.saveTracklistToCache(nameKey, data);
@@ -6286,7 +6253,7 @@ const App = {
 
     // Get preview audio URL
     let audioUrl = track.previewUrl || null;
-    let previewSource = track.source || 'Spotify';
+    let previewSource = track.source || this.currentTracklistData.source || 'Deezer';
     if (!audioUrl) {
       try {
         const aRes = await fetch(`/api/vinyl/legacy/track/preview?track=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`);
@@ -6311,7 +6278,7 @@ const App = {
     if (audioUrl) {
       this.playAudio(audioUrl, title, artist, cover, btnId, album, previewSource);
       this.setCoverPulsing(true);
-      this.showToastNotification(`🎵 Воспроизведение [${previewSource}]: «${artist ? artist + ' — ' : ''}${title}»`);
+      this.showToastNotification(`🎵 ${EchoVinyl.locale === 'uk' ? 'Відтворення' : EchoVinyl.locale === 'en' ? 'Playing' : 'Воспроизведение'} [${previewSource}]: «${artist ? artist + ' — ' : ''}${title}»`);
     } else {
       if (btn) {
         btn.classList.remove('playing');
@@ -6455,6 +6422,8 @@ const App = {
   },
 
   closeAlbumTracklistModal() {
+    this._albumRequest?.abort();
+    this._albumRequest = null;
     this.stopAudio();
     this.clearTrackVideo();
     this.setCoverPulsing(false);
@@ -8081,9 +8050,8 @@ const App = {
   },
 
   onTableRowClick(event, itemId) {
-    // Audio is strictly played ONLY when the user explicitly clicks a dedicated play button (▶).
-    // Clicking rows in the table does NOT start audio playback.
-    return;
+    if (event.target?.closest('button,a,input,select,textarea,.cover-thumb-wrapper,.status-pill,.star-btn')) return;
+    if (this.appMode !== 'spotify') this.openAlbumTracklistModal(itemId);
   },
 
   // ----------------------------------------------------

@@ -69,13 +69,14 @@ export async function saveVinylTables(userId: string, targetMode: VinylMode, pay
   return { status: 'ok', count: itemCount, type: targetMode === 'albums' ? 'album' : targetMode === 'releases' ? 'release' : 'spotify', ...saved };
 }
 export function sameVinylAlbum(left: JsonRecord, right: JsonRecord) {
+  if (left.deezerAlbumId && String(left.deezerAlbumId) === String(right.deezerAlbumId)) return true;
   const master = (item: JsonRecord) => String(item.masterId || (/^master-\d+$/.test(String(item.id)) ? String(item.id).slice(7) : ''));
   const release = (item: JsonRecord) => String(item.discogsId || (/^discogs-\d+$/.test(String(item.id)) ? String(item.id).slice(8) : ''));
   if (master(left) && master(left) === master(right)) return true;
   if (release(left) && release(left) === release(right)) return true;
   if (left.id && String(left.id) === String(right.id)) return true;
-  const a = normal(left.artist), b = normal(left.title || left.album);
-  return !!a && !!b && a === normal(right.artist) && b === normal(right.title || right.album);
+  const a = normal(left.artist), b = normalAlbum(left.title || left.album);
+  return !!a && !!b && a === normal(right.artist) && b === normalAlbum(right.title || right.album);
 }
 export async function addVinylAlbum(userId: string, album: Record<string, unknown>, tableId?: string): Promise<{ added: boolean; tableName: string; item: JsonRecord }> {
   if (!text(album.artist) || !text(album.title || album.album)) throw new ApiError(400, 'INVALID_VINYL_ALBUM', 'Потрібні виконавець і назва альбому.');
@@ -238,6 +239,8 @@ async function publicJson(url: string) {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' || !['api.deezer.com', 'itunes.apple.com'].includes(parsed.hostname) || parsed.username || parsed.password) throw new ApiError(400, 'INVALID_PROVIDER_URL', 'Неправильний музичний сервіс.');
   const key = `public:${url}`, hit = cached(key); if (hit !== undefined) return hit;
+  const existing = pending.get(key); if (existing) return existing;
+  const task = (async () => {
   let response: Response;
   try { response = await fetch(url, { headers: { 'User-Agent': userAgent, Accept: 'application/json' }, signal: AbortSignal.timeout(12000), redirect: 'error' }); }
   catch { throw new ApiError(502, 'MUSIC_PROVIDER_UNAVAILABLE', 'Музичний каталог тимчасово недоступний.'); }
@@ -245,6 +248,8 @@ async function publicJson(url: string) {
   const data = await readNetworkJson(response);
   if (data.error) throw new ApiError(502, 'MUSIC_PROVIDER_UNAVAILABLE', 'Музичний каталог не зміг виконати запит.');
   return remember(key, data, 3600000);
+  })().finally(() => pending.delete(key));
+  pending.set(key, task); return task;
 }
 function duration(seconds: number) { return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`; }
 function appleCover(url: string) { return String(url || '').replace(/100x100bb/, '600x600bb'); }
@@ -253,15 +258,28 @@ function appleTrack(item: JsonRecord): JsonRecord { return { id: `track_${item.t
 function spotifyTrack(item: JsonRecord): JsonRecord { return { id: item.id, spotifyId: item.id, title: item.name, artist: item.artists?.map((a: JsonRecord) => a.name).join(', ') || '', album: item.album?.name || '', coverImage: item.album?.images?.[0]?.url || '', durationMs: item.duration_ms || 0, durationStr: duration((item.duration_ms || 0) / 1000), previewUrl: item.preview_url || null, uri: item.uri, spotifyUrl: item.external_urls?.spotify, type: 'track' }; }
 async function findAlbums(artist: string, title: string, limit = 10): Promise<JsonRecord[]> {
   const term = `${artist} ${title}`.trim();
+  const key = `vinyl-albums-v2:${normal(artist)}:${normalAlbum(title)}:${limit}`, hit = cached(key); if (hit) return hit;
+  const existing = pending.get(key); if (existing) return existing;
+  const task = (async () => {
+  try {
+    const stored = await database().prepare('SELECT track_data, updated_at FROM echo_media_collections WHERE id = ?').bind(key).first<{track_data:string;updated_at:number}>();
+    if (stored && stored.updated_at > Date.now() - 7 * 86400000) { const parsed = JSON.parse(stored.track_data); if (Array.isArray(parsed)) return remember(key, parsed, 3600000); }
+  } catch { /* Album playback also works when the optional public cache is unavailable. */ }
   const results = await Promise.allSettled([publicJson(`https://api.deezer.com/search/album?q=${encodeURIComponent(term)}&limit=${limit}`), publicJson(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=album&limit=${limit}`)]);
   const output: JsonRecord[] = [];
   if (results[0].status === 'fulfilled') for (const item of results[0].value.data || []) output.push({ id: `sp_alb_${item.id}`, spotifyId: String(item.id), title: item.title, artist: item.artist?.name || '', coverImage: item.cover_xl || item.cover_big || item.cover_medium, releaseDate: item.release_date || '', year: item.release_date?.slice(0, 4) || '', totalTracks: item.nb_tracks || null, type: 'album', source: 'Deezer' });
   if (results[1].status === 'fulfilled') for (const item of results[1].value.results || []) if (item.collectionId) output.push({ id: `itunes_alb_${item.collectionId}`, spotifyId: String(item.collectionId), title: item.collectionName, artist: item.artistName, coverImage: appleCover(item.artworkUrl100), releaseDate: item.releaseDate?.slice(0, 10) || '', year: item.releaseDate?.slice(0, 4) || '', totalTracks: item.trackCount, type: 'album', source: 'Apple Music' });
-  return output;
+  if (output.length) { try { await database().prepare('INSERT INTO echo_media_collections (id, track_data, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET track_data = excluded.track_data, updated_at = excluded.updated_at').bind(key, JSON.stringify(output), Date.now()).run(); } catch { /* Cache failure must never hide available albums. */ } }
+  return remember(key, output, output.length ? 3600000 : 60000);
+  })().finally(() => pending.delete(key));
+  pending.set(key, task); return task;
+}
+function normalAlbum(value: unknown) {
+  return normal(text(value, 1000).replace(/\s*[([][^\])]*(?:remaster(?:ed)?|deluxe|anniversary|collector(?:'s)?|expanded|special edition|\d{4} master)[^\])]*[\])]/gi, '').replace(/\s*[-–:]\s*(?:remaster(?:ed)?|deluxe|expanded|special edition).*$/i, ''));
 }
 function albumMatch(items: JsonRecord[], artist: string, title: string) {
-  const a = normal(artist), t = normal(title);
-  return items.find(item => (!a || normal(item.artist) === a) && (!t || normal(item.title) === t)) || items.find(item => (!a || normal(item.artist) === a) && (!t || normal(item.title).includes(t) || t.includes(normal(item.title))));
+  const a = normal(artist), t = normal(title), album = normalAlbum(title);
+  return items.find(item => (!a || normal(item.artist) === a) && (!t || normal(item.title) === t)) || items.find(item => (!a || normal(item.artist) === a) && !!album && normalAlbum(item.title) === album);
 }
 async function publicAlbumTracks(rawId: string, artist: string, title: string) {
   let album: JsonRecord | undefined;
@@ -269,7 +287,14 @@ async function publicAlbumTracks(rawId: string, artist: string, title: string) {
   const effectiveId = album?.id || rawId;
   if (/^sp_alb_\d+$/.test(effectiveId)) {
     const data = await publicJson(`https://api.deezer.com/album/${effectiveId.slice(7)}`);
-    return { found: !!data.tracks?.data?.length, title: data.title, artist: data.artist?.name, cover: data.cover_xl || data.cover_big, year: data.release_date?.slice(0, 4), source: 'Deezer', discogsNotFound: true, tracklist: (data.tracks?.data || []).map((item: JsonRecord, index: number) => ({ position: String(item.track_position || index + 1), title: item.title, artist: item.artist?.name || data.artist?.name, duration: duration(item.duration || 0), previewUrl: item.preview || null, type_: 'track' })) };
+    const tracks:JsonRecord[] = Array.isArray(data.tracks?.data) ? [...data.tracks.data] : [], visited = new Set<string>();
+    let next = data.tracks?.next;
+    while (typeof next === 'string' && next && !visited.has(next)) {
+      const link = new URL(next); if (!['https:','http:'].includes(link.protocol) || link.username || link.password || link.hostname !== 'api.deezer.com' || link.pathname !== `/album/${effectiveId.slice(7)}/tracks`) break;
+      link.protocol='https:';
+      visited.add(next); const page = await publicJson(link.href); if (!Array.isArray(page.data) || !page.data.length) break; tracks.push(...page.data); next = page.next;
+    }
+    return { found: !!tracks.length, title: data.title, artist: data.artist?.name, cover: data.cover_xl || data.cover_big, year: data.release_date?.slice(0, 4), source: 'Deezer', discogsNotFound: true, tracklist: tracks.map((item: JsonRecord, index: number) => ({ position: String(item.track_position || index + 1), title: item.title, artist: item.artist?.name || data.artist?.name, duration: duration(item.duration || 0), previewUrl: item.preview || null, type_: 'track' })) };
   }
   if (/^itunes_alb_\d+$/.test(effectiveId)) {
     const data = await publicJson(`https://itunes.apple.com/lookup?id=${effectiveId.slice(11)}&entity=song&limit=200`), meta = data.results?.find((item: JsonRecord) => item.wrapperType === 'collection') || {};
@@ -282,10 +307,14 @@ async function tracklist(request: Request, params: URLSearchParams) {
   const rawId = text(params.get('id')), type = params.get('type') === 'master' ? 'master' : 'release';
   let artist = text(params.get('artist')), title = text(params.get('album') || params.get('title') || params.get('q'));
   if (!artist && title.includes(' - ')) { const parts = title.split(' - '); artist = parts.shift()!.trim(); title = parts.join(' - ').trim(); }
+  const deezerAlbumId = params.get('deezerAlbumId');
+  if (deezerAlbumId && /^[1-9][0-9]{0,14}$/.test(deezerAlbumId)) return publicAlbumTracks(`sp_alb_${deezerAlbumId}`, artist, title);
+  // Listening needs playable recordings. Digital album metadata normally includes every preview.
+  if (artist && title) { try { const playable = await publicAlbumTracks(rawId, artist, title); if (playable.tracklist.length) return playable; } catch { /* The exact pressing below can still provide its tracklist. */ } }
   if (/^\d+$/.test(rawId)) {
     try {
       const data = await discogsJson(request, `/${type === 'master' ? 'masters' : 'releases'}/${id(rawId)}`);
-      if (data.tracklist?.length) return { id: data.id, type, title: data.title, artist: data.artists?.map((item: JsonRecord) => item.name).join(', ') || artist, year: data.year || '', cover: data.images?.[0]?.resource_url || data.thumb || '', tracklist: data.tracklist.filter((item: JsonRecord) => item.type_ !== 'heading').map((item: JsonRecord, index: number) => ({ position: item.position || String(index + 1), title: item.title, duration: item.duration || '', type_: item.type_ || 'track' })), source: 'Discogs', discogsNotFound: false };
+      if (data.tracklist?.length) return { id: data.id, type, title: data.title, artist: data.artists?.map((item: JsonRecord) => item.name).join(', ') || artist, year: data.year || '', cover: data.images?.[0]?.uri || data.thumb || '', tracklist: data.tracklist.filter((item: JsonRecord) => item.type_ !== 'heading').map((item: JsonRecord, index: number) => ({ position: item.position || String(index + 1), title: item.title, artist:item.artists?.map((artist:JsonRecord)=>artist.name).join(', ') || data.artists?.map((artist:JsonRecord)=>artist.name).join(', ') || artist, duration: item.duration || '', type_: item.type_ || 'track' })), source: 'Discogs', discogsNotFound: false };
     } catch (error) { if (!artist && !title) throw error; }
   }
   return publicAlbumTracks(rawId, artist, title);
@@ -465,11 +494,15 @@ export async function legacyVinylRequest(request: Request, segments: string[]) {
   if ((path === 'image-proxy' || path === 'audio-proxy') && (method === 'GET' || method === 'HEAD')) return mediaProxy(request, params.get('url') || '', path === 'image-proxy' ? 'image' : 'audio');
   if ((path === 'cover-lookup' || path === 'cover-image') && (method === 'GET' || method === 'HEAD')) {
     const artist = text(params.get('artist')), title = text(params.get('album') || params.get('title'));
-    if (!artist && !title) throw new ApiError(400, 'ALBUM_REQUIRED', 'Вкажіть виконавця або альбом.');
-    const album = albumMatch(await findAlbums(artist, title), artist, title), coverUrl = album?.coverImage || null;
-    if (path === 'cover-image' && coverUrl) return mediaProxy(request, coverUrl, 'image');
+    const deezerId=params.get('deezerAlbumId'),masterId=params.get('masterId'),releaseId=params.get('releaseId');
+    if (!artist && !title && !deezerId && !masterId && !releaseId) throw new ApiError(400, 'ALBUM_REQUIRED', 'Вкажіть виконавця або альбом.');
+    let coverUrl:string|null=null, source:string|null=null;
+    if (deezerId && /^[1-9][0-9]{0,14}$/.test(deezerId)) { try { const album=await publicJson(`https://api.deezer.com/album/${deezerId}`); coverUrl=album.cover_xl||album.cover_big||album.cover_medium||null; source='Deezer'; } catch { /* Search by known album name below. */ } }
+    if (!coverUrl && (artist || title)) { const album=albumMatch(await findAlbums(artist, title), artist, title); coverUrl=album?.coverImage||null; source=album?.source||null; }
+    if (!coverUrl && (masterId || releaseId)) { try { const album=await discogsJson(request,masterId?`/masters/${id(masterId)}`:`/releases/${id(releaseId)}`); const primary=album.images?.find((image:JsonRecord)=>image.type==='primary')||album.images?.[0]; coverUrl=primary?.uri||album.thumb||null; source='Discogs'; } catch { /* Missing artwork is an explicit 404, never a wrong album's cover. */ } }
+    if (path === 'cover-image' && coverUrl) return new Response(null, { status:302, headers:{ Location:approvedVinylMedia(coverUrl, 'image').href, 'Cache-Control':'private, max-age=86400' } });
     if (path === 'cover-image') return new Response(null, { status: 404 });
-    return json({ coverUrl, source: album?.source || null });
+    return json({ coverUrl, source });
   }
   if (path === 'discovery/feed' && method === 'GET') {
     const exclude = new Set((params.get('exclude') || '').toLowerCase().split(',').map(value => value.trim())), genre = text(params.get('genre'));

@@ -15,7 +15,7 @@ export function GET(request: Request) { return handle(async () => {
   db.prepare("SELECT * FROM echo_games WHERE user_id = ? AND finished = 0 ORDER BY updated_at DESC LIMIT 20").bind(user.id).all<GameRow>(),
   db.prepare("SELECT id, collection_id AS collectionId, collection_title AS collectionTitle, score_tenths/10.0 AS score, correct, total, xp AS xpAwarded, json_extract(state,'$.practice') AS practice, json_extract(state,'$.phase') AS status, updated_at AS completedAt FROM echo_games WHERE user_id = ? AND finished = 1 ORDER BY updated_at DESC LIMIT 30").bind(user.id).all(),progressFor(user.id)
  ]);
- return json({profile:{displayName:user.displayName,xp:balance,...stats},progression,sessions:await Promise.all(sessions.results.map(sessionView)),history:history.results,ai:{available:true,method:"local",free:true}});
+ return json({profile:{id:user.id,displayName:user.displayName,xp:balance,...stats},progression,sessions:await Promise.all(sessions.results.map(sessionView)),history:history.results,ai:{available:true,method:"gemini"}});
 }); }
 export function DELETE(request:Request){return handle(async()=>{
  await csrf(request);if(request.body)await body(request);const user=identity(request),db=database();

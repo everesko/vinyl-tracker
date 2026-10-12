@@ -1,5 +1,6 @@
 import {eurovisionSongs} from './eurovision-registry';
 import {readyPresets} from './ready-presets';
+import {readyGenreIndexes} from './ready-library-index';
 import {additionalDirections} from '@/lib/library-directions';
 import {spreadArtists} from '@/lib/track-order';
 import {verifyEraPool,verifyGenrePool} from './era-verification';
@@ -15,7 +16,8 @@ const MIN_RANK = 0;
 let nextRequestAt = 0;
 const artistCache = new Map<string, { value: Artist; expiresAt: number }>();
 export type Artist = { id: number; name: string; nb_fan?: number; picture_big?: string; picture_medium?: string; link?: string };
-type Album = { id: number; title: string; release_date?: string; fans?: number; artist?: Artist; cover_big?: string; tracks?: { data: Recording[] } };
+type Album = { id: number; title: string; release_date?: string; fans?: number; artist?: Artist; cover_big?: string; genres?:{data?:{id:number;name:string}[]};tracks?: { data: Recording[] } };
+type CatalogTrack=Track&{catalogAlbumId?:number};
 type Recording = { id: number; title: string; title_short?: string; title_version?: string; readable?: boolean; preview?: string; rank?: number; duration?: number; release_date?: string; artist?: Artist; album?: Album; link?: string };
 type Definition = { slug: string; title: string; category: "genre" | "era" | "artist" | "mix"; artists: string[]; aliases?: string[]; decade?: number; genreSlugs?: string[]; theme?: "ballads"; region?: "UA"; canonicalIds?: string[] };
 const genres: Definition[] = [
@@ -34,6 +36,14 @@ const genres: Definition[] = [
   { slug: "punk", title: "Панк / Поп-панк", category: "genre", aliases: ["punk", "панк", "поп панк", "pop punk"], artists: ["Green Day", "blink-182", "The Offspring", "Sum 41", "Paramore", "My Chemical Romance", "Ramones", "Fall Out Boy"] },
   { slug: "country", title: "Кантри", category: "genre", aliases: ["country", "кантри", "кантрі"], artists: ["Johnny Cash", "Dolly Parton", "Shania Twain", "Willie Nelson", "Luke Combs", "Chris Stapleton", "Carrie Underwood", "Kenny Rogers"] },
   { slug: "jazz", title: "Джаз", category: "genre", aliases: ["jazz", "джаз"], artists: ["Louis Armstrong", "Ella Fitzgerald", "Nina Simone", "Frank Sinatra", "Miles Davis", "John Coltrane", "Billie Holiday", "Norah Jones"] },
+  {slug:'electro',title:'Електроніка',category:'genre',aliases:['electro','electronica'],artists:readyGenreIndexes.electro?.artistNames??[]},
+  {slug:'reggae',title:'Реггі',category:'genre',aliases:['reggae','реггі','регги'],artists:readyGenreIndexes.reggae?.artistNames??[]},
+  {slug:'blues',title:'Блюз',category:'genre',aliases:['blues','блюз'],artists:readyGenreIndexes.blues?.artistNames??[]},
+  {slug:'folk',title:'Фолк',category:'genre',aliases:['folk','фолк'],artists:readyGenreIndexes.folk?.artistNames??[]},
+  {slug:'classical',title:'Класична музика',category:'genre',aliases:['classical','класична музика','классическая музыка'],artists:readyGenreIndexes.classical?.artistNames??[]},
+  {slug:'soul',title:'Соул і фанк',category:'genre',aliases:['funk','фанк'],artists:readyGenreIndexes.soul?.artistNames??[]},
+  {slug:'latin',title:'Латино',category:'genre',aliases:['latin','латино','латіно'],artists:readyGenreIndexes.latin?.artistNames??[]},
+  {slug:'soundtracks',title:'Саундтреки',category:'genre',aliases:['soundtrack','soundtracks','саундтреки','саундтрек'],artists:readyGenreIndexes.soundtracks?.artistNames??[]},
 ];
 const eras: Definition[] = [
   { slug: "70s", title: "Хиты 70-х", category: "era", decade: 1970, artists: ["Queen", "ABBA", "Fleetwood Mac", "Elton John", "Pink Floyd", "David Bowie"] },
@@ -57,7 +67,7 @@ const genreExtensions: Record<string, string> = {
   country: "George Strait|Garth Brooks|Alan Jackson|Brooks & Dunn|Tim McGraw|Faith Hill|Reba McEntire|Trisha Yearwood|Martina McBride|LeAnn Rimes|Toby Keith|Trace Adkins|Brad Paisley|Keith Urban|Kenny Chesney|Blake Shelton|Miranda Lambert|Luke Bryan|Jason Aldean|Eric Church|Dierks Bentley|Zac Brown Band|Lady A|Little Big Town|Rascal Flatts|Sugarland|The Chicks|Alison Krauss|Emmylou Harris|Linda Ronstadt|Loretta Lynn|Patsy Cline|Tammy Wynette|Conway Twitty|Merle Haggard|Waylon Jennings|George Jones|Hank Williams|Hank Williams, Jr.|Hank Williams III|Kris Kristofferson|Glen Campbell|John Denver|Don Williams|Roger Miller|Buck Owens|Charley Pride|Jim Reeves|Ray Price|Marty Robbins|Roy Acuff|Ernest Tubb|Eddy Arnold|Jerry Reed|Charlie Rich|Earl Thomas Conley|Ronnie Milsap|The Bellamy Brothers|Alabama|The Oak Ridge Boys|Restless Heart|Diamond Rio|Lonestar|Clint Black|Vince Gill|Randy Travis|Dwight Yoakam|Steve Earle|Lyle Lovett|Townes Van Zandt|Guy Clark|Lucinda Williams|Gillian Welch|Nanci Griffith|Mary Chapin Carpenter|Patty Loveless|Suzy Bogguss|Dustin Lynch|Cole Swindell|Thomas Rhett|Brett Young|Jordan Davis|Dylan Scott|Jon Pardi|Cody Johnson|Parker McCollum|Morgan Wallen|Zach Bryan|Tyler Childers|Sturgill Simpson|Jason Isbell|Turnpike Troubadours|Whiskey Myers|Colter Wall|Charley Crockett|Billy Strings|Sierra Ferrell|Lainey Wilson|Kacey Musgraves|Maren Morris|Kelsea Ballerini|Ashley McBryde|Carly Pearce|Gabby Barrett|Megan Moroney|Nate Smith|Bailey Zimmerman|Hardy|Jelly Roll|Dasha|Shaboozey",
   jazz: "Duke Ellington|Count Basie|Benny Goodman|Glenn Miller|Artie Shaw|Tommy Dorsey|Woody Herman|Stan Kenton|Dave Brubeck|Chet Baker|Stan Getz|Gerry Mulligan|Paul Desmond|Art Blakey|Horace Silver|Hank Mobley|Dexter Gordon|Sonny Rollins|Cannonball Adderley|Charles Mingus|Thelonious Monk|Bill Evans|Oscar Peterson|Ahmad Jamal|Erroll Garner|Bud Powell|McCoy Tyner|Herbie Hancock|Chick Corea|Keith Jarrett|Joe Zawinul|Wayne Shorter|Weather Report|Return To Forever|Mahavishnu Orchestra|John McLaughlin|Pat Metheny|Wes Montgomery|George Benson|Grant Green|Kenny Burrell|Joe Pass|Django Reinhardt|Charlie Christian|Tal Farlow|Jim Hall|John Scofield|Al Di Meola|Mike Stern|Charlie Parker|Dizzy Gillespie|Fats Navarro|Clifford Brown|Lee Morgan|Freddie Hubbard|Donald Byrd|Wynton Marsalis|Roy Hargrove|Christian Scott aTunde Adjuah|Louis Prima|Cab Calloway|Nat King Cole|Sarah Vaughan|Dinah Washington|Anita O'Day|Peggy Lee|Julie London|Blossom Dearie|Mel Tormé|Tony Bennett|Sammy Davis Jr.|Dean Martin|Bobby Darin|Michael Bublé|Diana Krall|Madeleine Peyroux|Melody Gardot|Stacey Kent|Cassandra Wilson|Dianne Reeves|Kurt Elling|Jamie Cullum|Gregory Porter|Jose James|Esperanza Spalding|Robert Glasper|Kamasi Washington|Snarky Puppy|GoGo Penguin|BADBADNOTGOOD|The Comet Is Coming|Yussef Dayes|Ezra Collective|Nubya Garcia|Shabaka Hutchings|Moses Boyd|Christian McBride|Marcus Miller|Jaco Pastorius|Victor Wooten|Stanley Clarke|Avishai Cohen|Tigran Hamasyan|Brad Mehldau|E.S.T.|Lars Danielsson|Nils Landgren|Jan Garbarek|Terje Rypdal|Arve Henriksen|Bugge Wesseltoft|Saxophone Summit",
 };
-for (const definition of genres) definition.artists = [...new Set([...definition.artists, ...(genreExtensions[definition.slug] ?? "").split("|").filter(Boolean)])];
+for (const definition of genres) definition.artists = [...new Set([...definition.artists, ...(genreExtensions[definition.slug] ?? "").split("|").filter(Boolean), ...(readyGenreIndexes[definition.slug]?.artistNames??[])])];
 // Album dates, rather than an artist's career dates, decide era eligibility.
 for (const definition of eras) definition.artists = [...new Set([...definition.artists, ...interleave(genres.map(genre => genre.artists))])];
 const featured: [string, string, string[]][] = [
@@ -110,9 +120,10 @@ for (const direction of additionalDirections) {
     (!direction.artists || direction.artists.includes(artist.name)) && (!direction.genre || artist.genres.includes(direction.genre))) : [];
   const artists = direction.artists ?? (direction.region === 'UA' ? regional.map(artist => artist.name)
     : direction.theme === 'ballads' ? [...new Set(ballads.filter(song => song.region !== 'UA').map(song => song.artist))]
+    : direction.genres ? interleave(direction.genres.map(slug=>genres.find(genre=>genre.slug===slug)?.artists??[]))
     : genres.find(genre => genre.slug === direction.genre)?.artists ?? []);
   definitions.push({ slug: direction.slug, title: direction.titles.uk, category: direction.category, artists,
-    genreSlugs: direction.genre ? [direction.genre] : [], decade: direction.decade, region: direction.region,
+    genreSlugs: direction.genres ?? (direction.genre ? [direction.genre] : []), decade: direction.decade, region: direction.region,
     canonicalIds: direction.region === 'UA' ? regional.map(artist => artist.id) : undefined, theme: direction.theme });
 }
 
@@ -122,6 +133,12 @@ const readyDecks = new Map<string, Track[]>();
 for (const definition of definitions) {
   const preset = readyPresets[definition.slug];
   if (preset) readyDecks.set(definition.slug, deduplicateRecordings(preset.deck));
+  else if (!definition.decade && !definition.region && !definition.theme && readyGenreIndexes[definition.slug]) {
+    readyDecks.set(definition.slug,deduplicateRecordings(readyGenreIndexes[definition.slug].deck));
+  }
+  else if (!definition.decade && !definition.region && !definition.theme && definition.genreSlugs?.length && definition.genreSlugs.every(slug=>readyGenreIndexes[slug])) {
+    readyDecks.set(definition.slug,deduplicateRecordings(definition.genreSlugs.flatMap(slug=>readyGenreIndexes[slug].deck)));
+  }
   else if (definition.category === 'mix' && additionalDirections.some(direction => direction.slug === definition.slug && direction.artists?.length)) {
     const members = definition.artists.map(name => Object.values(readyPresets).find(item => normalized(item.title) === normalized(name)));
     if (members.every(Boolean)) {
@@ -132,6 +149,9 @@ for (const definition of definitions) {
 }
 export const popularCollections = definitions.map((definition, index) => {
   const deck = readyDecks.get(definition.slug), color = ["#a7a3f6", "#e6a585", "#a5c9ba", "#f5a7bd", "#95b7df"][index % 5];
+  const limitedArtists = definition.category==='artist' || definition.category==='mix'&&additionalDirections.some(direction=>direction.slug===definition.slug&&!!direction.artists?.length);
+  const artistCount=deck?new Set(deck.map(track=>normalized(track.artist))).size:undefined;
+  const prepared=!!deck&&deck.length>=10&&(limitedArtists||(artistCount??0)>=10);
   const artwork = new Map<string, string>();
   for (const track of deck ?? []) if (track.artworkUrl && !artwork.has(track.artist)) artwork.set(track.artist, track.artworkUrl);
   const images = [...artwork.values()].slice(0, 4);
@@ -139,14 +159,15 @@ export const popularCollections = definitions.map((definition, index) => {
     id: `popular-${definition.slug}`, title: definition.title,
     subtitle: definition.decade ? `${definition.decade}–${definition.decade + 9}` : definition.category === 'mix' ? definition.artists.slice(0, 4).join(' · ') : '',
     category: definition.category, kind: definition.category, songOnly: definition.category === "artist",
-    maximumUniqueArtists: definition.artists.length,
-    selectedArtistCount: definition.category === 'artist' || definition.category === 'mix' && !!deck ? definition.artists.length : undefined,
+    maximumUniqueArtists:limitedArtists?definition.artists.length:undefined,
+    selectedArtistCount:limitedArtists?definition.artists.length:undefined,
+    artistCount,libraryMode:prepared?'prepared' as const:'indexed' as const,
     color, tag: definition.category === "era" ? "DECADE" : definition.category === "artist" ? "ARTIST" : definition.category === 'mix' ? 'MIX' : "GENRE",
     image: images[0] ?? (definition.category === "artist" ? undefined : definition.region === 'UA' ? 'https://upload.wikimedia.org/wikipedia/commons/4/49/Flag_of_Ukraine.svg'
       : definition.slug === "eurovision" ? "https://upload.wikimedia.org/wikipedia/commons/b/b7/Flag_of_Europe.svg"
       : symbolicCover(definition.decade ? String(definition.decade) : definition.title, color)),
     images, artistNames: deck ? [...new Set(deck.map(track => track.artist))] : [],
-    count: deck?.length, ready: !!deck?.length, playable: true, source: "deezer" as const, live: true,
+    count: prepared?deck?.length:undefined, ready:prepared,playable: true, source: "deezer" as const, live: true,
     supportedCounts: deck ? [10, 20, 50, 100].filter(count => count <= deck.length) : undefined,
     supportedUniqueCounts: deck ? [10, 20, 50, 100].filter(count => count <= new Set(deck.map(track => track.artist)).size) : undefined,
     popularity: { provider: "Deezer", metric: "rank", minimum: MIN_RANK },
@@ -317,12 +338,12 @@ export function eligibleRecording(track: Recording, artistId?: number) {
     Number.isFinite(track.duration) && track.duration! >= 60 && !!track.title?.trim() && track.title.length <= 200 &&
     !/\b(live|karaoke|instrumental|tribute|cover|demo|commentary|remix|sped up|slowed|radio edit)\b|concert|made famous|originally performed/i.test(`${track.title} ${track.title_version ?? ""} ${track.artist.name}`);
 }
-export function recordingTrack(track: Recording, genre = "Popular", releaseDate?: string): Track {
+export function recordingTrack(track: Recording, genre = "Popular", releaseDate?: string): CatalogTrack {
   const title = (track.title_short || track.title).trim(), year = Number((releaseDate || track.release_date || "").slice(0, 4));
   return { id: `deezer-${track.id}`, provider: "deezer", providerId: String(track.id), title, titleAliases: title !== track.title ? [track.title] : undefined,
     artist: track.artist!.name, genres: [genre], year: Number.isFinite(year) && year >= 1900 ? year : 0, popularityRank: track.rank,
     audioUrl: track.preview, duration: 30, verseStart: 2, verseEnd: 9, hintStart: 12, encoreStart: 15,
-    artworkUrl: track.album?.cover_big?.startsWith("https://cdn-images.dzcdn.net/") ? track.album.cover_big : undefined,
+    artworkUrl: track.album?.cover_big?.startsWith("https://cdn-images.dzcdn.net/") ? track.album.cover_big : undefined,catalogAlbumId:track.album?.id,
     sourceUrl: `https://www.deezer.com/track/${track.id}`, rights: "Deezer API: личное некоммерческое использование, публичное 30-секундное превью. Не полный трек.",
   };
 }
@@ -348,7 +369,7 @@ export function selectPopularTracks(candidates: Track[], options: DeckOptions = 
   // A fresh weighted draw inside a popularity band. Easy never reaches the long tail.
   const randomized=pool.map(track=>({track,key:-Math.log(Math.max(.000001,Math.random()))/Math.max(1,(track.popularityRank??0)/100000)})).sort((a,b)=>a.key-b.key).map(x=>x.track);
   const selected:Track[]=[],seen=new Set<string>(),counts=new Map<string,number>();
-  for(const limit of diverse&&allowArtistRepeats?[1,2,3,4,Infinity]:[Infinity])for(const track of randomized){if(selected.length===count)return selected;if(seen.has(track.id)||(counts.get(track.artist)??0)>=limit)continue;selected.push(track);seen.add(track.id);counts.set(track.artist,(counts.get(track.artist)??0)+1);}return selected;
+  for(const limit of diverse&&allowArtistRepeats?[1,2,3,4,Infinity]:[Infinity])for(const track of randomized){if(selected.length===count)return spreadArtists(selected);const key=normalized(track.artist);if(seen.has(track.id)||(counts.get(key)??0)>=limit)continue;selected.push(track);seen.add(track.id);counts.set(key,(counts.get(key)??0)+1);}return spreadArtists(selected);
 }
 async function artistPool(artist:Artist,query:PopularQuery,desired=10):Promise<Track[]>{
  const genre=query.genreSlugs.join(' / ')||'Popular',key=`deezer-artist-all-v9:${artist.id}:${query.decade??'all'}`;
@@ -374,6 +395,33 @@ async function artistPool(artist:Artist,query:PopularQuery,desired=10):Promise<T
  return state.deck.map(t=>({...t,genres:[genre]}));
 }
 function compactPool(deck:Track[]){return deduplicateRecordings(deck);}
+const addedProviderGenres:Record<string,number>={electro:106,reggae:144,blues:153,folk:466,classical:98,soul:169,latin:197,soundtracks:173,...Object.fromEntries(Object.entries(readyGenreIndexes).map(([slug,index])=>[slug,index.genreId]))};
+const providerPrimaryGenres:Record<string,number[]>={alternative:[85,152],dance:[113,106],electro:[106,113],rnb:[165,169],metal:[464,152]};
+function albumGenreMatches(slug:string,proof:number[]|undefined,artist:string,title:string){
+ if(!proof?.length)return false;
+ if(!(providerPrimaryGenres[slug]??[addedProviderGenres[slug]]).some(code=>proof.includes(code)))return false;
+ const known=readyGenreIndexes[slug]?.artistNames.some(name=>normalized(name)===normalized(artist));
+ if(slug==='rock'&&!genres.find(definition=>definition.slug==='rock')!.artists.some(name=>normalized(name)===normalized(artist))&&proof.some(code=>[132,116,165,113,98,84,144,197].includes(code)))return false;
+ if(slug==='classical'&&!known&&!/\b(?:bach|beethoven|mozart|chopin|vivaldi|handel|pachelbel|debussy|rachmaninoff|tchaikovsky|schubert|schumann|grieg|dvořák|liszt|satie|brahms|ravel)\b/i.test(title)&&proof.some(code=>[132,116,165,113,152,84,144,197].includes(code)))return false;
+ if(slug==='blues'&&!known&&proof.some(code=>[132,116,113,98,197].includes(code)))return false;
+ // Deezer calls some compilations rock/metal; a rock album is metal only for an
+ // identified metal performer. A secondary compilation tag is never sufficient.
+ return slug!=='metal'||proof.includes(464)||genres.find(definition=>definition.slug==='metal')!.artists.some(name=>normalized(name)===normalized(artist));
+}
+/** New broad genres use the provider's actual album taxonomy; no guessed tags. */
+async function verifyAddedGenres(candidates:Track[],slugs:string[],target:number,allowRepeats:boolean){
+ const key='deezer-album-genre-index-v1:'+slugs.slice().sort().join(',');
+ const saved=await database().prepare('SELECT track_data FROM echo_media_collections WHERE id = ?').bind(key).first<{track_data:string}>();
+ const proofs:Record<string,number[]>=saved?await readJson<Record<string,number[]>>(saved.track_data):{};
+ const albums=[...new Set(candidates.map(track=>(track as CatalogTrack).catalogAlbumId).filter((id):id is number=>!!id))];
+ const missing=albums.filter(id=>!Object.hasOwn(proofs,String(id))).slice(0,16);
+ for(let start=0;start<missing.length;start+=4)await Promise.all(missing.slice(start,start+4).map(async id=>{const album=await deezerRequest<Album>('/album/'+id);proofs[id]=(album.genres?.data??[]).map(genre=>genre.id);}));
+ if(missing.length)await cacheMetadata(key,proofs);
+ const accepted=candidates.filter(track=>slugs.some(slug=>albumGenreMatches(slug,proofs[String((track as CatalogTrack).catalogAlbumId)],track.artist,track.title))).map(track=>({...track,genres:slugs.filter(slug=>albumGenreMatches(slug,proofs[String((track as CatalogTrack).catalogAlbumId)],track.artist,track.title)),categorySources:['https://api.deezer.com/album/'+(track as CatalogTrack).catalogAlbumId]}));
+ const available=allowRepeats?accepted.length:new Set(accepted.map(track=>normalized(track.artist))).size;
+ if(available<target&&albums.some(id=>!Object.hasOwn(proofs,String(id))))throw new ApiError(503,'CATALOG_PREPARING','Індексуємо категорії альбомів.',{available,required:target,canRetry:true});
+ return accepted;
+}
 async function balladPool(query:PopularQuery,options:DeckOptions){
  const records=ballads.filter(t=>(query.region==='UA'?t.region==='UA':t.region!=='UA')&&(!query.explicitArtists||query.artists.some(a=>normalized(a)===normalized(t.artist)))&&(!query.genreSlugs.length||query.genreSlugs.some(g=>t.genres.includes(g))));
  const key='ballad-pool-v1:'+JSON.stringify({region:query.region,artists:query.explicitArtists?query.artists:[],genres:query.genreSlugs,decade:query.decade});
@@ -404,20 +452,26 @@ async function queryPool(query: PopularQuery, options: DeckOptions = {}) {
   if(query.theme==='eurovision')return eurovisionPool(query,options);
   if(query.theme==='ballads')return balladPool(query,options);
   if (!query.artists.length) throw new ApiError(422, "PROMPT_NOT_UNDERSTOOD", "Укажите популярный жанр, десятилетие или имя известного исполнителя. Например: «рок 90-х», «Queen и ABBA», «Linkin Park». Неизвестные песни не добавляются для заполнения.");
-  const keyBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({ version: 9, region: query.region, artists: query.artists, genres: query.genreSlugs, decade: query.decade, explicitArtists: query.explicitArtists, canonicalIds: query.canonicalIds, count: options.count ?? 50 })));
+  const keyBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({ version: 11, region: query.region, artists: query.artists, genres: query.genreSlugs, decade: query.decade, explicitArtists: query.explicitArtists, canonicalIds: query.canonicalIds })));
   const key = `popular-pool-${Array.from(new Uint8Array(keyBytes)).map(value => value.toString(16).padStart(2, "0")).join("")}`;
   const cached = await database().prepare("SELECT track_data, updated_at FROM echo_media_collections WHERE id = ?").bind(key).first<{ track_data: string; updated_at: number }>();
-  type CachedPool = { deck: Track[]; scanned: number; forceExpand?: boolean };
-  const prior = cached && cached.updated_at > Date.now() - 21600000 ? await readJson<CachedPool>(cached.track_data) : { deck: [], scanned: 0 };
+  type CachedPool = { deck: Track[]; scanned: number; forceExpand?: boolean;verifiedDeck?:Track[];relatedArtists?:Artist[];relatedCursor?:number };
+  const preindexed=!query.decade&&!query.region&&!query.explicitArtists?compactPool(query.genreSlugs.flatMap(slug=>readyGenreIndexes[slug]?.deck??[])):[];
+  const prior:CachedPool = cached && cached.updated_at > Date.now() - 21600000 ? await readJson<CachedPool>(cached.track_data) : { deck: preindexed, scanned: 0,verifiedDeck:preindexed };
   let deck = prior.deck, scanned = prior.scanned;
-  const target = options.count ?? 50, seeds = query.artists;
-  const stopAt = Math.min(seeds.length, scanned + (query.decade || query.genreSlugs.length ? 4 : 16));
-  const enough = () => options.allowArtistRepeats === false ? new Set(deck.map(track => normalized(track.artist))).size >= target : deck.length >= Math.max(target+5, Math.min(400, target * 5)) && new Set(deck.map(track=>normalized(track.artist))).size >= Math.min(seeds.length, Math.max(10,Math.ceil(target/3)));
+  const target = options.count ?? 50, seeds = [...new Set([...query.artists,...(prior.relatedArtists??[]).map(artist=>artist.name)])];
+  const uniqueCount=(tracks:Track[])=>new Set(tracks.map(track=>normalized(track.artist))).size;
+  // A verified index is shared across requested lengths and difficulty levels.
+  // Broad categories never stop at a handful of artists when a diverse deck is possible.
+  const diverseTarget=query.explicitArtists?Math.min(target,seeds.length):target;
+  if(prior.verifiedDeck?.length&&prior.verifiedDeck.length>=target&&uniqueCount(prior.verifiedDeck)>=diverseTarget){selectPopularTracks(prior.verifiedDeck,options,seeds.length>1);return prior.verifiedDeck;}
+  const stopAt = Math.min(seeds.length, scanned + (query.decade ? 8 : 16));
+  const enough = () => deck.length >= target && uniqueCount(deck) >= diverseTarget;
   // Expand in bounded batches. Metadata caches make subsequent count changes cheap.
   // Explicit selections are all checked, while a broad scene stops once it has enough choices.
-  while (scanned < stopAt && (query.explicitArtists || query.region === "UA" || prior.forceExpand || !enough())) {
-    const start = scanned, names = seeds.slice(start, Math.min(stopAt, start + (query.decade || query.genreSlugs.length ? 4 : 8)));
-    const resolved = await Promise.allSettled(names.map((name, offset) => query.canonicalIds ? canonicalArtistId(query.canonicalIds[start + offset]) : resolveArtist(name)));
+  while (scanned < stopAt && (query.explicitArtists || prior.forceExpand || !enough())) {
+    const start = scanned, names = seeds.slice(start, Math.min(stopAt, start + 8));
+    const resolved = await Promise.allSettled(names.map((name, offset) => query.canonicalIds?.[start+offset] ? canonicalArtistId(query.canonicalIds[start + offset]) : prior.relatedArtists?.find(artist=>normalized(artist.name)===normalized(name))??resolveArtist(name)));
     const artists: Artist[] = [];
     for (const value of resolved) {
       if (value.status === "fulfilled") artists.push(value.value);
@@ -427,18 +481,37 @@ async function queryPool(query: PopularQuery, options: DeckOptions = {}) {
     for (const value of results) { if (value.status === "fulfilled") deck.push(...(query.region==="UA"?value.value.filter(ukrainianTrackAllowed):value.value)); else throw value.reason; }
     scanned += names.length;
     deck = compactPool(deck);
-    await cacheMetadata(key, { deck, scanned, forceExpand: prior.forceExpand });
+    await cacheMetadata(key, {...prior,deck,scanned,forceExpand:prior.forceExpand});
   }
-  if (scanned < seeds.length && (query.explicitArtists || query.region === "UA" || prior.forceExpand || !enough())) throw new ApiError(503, "CATALOG_PREPARING", "Проверяем расширенный каталог. Повторите запрос через несколько секунд — уже найденные песни сохранены.", { available: options.allowArtistRepeats === false ? new Set(deck.map(track => normalized(track.artist))).size : deck.length, required: target, checkedArtists: scanned, canRetry: true });
+  if (scanned < seeds.length && (query.explicitArtists || prior.forceExpand || !enough())) throw new ApiError(503, "CATALOG_PREPARING", "Доповнюємо індекс категорії. Уже знайдені пісні збережено.", { available: options.allowArtistRepeats === false ? uniqueCount(deck) : deck.length, required: target, checkedArtists: scanned, canRetry: true });
   const rawDeck = deck;
-  if(query.genreSlugs.length)deck=await verifyGenrePool(spreadArtists(deck),query.genreSlugs,target,options.allowArtistRepeats!==false);
+  if(query.genreSlugs.length){
+    const indexed=deck.filter(track=>track.categorySources?.some(source=>source.startsWith('https://api.deezer.com/chart/'))&&track.genres.some(slug=>query.genreSlugs.includes(slug)));
+    const needUnique=!query.explicitArtists||options.allowArtistRepeats===false;
+    const known=new Set(indexed.map(track=>track.id)),indexedArtists=new Set(indexed.map(track=>normalized(track.artist)));
+    const remaining=deck.filter(track=>!known.has(track.id)&&(!needUnique||!indexedArtists.has(normalized(track.artist))));
+    const needed=Math.max(0,target-(needUnique?uniqueCount(indexed):indexed.length));
+    const extra=needed?await (query.genreSlugs.every(slug=>addedProviderGenres[slug])?verifyAddedGenres:verifyGenrePool)(spreadArtists(remaining),query.genreSlugs,needed,!needUnique):[];
+    deck=compactPool([...indexed,...extra]);
+  }
   if(query.decade)deck=await verifyEraPool(spreadArtists(deck),query.decade,target,options.allowArtistRepeats!==false);
   const available = options.allowArtistRepeats === false ? new Set(deck.map(track => normalized(track.artist))).size : deck.length;
-  if (available < target && scanned < seeds.length) {
-    await cacheMetadata(key, {deck: rawDeck, scanned, forceExpand: true});
+  if ((available < target||!query.explicitArtists&&uniqueCount(deck)<target) && scanned < seeds.length) {
+    await cacheMetadata(key, {...prior,deck:rawDeck,scanned,forceExpand:true,verifiedDeck:deck});
     throw new ApiError(503, "CATALOG_PREPARING", "Ищем дополнительные песни с подтверждённой категорией.", {available, required: target, checkedArtists: scanned, canRetry: true});
   }
-  await cacheMetadata(key, {deck: rawDeck, scanned, forceExpand: false});
+  if(!query.explicitArtists&&query.genreSlugs.length&&query.genreSlugs.every(slug=>addedProviderGenres[slug])&&uniqueCount(deck)<target){
+    let cursor=prior.relatedCursor??0;const known=new Set(seeds.map(normalized)),related=[...(prior.relatedArtists??[])];
+    // Follow real related-artist identities; the next request resumes this crawl.
+    const sources=seeds.slice(cursor,cursor+4);cursor+=sources.length;
+    for(const name of sources){
+      const artist=related.find(artist=>normalized(artist.name)===normalized(name))??await resolveArtist(name);
+      const response=await deezerRequest<{data?:Artist[]}>('/artist/'+artist.id+'/related?limit=100');
+      for(const candidate of response.data??[]){const normalizedName=normalized(candidate.name);if(!known.has(normalizedName)&&Number.isSafeInteger(candidate.id)&&candidate.id>0){known.add(normalizedName);related.push(candidate);}}
+    }
+    await cacheMetadata(key,{...prior,deck:rawDeck,scanned,forceExpand:related.length>(prior.relatedArtists?.length??0),verifiedDeck:deck,relatedArtists:related,relatedCursor:cursor});
+    if(related.length>(prior.relatedArtists?.length??0)||cursor<seeds.length)throw new ApiError(503,'CATALOG_PREPARING','Розширюємо індекс через пов’язаних виконавців Deezer.',{available:uniqueCount(deck),required:target,checkedArtists:scanned,canRetry:true});
+  }else await cacheMetadata(key, {...prior,deck:rawDeck,scanned,forceExpand:false,verifiedDeck:deck});
   selectPopularTracks(deck, options, query.artists.length > 1);
   return deck;
 }
@@ -447,7 +520,11 @@ export async function popularDeck(id: string, settings?: Settings) {
   if (!definition || !card) throw new ApiError(404, "COLLECTION_NOT_FOUND", "Подборка не найдена.");
   if(card.selectedArtistCount&&card.selectedArtistCount<(settings?.count??10))settings={...settings!,allowArtistRepeats:true};
   const preset=readyDecks.get(definition.slug), songOnly=definition.category==='artist';
-  if(preset&&(settings?.count??10)<=preset.length){const allowArtistRepeats=definition.artists.length<(settings?.count??10)||settings?.allowArtistRepeats!==false;const deck=selectPopularTracks(validatePopularSnapshot(preset),{...settings,allowArtistRepeats},!songOnly);return{collection:{...card,trackIds:deck.map(track=>track.id)},deck,songOnly};}
+  const wanted=settings?.count??10,uniquePreset=new Set((preset??[]).map(track=>normalized(track.artist))).size;
+  if(preset&&wanted<=preset.length&&(card.selectedArtistCount||uniquePreset>=wanted)){
+    const deck=selectPopularTracks(validatePopularSnapshot(preset),settings,!songOnly);
+    return{collection:{...card,trackIds:deck.map(track=>track.id)},deck,songOnly};
+  }
   const query: PopularQuery = { theme:definition.theme ?? (definition.slug==="ballads"?"ballads":definition.slug==="eurovision"?"eurovision":undefined), artists: definition.artists, genreSlugs: definition.genreSlugs ?? (definition.category === "genre" && definition.slug!=="ballads" ? [definition.slug] : []), decade:definition.decade, region:definition.region, canonicalIds:definition.canonicalIds, title: definition.title, category: definition.category, explicitArtists: definition.category === "artist" || !!card.selectedArtistCount };
   const deck = selectPopularTracks(await queryPool(query, settings), settings, definition.category !== "artist");
   const collection: Collection = { ...card, trackIds: deck.map(track => track.id) };
@@ -497,7 +574,9 @@ export async function streamDeezer(track: Track, request: Request) {
   const range = request.headers.get("range");
   if (range && !/^bytes=\d*-\d*$/.test(range)) throw new ApiError(416, "INVALID_RANGE", "Неверный диапазон аудио.");
   const fresh = await deezerRequest<Recording>(`/track/${track.providerId}`);
-  if (!eligibleRecording(fresh) || fresh.id !== Number(track.providerId)) throw new ApiError(409, "AUDIO_UNAVAILABLE", "Превью этой песни сейчас недоступно у Deezer.");
+  // Selection rules must not reject a valid recording during playback. A user
+  // can explicitly ask Gemini for live recordings, remixes or short songs.
+  if(fresh.id!==Number(track.providerId)||fresh.readable===false||!previewUrl(fresh.preview)||!fresh.artist?.name?.trim()||!fresh.title?.trim())throw new ApiError(409,"AUDIO_UNAVAILABLE","Превью этой песни сейчас недоступно у Deezer.");
   let upstream: Response;
   try { upstream = await fetch(fresh.preview!, { headers: range ? { Range: range } : {}, signal: AbortSignal.timeout(20000) }); }
   catch { throw new ApiError(504, "AUDIO_TIMEOUT", "Аудиофрагмент не загрузился. Повторите воспроизведение."); }

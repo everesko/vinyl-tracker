@@ -214,6 +214,7 @@
     if (event.data?.type === 'echo-vinyl-status') sendReady();
     if (event.data?.type === 'echo-vinyl-locale') setLocale(event.data.locale);
     if (event.data?.type === 'echo-vinyl-refresh') { setLocale(event.data.locale); refresh().catch(() => notify('error', true)); }
+    if (event.data?.type === 'echo-vinyl-pause') { window.App?.stopAudio(); window.App?.stopTrackVideo(); }
   });
   document.addEventListener('DOMContentLoaded', () => {
     setLocale(locale);

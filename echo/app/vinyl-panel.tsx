@@ -10,14 +10,14 @@ const copy = {
 };
 
 /** The complete tracker stays mounted: edits, filters and open dialogs survive tab switches. */
-export default function VinylPanel({ locale, userId }: { locale: Locale; userId?: string }) {
+export default function VinylPanel({ locale, userId, active = true }: { locale: Locale; userId?: string; active?:boolean }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const currentLocale = useRef(locale);
   currentLocale.current = locale;
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
-  const src = useMemo(() => `/vinyl/index.html?owner=${encodeURIComponent(userId || 'guest')}&locale=${locale}&reload=${revision}`, [userId, revision]);
+  const src = useMemo(() => `/vinyl/index.html?version=3&owner=${encodeURIComponent(userId || 'guest')}&locale=${locale}&reload=${revision}`, [userId, revision]);
   const c = copy[locale];
 
   useEffect(() => {
@@ -35,6 +35,7 @@ export default function VinylPanel({ locale, userId }: { locale: Locale; userId?
   }, [src]);
 
   useEffect(() => { frame.current?.contentWindow?.postMessage({ type: 'echo-vinyl-locale', locale }, window.location.origin); }, [locale]);
+  useEffect(() => { if (!active) frame.current?.contentWindow?.postMessage({ type:'echo-vinyl-pause' }, window.location.origin); }, [active]);
 
   return <section className="vinyl-workspace" aria-label={c.title}>
     <div className="vinyl-workspace-heading"><div><span className="eyebrow">ECHO / VINYL</span><h1>{c.title}</h1><p>{c.text}</p></div><span className="vinyl-workspace-disc" aria-hidden="true" /></div>

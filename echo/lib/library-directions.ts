@@ -4,6 +4,7 @@ export type LibraryDirection = {
   titles: { uk: string; en: string; ru: string };
   category: 'genre' | 'era' | 'mix';
   genre?: string;
+  genres?: string[];
   decade?: number;
   region?: 'UA';
   theme?: 'ballads';
@@ -37,6 +38,32 @@ const romanticEras: LibraryDirection[] = [1980, 1990, 2000, 2010].map(decade => 
   titles: { uk: `Романтичні балади ${String(decade).slice(2)}-х`, en: `Romantic ballads · ${decade}s`, ru: `Романтические баллады ${String(decade).slice(2)}-х` },
 }));
 
+// Each of these combines genuine genre indexes, rather than a small fixed artist mix.
+const genreCrossovers: LibraryDirection[] = [
+  {slug:'rock-alternative',category:'mix',genres:['rock','alternative'],titles:{uk:'Рок × Альтернатива',en:'Rock × Alternative',ru:'Рок × Альтернатива'}},
+  {slug:'pop-rnb',category:'mix',genres:['pop','rnb'],titles:{uk:'Поп × R&B',en:'Pop × R&B',ru:'Поп × R&B'}},
+  {slug:'dance-electro',category:'mix',genres:['dance','electro'],titles:{uk:'Dance × Electro',en:'Dance × Electro',ru:'Dance × Electro'}},
+  {slug:'jazz-soul',category:'mix',genres:['jazz','soul'],titles:{uk:'Джаз × Соул',en:'Jazz × Soul',ru:'Джаз × Соул'}},
+  {slug:'blues-rock',category:'mix',genres:['blues','rock'],titles:{uk:'Блюз × Рок',en:'Blues × Rock',ru:'Блюз × Рок'}},
+  {slug:'folk-country',category:'mix',genres:['folk','country'],titles:{uk:'Фолк × Кантрі',en:'Folk × Country',ru:'Фолк × Кантри'}},
+  {slug:'rap-rnb',category:'mix',genres:['hiphop','rnb'],titles:{uk:'Реп × R&B',en:'Rap × R&B',ru:'Рэп × R&B'}},
+  {slug:'pop-alternative',category:'mix',genres:['pop','alternative'],titles:{uk:'Поп × Альтернатива',en:'Pop × Alternative',ru:'Поп × Альтернатива'}},
+  {slug:'reggae-latin',category:'mix',genres:['reggae','latin'],titles:{uk:'Реггі × Латино',en:'Reggae × Latin',ru:'Регги × Латино'}},
+  {slug:'metal-rock',category:'mix',genres:['metal','rock'],titles:{uk:'Метал × Рок',en:'Metal × Rock',ru:'Метал × Рок'}},
+];
+const extraEraGenres:[string,string,string,string,number[]][] = [
+  ['hiphop','Хіп-хоп','Hip-hop','Хип-хоп',[2000,2010,2020]],
+  ['rnb','R&B','R&B','R&B',[1980,1990,2000,2010,2020]],
+  ['metal','Метал','Metal','Метал',[1980,1990,2000,2010]],
+  ['indie-rock','Інді-рок','Indie rock','Инди-рок',[1990,2000,2010,2020]],
+  ['synth-pop','Синті-поп','Synth-pop','Синти-поп',[1980,1990,2000]],
+  ['pop-punk','Поп-панк','Pop-punk','Поп-панк',[1990,2000,2010]],
+];
+const extraGenreEras: LibraryDirection[] = extraEraGenres.flatMap(([genre,uk,en,ru,decades])=>decades.map(decade=>({
+  slug:`${genre}-${decade}`,category:'era' as const,genre,decade,
+  titles:{uk:`${uk} ${String(decade).slice(2)}-х`,en:`${en} · ${decade}s`,ru:`${ru} ${String(decade).slice(2)}-х`},
+})));
+
 // Exact artist mixes reuse checked previews, without asserting a mood or release decade.
 const artistMixes: [string, string[]][] = [
   ['mix-british-icons', ['Queen', 'The Beatles', 'Coldplay', 'Muse', 'Depeche Mode']],
@@ -66,7 +93,7 @@ const mixNames: Record<string, { uk: string; en: string; ru: string }> = {
 };
 
 export const additionalDirections: LibraryDirection[] = [
-  ...genreEras, ...ukrainian, ...romanticEras,
+  ...genreEras, ...ukrainian, ...romanticEras, ...extraGenreEras, ...genreCrossovers,
   ...artistMixes.map(([slug, artists]) => ({
     slug, artists, category: 'mix' as const, ...(slug === 'mix-ukrainian-bands' ? { region: 'UA' as const } : {}),
     titles: mixNames[slug] ?? { uk: artists.join(' × '), en: artists.join(' × '), ru: artists.join(' × ') },

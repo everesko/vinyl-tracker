@@ -2,17 +2,17 @@
 import {RequestError} from './client-request';
 
 export type PlaylistInput={prompt:string;count:number;difficulty:number;allowArtistRepeats:boolean;collectionId?:string};
-export type PlaylistProgress={type:'progress';stage:'planning'|'resolving'|'validating'|'saving';progress:number;resolved:number;requested:number;processed:number;total:number;elapsedMs:number};
+export type PlaylistProgress={type:'progress';stage:'planning'|'splitting'|'assembling';progress:number;resolved:number;requested:number;processed:number;total:number;elapsedMs:number};
 
-/** One request, one deadline. Progress contains counts, never the quiz answers. */
+/** One streamed request. Progress contains counts, never the quiz answers.
+ * Only the user cancels the whole operation; each provider bounds its own I/O. */
 export async function createAIPlaylist<T>(input:PlaylistInput,onProgress:(value:PlaylistProgress)=>void,signal?:AbortSignal):Promise<T>{
  if(signal?.aborted)throw new RequestError('CANCELLED','');
- const controller=new AbortController();let expired=false,reader:ReadableStreamDefaultReader<Uint8Array>|undefined;
+ const controller=new AbortController();let reader:ReadableStreamDefaultReader<Uint8Array>|undefined;
  const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});
- const timer=window.setTimeout(()=>{expired=true;controller.abort();},30000);
  let rejectAbort:(reason:unknown)=>void=()=>{};
  const interrupted=new Promise<never>((_,reject)=>{rejectAbort=reject;});
- const onAbort=()=>rejectAbort(new RequestError(expired?'AI_DEADLINE':'CANCELLED',''));
+ const onAbort=()=>rejectAbort(new RequestError('CANCELLED',''));
  controller.signal.addEventListener('abort',onAbort,{once:true});
  try{
   const response=await Promise.race([fetch('/api/collections/local-ai',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','Accept':'application/x-ndjson'},body:JSON.stringify(input),signal:controller.signal}),interrupted]);
@@ -23,7 +23,7 @@ export async function createAIPlaylist<T>(input:PlaylistInput,onProgress:(value:
    if(!line.trim())return;let event:any;try{event=JSON.parse(line);}catch{throw new RequestError('INVALID_RESPONSE','');}
    if(event.type==='error')throw new RequestError(typeof event.error==='string'?event.error:'SERVER_ERROR',typeof event.message==='string'?event.message:'',event);
    if(event.type==='done'){if(!event.result?.collection||typeof event.result.collection.id!=='string'||event.result.collection.count!==input.count)throw new RequestError('AI_SEARCH_INCOMPLETE','',{available:Number(event.result?.collection?.count)||0,required:input.count});return{result:event.result as T};}
-   if(event.type!=='progress'||!['planning','resolving','validating','saving'].includes(event.stage)||!Number.isFinite(event.progress)||!Number.isFinite(event.resolved)||event.requested!==input.count)throw new RequestError('INVALID_RESPONSE','');
+   if(event.type!=='progress'||!['planning','splitting','assembling'].includes(event.stage)||!Number.isFinite(event.progress)||!Number.isFinite(event.resolved)||event.requested!==input.count)throw new RequestError('INVALID_RESPONSE','');
    onProgress({type:'progress',stage:event.stage,progress:Math.max(0,Math.min(99,event.progress)),resolved:Math.max(0,Math.min(input.count,event.resolved)),requested:input.count,processed:Math.max(0,Number(event.processed)||0),total:Math.max(0,Number(event.total)||0),elapsedMs:Math.max(0,Number(event.elapsedMs)||0)});
   };
   for(;;){
@@ -33,10 +33,10 @@ export async function createAIPlaylist<T>(input:PlaylistInput,onProgress:(value:
    if(chunk.done){const event=consume(pending);if(event)return event.result;throw new RequestError('INVALID_RESPONSE','');}
   }
  }catch(error){
-  if(controller.signal.aborted)throw new RequestError(expired?'AI_DEADLINE':'CANCELLED','');
+  if(controller.signal.aborted)throw new RequestError('CANCELLED','');
   if(error instanceof RequestError)throw error;throw new RequestError('NETWORK','');
  }finally{
-  window.clearTimeout(timer);signal?.removeEventListener('abort',abort);controller.signal.removeEventListener('abort',onAbort);
+  signal?.removeEventListener('abort',abort);controller.signal.removeEventListener('abort',onAbort);
   if(reader)void reader.cancel().catch(()=>{});
   controller.abort();
  }

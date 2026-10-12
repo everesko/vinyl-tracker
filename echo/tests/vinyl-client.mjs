@@ -79,3 +79,11 @@ test('collection modes load concurrently after authenticated identity is establi
   const initialization = h.app.init(); await settle(); assert.equal(started.length, 3); assert.equal(h.messages.length, 0);
   finish.forEach(resolve => resolve()); await initialization; assert.equal(h.messages.length, 1);
 });
+test('album cover and row navigation opens the album songs while buttons, checkboxes and status controls keep their own actions', () => {
+  const h=client(),opened=[];h.app.appMode='albums';h.app.openAlbumTracklistModal=id=>opened.push(id);
+  h.app.onTableRowClick({target:{closest:()=>null}},'master-123');
+  h.app.onTableRowClick({target:{closest:()=>({})}},'master-456');
+  assert.deepEqual(opened,['master-123']);
+  const cover=h.app.getSafeCoverUrl('', 'Queen', 'The Miracle', {id:'master-999',masterId:999});assert.match(cover,/cover-image\?/);assert.equal(new URL(cover,'https://echo.test').searchParams.get('masterId'),'999');
+  h.app.appMode='spotify';h.app.onTableRowClick({target:{closest:()=>null}},'song');assert.equal(opened.length,1);
+});

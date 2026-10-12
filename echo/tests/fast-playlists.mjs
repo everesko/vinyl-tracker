@@ -24,14 +24,14 @@ function load(options={}){
  };
  function read(relative){if(modules.has(relative))return modules.get(relative);const module={exports:{}};modules.set(relative,module.exports);
   const code=ts.transpileModule(fs.readFileSync(new URL('../'+relative,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-  vm.runInNewContext(code,{module,exports:module.exports,require:name=>{if(overrides[name])return overrides[name];if(name.startsWith('@/lib/'))return read(name.slice(2)+'.ts');if(name==='./server/ai-playlists')return read('lib/playlist-plan.ts');throw new Error('Unexpected import '+name);},crypto:webcrypto,AbortController,AbortSignal,JSON,Date,Error,Response,ReadableStream,TextEncoder,console,setTimeout:options.setTimeout??((fn,ms)=>setTimeout(fn,ms===29000?ms:Math.min(ms,2))),clearTimeout,fetch:async(url,init)=>{
+  vm.runInNewContext(code,{module,exports:module.exports,require:name=>{if(overrides[name])return overrides[name];if(name.startsWith('@/lib/'))return read(name.slice(2)+'.ts');if(name==='./server/ai-playlists')return read('lib/playlist-plan.ts');throw new Error('Unexpected import '+name);},crypto:webcrypto,AbortController,AbortSignal,JSON,Date:options.Date??Date,URL,Error,Response,ReadableStream,TextEncoder,console,setTimeout:options.setTimeout??((fn,ms)=>setTimeout(fn,Math.min(ms,2))),clearTimeout,fetch:async(url,init)=>{
    fetchCalls.push({url,init});active++;maximum=Math.max(maximum,active);
    try{
     if(options.fetch)return await options.fetch(url,init,fetchCalls.length);
     await new Promise(resolve=>setTimeout(resolve,options.fetchDelay??6));
     const query=new URL(url).searchParams.get('q'),index=fixture.findIndex(song=>song.artist+' '+song.title===query),artist=fixture[index]?.artist,title=fixture[index]?.title;
     if(index<0||options.missing?.includes(title))return Response.json({data:[]});
-    return Response.json({data:[{id:1000+index,title,artist:{id:options.artistIds?.[artist]??2000+index,name:artist},rank:1000000-index*30000,preview:'https://cdn.test/song.mp3'}]});
+    return Response.json({data:[{id:1000+index,title,artist:{id:options.artistIds?.[artist]??2000+index,name:artist},rank:1000000-index*30000,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]});
    }finally{active--;}
   }});return module.exports;
  }
@@ -51,7 +51,7 @@ test('full exact Deezer deck is resolved in bounded parallel and progress hides 
  const result=await h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'}, {...settings,count:8},new AbortController().signal,event=>progress.push(event));
  assert.equal(result.collection.count,8);assert.equal(h.modelCalls.length,1);assert.equal(h.persisted.length,1);assert.equal(h.persisted[0][3].length,8);
  assert.ok(h.maximum>1&&h.maximum<=6);assert.ok(h.fetchCalls.every(call=>call.init.signal instanceof AbortSignal));
- assert.ok(progress.some(event=>event.stage==='resolving'&&event.processed>0));assert.ok(!JSON.stringify(progress).includes('Song 0'));
+ assert.deepEqual([...new Set(progress.map(event=>event.stage))],['planning','splitting','assembling']);assert.ok(progress.some(event=>event.stage==='assembling'&&event.processed>0));assert.ok(!JSON.stringify(progress).includes('Song 0'));
  assert.equal(h.persisted[0][6].version,2);assert.equal(h.persisted[0][6].classificationSource,'gemini');
 });
 
@@ -64,6 +64,25 @@ test('unused reserves stop resolving as soon as enough fresh distinct performers
  const songs=Array.from({length:20},(_,i)=>sample('Artist '+i,'Song '+i)),h=load({songs});
  await h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},{...settings,count:10},new AbortController().signal);
  assert.equal(h.persisted[0][3].length,10);assert.ok(h.fetchCalls.length<=15);assert.ok(h.fetchCalls.length<20);assert.equal(h.modelCalls.length,1);
+});
+test('missing catalog recordings are filled by one small replacement list without restarting resolved tracks',async()=>{
+ const songs=Array.from({length:6},(_,i)=>sample('Artist '+i,'Song '+i)),history=[{artist:'Previously played',title:'Old song'}];let calls=0;
+ const h=load({songs,history,missing:['Song 2','Song 3'],model:async()=>({text:JSON.stringify({plan,songs:++calls===1?songs.slice(0,4):songs.slice(4)}),model:'gemini-3.8-flash'})}),progress=[];
+ await h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},settings,new AbortController().signal,event=>progress.push(event));
+ assert.equal(h.modelCalls.length,2);assert.equal(h.modelCalls[1][1].limit,4);assert.match(h.modelCalls[1][1].messages[1].content,/2 песен/);assert.match(h.modelCalls[1][1].messages[1].content,/Artist 2:Song 2/);assert.match(h.modelCalls[1][1].messages[1].content,/Previously played:Old song/);
+ assert.deepEqual(Array.from(h.persisted[0][3],track=>track.title),['Song 0','Song 1','Song 4','Song 5']);assert.equal(h.persisted[0][6].catalogRefills,1);
+ assert.ok(progress.every(event=>event.resolved<=4));assert.ok(progress.every((event,index)=>!index||event.progress>=progress[index-1].progress));assert.deepEqual([...new Set(progress.map(event=>event.stage))],['planning','splitting','assembling']);
+});
+test('catalog completion uses at most two replacement lists and never saves a short deck',async()=>{
+ const songs=Array.from({length:3},(_,i)=>sample('Artist '+i,'Song '+i));let calls=0;
+ const h=load({songs,model:async()=>({text:JSON.stringify({plan,songs:[songs[calls++]]}),model:'gemini-3.8-flash'})});
+ await assert.rejects(h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},{...settings,count:5},new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE'&&error.extra.available===3);
+ assert.equal(h.modelCalls.length,3);assert.equal(h.persisted.length,0);assert.equal(h.fetchCalls.length,3);
+});
+test('cancelling while Gemini fills unavailable songs stops the refill and preserves an unsaved collection',async()=>{
+ const songs=[sample('Artist 0','Song 0')];let calls=0,startRefill;const ready=new Promise(resolve=>startRefill=resolve),h=load({songs,model:async()=>{if(!calls++)return{text:JSON.stringify({plan,songs}),model:'gemini-3.8-flash'};startRefill();return new Promise(()=>{});}}),controller=new AbortController();
+ const pending=h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},{...settings,count:2},controller.signal);
+ await ready;controller.abort();await assert.rejects(pending,error=>error.code==='CANCELLED');assert.equal(h.modelCalls.length,2);assert.ok(h.modelCalls[1][2].aborted);assert.equal(h.persisted.length,0);
 });
 
 test('only played exclusions are removed; the entire unplayed generated deck remains eligible',async()=>{
@@ -96,25 +115,34 @@ test('artist diversity wins even with repeats enabled; insufficient no-repeat co
  assert.equal(new Set(h.persisted[0][3].map(track=>track.catalogArtistId)).size,4);
  const few=load({songs:songs.slice(0,3),artistIds:{A:1,B:2},diversityExhausted:true});
  await assert.rejects(few.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},settings,new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE');assert.equal(few.persisted.length,0);
+ await few.api.generateFastPlaylist('owner',{prompt:'very narrowly specified ballads'},{...settings,count:3},new AbortController().signal);assert.equal(few.persisted[0][3].length,3);assert.equal(new Set(few.persisted[0][3].map(track=>track.catalogArtistId)).size,2);
  const permitted=load({songs:songs.slice(0,3),artistIds:{A:1,B:2},diversityExhausted:true,plan:{...plan,artists:['A','B']}});
  await permitted.api.generateFastPlaylist('owner',{prompt:'songs by A and B'},{...settings,count:3},new AbortController().signal);assert.equal(permitted.persisted[0][3].length,3);
  const forbidden=load({songs:songs.slice(0,3),artistIds:{A:1,B:2},diversityExhausted:true});
  await assert.rejects(forbidden.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},{...settings,count:3,allowArtistRepeats:false},new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE');
 });
-
-test('incorrect mood, explicit era/language and wrong difficulty never qualify',()=>{
- const h=load();
- const rows=[sample('A','Highway to Hell',10,2004),sample('B','Wrong Mood',10,2004,'Slow melancholy ballad'),sample('C','Wrong Era',10,1979),sample('D','Wrong Difficulty',2,2004),{...sample('E','Wrong Language'),language:'English'},sample('G','Heartbreak Rock',10,2004,'Heartbreak rock anthem'),sample('H','Love Rock',10,2004,'Romantic love rock anthem'),sample('F','Correct')];
- const result=h.api.parsePlaylistResponse(JSON.stringify({plan,songs:rows,diversityExhausted:false,historyExhausted:false}),'українські романтичні балади українською 00-х',1,20);
- assert.equal(result.songs.length,1);assert.equal(result.songs[0].title,'Correct');assert.deepEqual(JSON.parse(JSON.stringify(result.plan.years)),{from:2000,to:2009});assert.equal(result.plan.language,'Ukrainian');
- assert.ok(result.plan.criteria.some(criterion=>criterion.includes('українські романтичні балади')));
+test('an exhaustion flag never cuts off queued alternative performers just because repeated tracks reach N',async()=>{
+ const songs=[sample('A','One'),sample('A','Two'),sample('A','Three'),sample('A','Four'),sample('A','Five'),sample('A','Six'),sample('B','Seven'),sample('C','Eight'),sample('D','Nine')],h=load({songs,artistIds:{A:1,B:2,C:3,D:4},diversityExhausted:true});
+ await h.api.generateFastPlaylist('owner',{prompt:'niche category'},settings,new AbortController().signal);
+ assert.equal(new Set(h.persisted[0][3].map(track=>track.catalogArtistId)).size,4);assert.ok(h.fetchCalls.length>=9);
 });
 
-test('Ukrainian scene allows regional Russian-language hits but rejects unrelated American hits',()=>{
- const h=load(),regional={...sample('Бумбокс','Вахтерам',10,2007,'Ukrainian scene iconic 2000s hit'),language:'Russian'},american={...sample('Eminem','Without Me',10,2002,'American hip-hop hit'),language:'English'};
- const response=JSON.stringify({plan:{...plan,language:'Ukrainian'},songs:[regional,american],diversityExhausted:false,historyExhausted:false});
- const broad=h.api.parsePlaylistResponse(response,'українські хіти 00-х',1,20);assert.equal(broad.songs.length,1);assert.equal(broad.songs[0].title,'Вахтерам');assert.equal(broad.plan.language,null);
- const lyrics=h.api.parsePlaylistResponse(response,'українські хіти українською 00-х',1,20);assert.equal(lyrics.songs.length,0);assert.equal(lyrics.plan.language,'Ukrainian');
+test('semantic category, era and difficulty are curated by Gemini without per-song grading metadata',()=>{
+ const h=load();
+ const rows=[{artist:'Скрябін',title:'Старі фотографії'},{artist:'Океан Ельзи',title:'Без бою'}];
+ const result=h.api.parsePlaylistResponse(JSON.stringify({plan,songs:rows,diversityExhausted:false,historyExhausted:false}),'українські романтичні балади українською 00-х',1,20);
+ assert.equal(result.songs.length,2);assert.deepEqual(JSON.parse(JSON.stringify(result.songs)),rows);assert.deepEqual(JSON.parse(JSON.stringify(result.plan.years)),{from:2000,to:2009});assert.equal(result.plan.language,'Ukrainian');
+ assert.ok(result.plan.criteria.some(criterion=>criterion.includes('українські романтичні балади')));
+ const request=h.api.playlistRequest('українські романтичні балади 00-х',20,1,true,[]);
+ assert.deepEqual(JSON.parse(JSON.stringify(request.responseSchema.properties.songs.items.required)),['artist','title']);
+ assert.match(request.messages[0].content,/original song release year/);assert.match(request.messages[0].content,/Romantic ballads must be ballads AND/);
+});
+
+test('country and sung language remain different prompt constraints without another catalog analysis',()=>{
+ const h=load(),regional={artist:'Бумбокс',title:'Вахтерам'};
+ const response=JSON.stringify({plan:{...plan,language:'Ukrainian'},songs:[regional],diversityExhausted:false,historyExhausted:false});
+ const broad=h.api.parsePlaylistResponse(response,'українські хіти 00-х',1,20);assert.equal(broad.songs.length,1);assert.equal(broad.plan.language,null);
+ const lyrics=h.api.parsePlaylistResponse(response,'українські хіти українською 00-х',1,20);assert.equal(lyrics.plan.language,'Ukrainian');
 });
 test('excluded ballads/country/decade are not imposed as positive conditions',()=>{
  const h=load(),song={...sample('Queen','Somebody to Love',10,1976,'British rock love anthem'),language:'English'},response=JSON.stringify({plan:{...plan,years:{from:1970,to:1979}},songs:[song],diversityExhausted:false,historyExhausted:false});
@@ -122,20 +150,20 @@ test('excluded ballads/country/decade are not imposed as positive conditions',()
 });
 
 test('wrong Deezer artist/title identities and missing previews are never replaced with unrelated tracks',async()=>{
- const h=load({fetch:async()=>Response.json({data:[{id:9,title:'Unrelated hit',artist:{id:10,name:'Somebody else'},rank:1000000,preview:'https://cdn.test/song.mp3'}]})});
+ const h=load({fetch:async()=>Response.json({data:[{id:9,title:'Unrelated hit',artist:{id:10,name:'Somebody else'},rank:1000000,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]})});
  await assert.rejects(h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},settings,new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE');assert.equal(h.persisted.length,0);
 });
 
 test('ISO Ukrainian language and Latin catalog spelling resolve the same song',async()=>{
- const songs=[{...sample('Океан Ельзи','Не питай'),language:'uk'}],h=load({songs,fetch:async()=>Response.json({data:[{id:91,title:'Ne pytai',artist:{id:92,name:'Okean Elzy'},rank:900000,preview:'https://cdn.test/song.mp3'}]})});
+ const songs=[{...sample('Океан Ельзи','Не питай'),language:'uk'}],h=load({songs,fetch:async()=>Response.json({data:[{id:91,title:'Ne pytai',artist:{id:92,name:'Okean Elzy'},rank:900000,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]})});
  const result=await h.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal);
  assert.equal(result.collection.count,1);assert.equal(h.persisted[0][3][0].providerId,'91');
- const other=load({songs,fetch:async()=>Response.json({data:[{id:91,title:'Bez boiu',artist:{id:92,name:'Okean Elzy'},rank:900000,preview:'https://cdn.test/song.mp3'}]})});
+ const other=load({songs,fetch:async()=>Response.json({data:[{id:91,title:'Bez boiu',artist:{id:92,name:'Okean Elzy'},rank:900000,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]})});
  await assert.rejects(other.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE');
 });
 
 test('Cyrillic artist lookup falls back once to the title and verifies the canonical performer',async()=>{
- const songs=[{...sample('Тіна Кароль','Вище хмар'),language:'ukr'}],h=load({songs,fetch:async url=>Response.json({data:new URL(url).searchParams.get('q')==='Вище хмар'?[{id:93,title:'Вище хмар',artist:{id:94,name:'Tina Karol'},rank:900000,preview:'https://cdn.test/song.mp3'},{id:95,title:'Вище хмар',artist:{id:96,name:'SHUMEI'},rank:950000,preview:'https://cdn.test/song.mp3'}]:[]})});
+ const songs=[{...sample('Тіна Кароль','Вище хмар'),language:'ukr'}],h=load({songs,fetch:async url=>Response.json({data:new URL(url).searchParams.get('q')==='Вище хмар'?[{id:93,title:'Вище хмар',artist:{id:94,name:'Tina Karol'},rank:900000,preview:'https://cdn-preview.dzcdn.net/song.mp3'},{id:95,title:'Вище хмар',artist:{id:96,name:'SHUMEI'},rank:950000,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]:[]})});
  await h.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal);
  assert.equal(h.fetchCalls.length,2);assert.equal(h.persisted[0][3][0].artist,'Tina Karol');assert.equal(h.persisted[0][3][0].providerId,'93');
 });
@@ -150,11 +178,11 @@ test('valid empty factual list produces an incomplete-search error rather than m
  await assert.rejects(h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},settings,new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE'&&error.extra.available===0);assert.equal(h.persisted.length,0);
 });
 
-test('preexisting independent original-year evidence rejects songs outside requested decade',async()=>{
+test('assembly uses the Gemini list without reopening independent release-year sources',async()=>{
  const songs=Array.from({length:5},(_,i)=>sample('Artist '+i,'Song '+i)),h=load({songs});
  h.stored.set('original-year-v10:1000',{data:JSON.stringify({year:1979,status:'verified'}),at:Date.now()});
  await h.api.generateFastPlaylist('owner',{prompt:'романтичні балади 00-х'},settings,new AbortController().signal);
- assert.ok(!h.persisted[0][3].some(track=>track.providerId==='1000'));
+ assert.ok(h.persisted[0][3].some(track=>track.providerId==='1000'));assert.equal(h.modelCalls.length,1);
 });
 
 test('provider quota failures stop the operation without loops or partial saved collections',async()=>{
@@ -169,11 +197,12 @@ test('cancellation interrupts a pending Gemini request and produces no deck',asy
  await assert.rejects(operation,error=>error.code==='CANCELLED');assert.equal(h.persisted.length,0);assert.equal(h.fetchCalls.length,0);assert.ok(h.modelCalls[0][2].aborted);
 });
 
-test('the stream has a hard total deadline, emits typed timeout, and never waits endlessly',async()=>{
- const timeouts=[],h=load({model:async()=>new Promise(()=>{}),setTimeout(fn,ms){timeouts.push(ms);return setTimeout(fn,ms===29000?12:Math.min(ms,2));}});
+test('generation lasting beyond thirty seconds completes without an overall deadline',async()=>{
+ let now=1000;class Clock extends Date{static now(){return now;}}
+ const timeouts=[],songs=Array.from({length:5},(_,i)=>({artist:'Artist '+i,title:'Song '+i})),h=load({songs,Date:Clock,model:async()=>{now+=41000;return{text:JSON.stringify({plan,songs}),model:'gemini-3.8-flash'};},setTimeout(fn,ms){timeouts.push(ms);return setTimeout(fn,Math.min(ms,2));}});
  const response=h.api.playlistStream('owner',{prompt:'romantic ballads'},settings,new AbortController().signal),events=(await response.text()).trim().split('\n').map(JSON.parse);
- assert.equal(timeouts[0],29000);assert.equal(events.at(-1).type,'error');assert.equal(events.at(-1).error,'AI_DEADLINE');assert.equal(h.persisted.length,0);assert.ok(h.modelCalls[0][2].aborted);
- assert.ok(!events.some(event=>event.type==='done'));
+ assert.ok(!timeouts.includes(29000)&&!timeouts.includes(30000));assert.equal(events.at(-1).type,'done');assert.equal(events.at(-1).result.collection.count,4);
+ assert.ok(events.some(event=>event.elapsedMs>=41000));assert.equal(events.filter(event=>event.type==='error').length,0);
 });
 
 test('existing collections are owner-checked before any Gemini or provider access',async()=>{
@@ -192,10 +221,11 @@ test('successful stream contains progress and one done result only',async()=>{
  assert.match(response.headers.get('content-type'),/application\/x-ndjson/);assert.equal(events.filter(event=>event.type==='done').length,1);assert.equal(events.filter(event=>event.type==='error').length,0);assert.equal(events.at(-1).result.collection.count,4);
 });
 
-test('fast Gemini configuration makes only one attempt, has schema and low thinking',async()=>{
+test('transient Gemini overload retries the same compact list once, with low thinking',async()=>{
  const calls=[],module={exports:{}};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,JSON,Error,console,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,JSON,Error,console,setTimeout:fn=>setTimeout(fn,1),clearTimeout,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
  await assert.rejects(module.exports.geminiCompletion('owner',{purpose:'fast-playlist',limit:100,messages:[{role:'user',content:'a'.repeat(20000)}],responseSchema:{type:'object'}},new AbortController().signal),error=>error.code==='GEMINI_UNAVAILABLE');
- assert.equal(calls.length,1);assert.ok(calls[0].url.includes('gemini-3.8-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
+ assert.equal(calls.length,2);assert.equal(calls[0].url,calls[1].url);assert.equal(calls[0].options.body,calls[1].options.body);assert.ok(calls[0].url.includes('gemini-3.8-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
  assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
+ assert.equal(config.maxOutputTokens,7424);
 });

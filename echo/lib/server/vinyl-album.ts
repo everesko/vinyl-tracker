@@ -4,7 +4,7 @@ import {ApiError} from './http';
 import {addVinylAlbum,discogsJson,readVinylTables} from './vinyl';
 
 type Artist = {id?:number;name?:string;anv?:string};
-type DeezerAlbum = {id:number;title:string;record_type?:string;release_date?:string;artist?:Artist;cover_xl?:string;cover_big?:string;link?:string};
+type DeezerAlbum = {id:number;title:string;record_type?:string;release_date?:string;artist?:Artist;cover_xl?:string;cover_big?:string;cover_medium?:string;link?:string;nb_tracks?:number;tracks?:{data?:Recording[]}};
 type Recording = {id:number;title:string;title_short?:string;isrc?:string;artist?:Artist;album?:DeezerAlbum};
 type DiscogsTrack = {title?:string;type_?:string;artists?:Artist[];sub_tracks?:DiscogsTrack[]};
 type Release = {id:number;title?:string;master_id?:number;artists?:Artist[];formats?:{name?:string;descriptions?:string[];qty?:string}[];tracklist?:DiscogsTrack[];year?:number;country?:string;images?:{type?:string;uri?:string;uri150?:string}[];genres?:string[];styles?:string[];labels?:{name?:string;catno?:string}[]};
@@ -208,9 +208,18 @@ export async function addGameVinylAlbum(request:Request,userId:string,id:string,
   if(state.index!==round)throw new ApiError(409,'STALE_ROUND','Раунд змінився. Спробуйте додати поточний альбом.');
   const track=audioTrack(row,Number(round)),tables=await readVinylTables(userId,'albums');
   if(tableId&&!tables.tables.some(table=>table.id===tableId))throw new ApiError(404,'VINYL_TABLE_NOT_FOUND','Таблицю альбомів не знайдено.');
-  const existing=tables.tables.flatMap(table=>table.items.map(item=>({table,item}))).find(({item})=>item.vinylVerified===true&&Number(item.deezerTrackId)===Number(track.providerId)&&Number.isSafeInteger(item.verifiedVinylReleaseId));
+  const existing=tables.tables.flatMap(table=>table.items.map(item=>({table,item}))).find(({item})=>Number(item.deezerTrackId)===Number(track.providerId)&&(Number(item.deezerAlbumId)>0||item.vinylVerified===true&&Number.isSafeInteger(item.verifiedVinylReleaseId)));
   const hidden=state.phase!=='reveal';
-  if(existing)return {added:false,tableName:existing.table.name,hidden,...(!hidden?{album:{artist:existing.item.artist,title:existing.item.title,coverImage:existing.item.coverImage,uri:existing.item.uri}}:{})};
-  const album=await resolveVinylAlbum(request,track),saved=await addVinylAlbum(userId,album,tableId as string|undefined);
-  return {added:saved.added,tableName:saved.tableName,hidden,...(!hidden?{album:{artist:album.artist,title:album.title,coverImage:album.coverImage,uri:album.uri}}:{})};
+  if(existing)return {added:false,tableName:existing.table.name,hidden,vinylVerified:existing.item.vinylVerified===true,...(!hidden?{album:{artist:existing.item.artist,title:existing.item.title,coverImage:existing.item.coverImage,uri:existing.item.uri}}:{})};
+  const source=await exactRecording(request,track);
+  const album={
+    id:`deezer-album-${source.album.id}`,artist:source.album.artist!.name!,title:source.album.title,album:source.album.title,
+    year:source.album.release_date?.slice(0,4)??'',coverImage:safeUrl(source.album.cover_xl)||safeUrl(source.album.cover_big)||safeUrl(source.album.cover_medium)||safeUrl(track.artworkUrl),
+    status:'buy',rating:0,notes:'',createdAt:new Date().toISOString(),source:'quiz',
+    deezerTrackId:Number(track.providerId),deezerAlbumId:source.album.id,deezerAlbumUrl:`https://www.deezer.com/album/${source.album.id}`,
+    vinylVerified:false,vinylStatus:'unverified',versionsCount:null,recordType:source.album.record_type??'album',totalTracks:source.album.nb_tracks??null,
+  };
+  if(request.signal.aborted)throw new ApiError(499,'REQUEST_CANCELLED','Запит скасовано.');
+  const saved=await addVinylAlbum(userId,album,tableId as string|undefined);
+  return {added:saved.added,tableName:saved.tableName,hidden,vinylVerified:saved.item.vinylVerified===true,...(!hidden?{album:{artist:album.artist,title:album.title,coverImage:album.coverImage,uri:album.deezerAlbumUrl}}:{})};
 }
