@@ -242,8 +242,10 @@ async function publicJson(url: string) {
   const existing = pending.get(key); if (existing) return existing;
   const task = (async () => {
   let response: Response;
-  try { response = await fetch(url, { headers: { 'User-Agent': userAgent, Accept: 'application/json' }, signal: AbortSignal.timeout(12000), redirect: 'error' }); }
-  catch { throw new ApiError(502, 'MUSIC_PROVIDER_UNAVAILABLE', 'Музичний каталог тимчасово недоступний.'); }
+  // Match the working quiz metadata transport. These fixed Deezer/Apple URLs
+  // receive no provider secrets or incoming request headers.
+  try { response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12000) }); }
+  catch(error) { console.warn('ECHO vinyl public metadata fetch failed',{provider:parsed.hostname,path:parsed.pathname,name:error instanceof Error?error.name:'unknown',message:error instanceof Error?error.message.slice(0,200):'network failure'}); throw new ApiError(502, 'MUSIC_PROVIDER_UNAVAILABLE', 'Музичний каталог тимчасово недоступний.'); }
   if (!response.ok) throw new ApiError(502, 'MUSIC_PROVIDER_UNAVAILABLE', 'Музичний каталог тимчасово недоступний.');
   const data = await readNetworkJson(response);
   if (data.error) throw new ApiError(502, 'MUSIC_PROVIDER_UNAVAILABLE', 'Музичний каталог не зміг виконати запит.');

@@ -9,17 +9,17 @@ const track={id:'deezer-123',provider:'deezer',providerId:'123',artist:'Queen',t
 const recording={id:123,title:track.title,isrc:'GBUM71029604',artist:{id:99,name:'Queen'},album:{id:456,title:'A Night At The Opera'}};
 const album={id:456,title:'A Night At The Opera',record_type:'album',release_date:'1975-11-21',artist:recording.artist};
 const release={id:789,title:album.title,master_id:999,artists:[{name:'Queen'}],formats:[{name:'Vinyl',descriptions:['LP','Album']}],year:1975,tracklist:[{title:track.title,type_:'track'}],images:[{type:'primary',uri:'https://i.discogs.com/image.jpg'}]};
-function harness({round=0,phase='playing',owner='owner',savedItems=[],tables=[{id:'tbl_albums_default',name:'Albums',items:savedItems}],source={},discs={},brainz={},sourceFailure,discogsFailure}={}){
+function harness({round=0,phase='playing',owner='owner',savedItems=[],tables=[{id:'tbl_albums_default',name:'Albums',items:savedItems}],source={},discs={},brainz={},sourceFailure,discogsFailure,currentState,beforeSource}={}){
   const calls=[],saves=[],gameCalls=[],module={exports:{}};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/vinyl-album.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
     module,exports:module.exports,require:name=>name==='./http'?{ApiError}:name==='./games'?{
-      loadGame:async(user,id)=>{gameCalls.push({user,id});if(user!==owner)throw new ApiError(404,'GAME_NOT_FOUND','');return {id,user_id:user,state:JSON.stringify({index:round,phase})};},audioTrack:()=>track,
+      loadGame:async(user,id)=>{gameCalls.push({user,id});if(user!==owner)throw new ApiError(404,'GAME_NOT_FOUND','');return {id,user_id:user,state:JSON.stringify(currentState??{index:round,phase})};},audioTrack:()=>track,
     }:name==='./vinyl'?{
       readVinylTables:async user=>{assert.equal(user,owner);return {tables};},
       addVinylAlbum:async(user,item,tableId)=>{saves.push({user,item,tableId});return {added:true,tableName:tables.find(table=>table.id===tableId)?.name??tables[0].name,item};},
       discogsJson:async(request,path)=>{calls.push({source:'discogs',path});if(discogsFailure&&(path.startsWith('/database/search?')||discogsFailure.code!=='DISCOGS_NOT_CONNECTED'))throw discogsFailure;return discs[path]??(path.startsWith('/database/search?')?{results:[{id:789,title:`Queen - ${album.title}`,type:'release'}],pagination:{pages:1}}:release);},
     }:{},
-    fetch:async url=>{calls.push({source:url.startsWith('https://musicbrainz.org/')?'musicbrainz':'deezer',url});if(sourceFailure)throw sourceFailure;const path=new URL(url).pathname+new URL(url).search;if(url.startsWith('https://musicbrainz.org/'))return Response.json(brainz[path]??{'release-groups':[]});return Response.json(source[path]??(path==='/track/123'?recording:path==='/album/456'?album:{error:{code:800}}));},
+    fetch:async url=>{calls.push({source:url.startsWith('https://musicbrainz.org/')?'musicbrainz':'deezer',url});await beforeSource?.(url);if(sourceFailure)throw sourceFailure;const path=new URL(url).pathname+new URL(url).search;if(url.startsWith('https://musicbrainz.org/'))return Response.json(brainz[path]??{'release-groups':[]});return Response.json(source[path]??(path==='/track/123'?recording:path==='/album/456'?album:{error:{code:800}}));},
     AbortSignal,Request,Response,URL,URLSearchParams,JSON,Date,Number,Map,Set,Error,setTimeout,clearTimeout,
   });
   return {api:module.exports,calls,saves,gameCalls};
@@ -48,6 +48,17 @@ test('owned current-round save detects exact Deezer album and saves wishlist imm
 
 test('reveal result can show the identified album and custom album table receives the item',async()=>{
   const h=harness({phase:'reveal',tables:[{id:'table-2',name:'Wish list',items:[]}]}),result=await h.api.addGameVinylAlbum(request,'owner','game',0,'table-2');assert.equal(result.hidden,false);assert.equal(result.album.title,album.title);assert.equal(result.tableName,'Wish list');assert.equal(h.saves[0].tableId,'table-2');
+});
+
+test('moving to another round or closing the game during album lookup prevents a stale save',async()=>{
+  for(const changed of [{index:1,phase:'playing'},{index:0,phase:'cancelled'},{index:0,phase:'finished'}]){
+    const currentState={index:0,phase:'playing'},entered=Promise.withResolvers(),resume=Promise.withResolvers();
+    const h=harness({currentState,beforeSource:async url=>{if(url.endsWith('/album/456')){entered.resolve();await resume.promise;}}});
+    const pending=h.api.addGameVinylAlbum(request,'owner','game',0);
+    await entered.promise;Object.assign(currentState,changed);resume.resolve();
+    await assert.rejects(pending,error=>error.code===(changed.index===1?'STALE_ROUND':'VINYL_GAME_CLOSED'));
+    assert.equal(h.saves.length,0);assert.equal(h.gameCalls.length,2);
+  }
 });
 test('source identity must match the stored recording; title-only or unrelated metadata cannot save',async()=>{
   for(const change of [{id:124},{artist:{id:998,name:'Other Artist'}},{title:'Another song'}]){const h=harness({source:{'/track/123':{...recording,...change}}});await assert.rejects(h.api.addGameVinylAlbum(request,'owner','game',0),error=>error.code==='VINYL_RECORDING_CHANGED');assert.equal(h.saves.length,0);assert.ok(h.calls.every(call=>call.source==='deezer'));}

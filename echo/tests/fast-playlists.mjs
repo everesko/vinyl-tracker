@@ -221,11 +221,11 @@ test('successful stream contains progress and one done result only',async()=>{
  assert.match(response.headers.get('content-type'),/application\/x-ndjson/);assert.equal(events.filter(event=>event.type==='done').length,1);assert.equal(events.filter(event=>event.type==='error').length,0);assert.equal(events.at(-1).result.collection.count,4);
 });
 
-test('transient Gemini overload retries the same compact list once, with low thinking',async()=>{
+test('transient Gemini overload switches between documented free models with the same compact list and low thinking',async()=>{
  const calls=[],module={exports:{}};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,JSON,Error,console,setTimeout:fn=>setTimeout(fn,1),clearTimeout,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,AbortController,JSON,Error,console,setTimeout:fn=>setTimeout(fn,1),clearTimeout,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
  await assert.rejects(module.exports.geminiCompletion('owner',{purpose:'fast-playlist',limit:100,messages:[{role:'user',content:'a'.repeat(20000)}],responseSchema:{type:'object'}},new AbortController().signal),error=>error.code==='GEMINI_UNAVAILABLE');
- assert.equal(calls.length,2);assert.equal(calls[0].url,calls[1].url);assert.equal(calls[0].options.body,calls[1].options.body);assert.ok(calls[0].url.includes('gemini-3.8-flash'));const config=JSON.parse(calls[0].options.body).generationConfig;
+ assert.equal(calls.length,3);assert.equal(new Set(calls.map(call=>call.url)).size,3);assert.ok(calls.every(call=>call.options.body===calls[0].options.body));assert.ok(calls[0].url.includes('gemini-3.5-flash:'));assert.ok(calls[1].url.includes('gemini-3.5-flash-lite:'));assert.ok(calls[2].url.includes('gemini-3.8-flash:'));const config=JSON.parse(calls[0].options.body).generationConfig;
  assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
  assert.equal(config.maxOutputTokens,7424);
 });

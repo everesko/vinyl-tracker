@@ -51,9 +51,11 @@ export function vinylReleaseMatches(release:Release,expected:ExpectedAlbum){
 
 async function deezer<T>(request:Request,path:string):Promise<T>{
   let response:Response;
-  try{response=await fetch(`https://api.deezer.com${path}`,{headers:{Accept:'application/json'},signal:AbortSignal.any([request.signal,AbortSignal.timeout(12000)]),redirect:'error'});}
-  catch{throw new ApiError(503,'VINYL_SOURCE_UNAVAILABLE','Не вдалося перевірити альбом у Deezer. Повторіть спробу.');}
-  if(!response.ok)throw new ApiError(503,'VINYL_SOURCE_UNAVAILABLE','Каталог Deezer тимчасово недоступний. Повторіть спробу.');
+  // Match the working quiz metadata transport; no provider credentials are needed.
+  // Metadata has its own timeout instead of the incoming request's lifetime.
+  try{response=await fetch(`https://api.deezer.com${path}`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(12000)});}
+  catch(error){console.warn('ECHO vinyl Deezer metadata fetch failed',{path,name:error instanceof Error?error.name:'unknown',message:error instanceof Error?error.message.slice(0,200):'network failure'});throw new ApiError(503,'VINYL_SOURCE_UNAVAILABLE','Не вдалося перевірити альбом у Deezer. Повторіть спробу.');}
+  if(!response.ok){console.warn('ECHO vinyl Deezer metadata HTTP error',{path,status:response.status});throw new ApiError(503,'VINYL_SOURCE_UNAVAILABLE','Каталог Deezer тимчасово недоступний. Повторіть спробу.');}
   let result:unknown;try{const text=await response.text();if(text.length>2*1024*1024)throw new Error();result=JSON.parse(text);}catch{throw new ApiError(503,'VINYL_SOURCE_UNAVAILABLE','Deezer повернув некоректну відповідь. Повторіть спробу.');}
   if(!result||typeof result!=='object'||'error'in result)throw new ApiError(404,'VINYL_SOURCE_NOT_FOUND','Не вдалося отримати точний альбом цієї пісні.');
   return result as T;
@@ -219,7 +221,11 @@ export async function addGameVinylAlbum(request:Request,userId:string,id:string,
     deezerTrackId:Number(track.providerId),deezerAlbumId:source.album.id,deezerAlbumUrl:`https://www.deezer.com/album/${source.album.id}`,
     vinylVerified:false,vinylStatus:'unverified',versionsCount:null,recordType:source.album.record_type??'album',totalTracks:source.album.nb_tracks??null,
   };
-  if(request.signal.aborted)throw new ApiError(499,'REQUEST_CANCELLED','Запит скасовано.');
+  // The player can move on or close the game while album metadata is loading.
+  // Recheck persisted game state instead of the incoming POST's transport signal.
+  const current=JSON.parse((await loadGame(userId,id)).state) as {index:number;phase:string};
+  if(current.phase==='finished'||current.phase==='cancelled')throw new ApiError(409,'VINYL_GAME_CLOSED','Гру завершено. Додавайте альбоми у вкладці «Вініл».');
+  if(current.index!==round)throw new ApiError(409,'STALE_ROUND','Раунд змінився. Спробуйте додати поточний альбом.');
   const saved=await addVinylAlbum(userId,album,tableId as string|undefined);
   return {added:saved.added,tableName:saved.tableName,hidden,vinylVerified:saved.item.vinylVerified===true,...(!hidden?{album:{artist:album.artist,title:album.title,coverImage:album.coverImage,uri:album.deezerAlbumUrl}}:{})};
 }
