@@ -19,7 +19,7 @@ function load(options={}){
   './playlist-history':{getPlayedSongs:async(...args)=>{historyCalls.push(args);return options.history??[];}},
   './collections':{validatePrompt:value=>{if(typeof value!=='string'||!value.trim()||value.length>1000)throw new ApiError(400,'INVALID_PROMPT','');return value.trim();},persistCollection:async(...args)=>{persisted.push(args);return{collection:{id:args[5],title:args[1],count:args[3].length},reason:args[2],source:args[4]};}},
   './gemini':{geminiCompletion:async(...args)=>{modelCalls.push(args);if(options.model)return options.model(...args);return{text:JSON.stringify({plan:options.plan??plan,songs:fixture,diversityExhausted:options.diversityExhausted??false,historyExhausted:options.historyExhausted??false}),model:'gemini-3.5-flash-lite'};}},
-  './popular':{eligibleRecording:record=>record.readable!==false&&!!record.preview,recordingTrack:record=>({id:'deezer-'+record.id,provider:'deezer',providerId:String(record.id),artist:record.artist.name,title:record.title,year:0,audioUrl:record.preview,popularityRank:record.rank})},
+  './popular':{catalogArtistNames:name=>/^mad heads(?: xl)?$/i.test(name)?['Mad Heads','Mad Heads XL']:[name],eligibleRecording:record=>record.readable!==false&&!!record.preview,recordingTrack:record=>({id:'deezer-'+record.id,provider:'deezer',providerId:String(record.id),artist:record.artist.name,title:record.title,year:0,audioUrl:record.preview,popularityRank:record.rank})},
   '@/lib/track-order':{spreadArtists:tracks=>tracks},
  };
  function read(relative){if(modules.has(relative))return modules.get(relative);const module={exports:{}};modules.set(relative,module.exports);
@@ -73,11 +73,11 @@ test('missing catalog recordings are filled by one small replacement list withou
  assert.deepEqual(Array.from(h.persisted[0][3],track=>track.title),['Song 0','Song 1','Song 4','Song 5']);assert.equal(h.persisted[0][6].catalogRefills,1);
  assert.ok(progress.every(event=>event.resolved<=4));assert.ok(progress.every((event,index)=>!index||event.progress>=progress[index-1].progress));assert.deepEqual([...new Set(progress.map(event=>event.stage))],['planning','splitting','assembling']);
 });
-test('catalog completion uses at most two replacement lists and never saves a short deck',async()=>{
+test('catalog completion stops after two attempts without additional eligible songs and never saves a short deck',async()=>{
  const songs=Array.from({length:3},(_,i)=>sample('Artist '+i,'Song '+i));let calls=0;
- const h=load({songs,model:async()=>({text:JSON.stringify({plan,songs:[songs[calls++]]}),model:'gemini-3.8-flash'})});
+ const h=load({songs,model:async()=>{const index=calls++;return{text:JSON.stringify({plan,songs:songs.slice(index,index+1)}),model:'gemini-3.8-flash'};}});
  await assert.rejects(h.api.generateFastPlaylist('owner',{prompt:'romantic ballads'},{...settings,count:5},new AbortController().signal),error=>error.code==='AI_SEARCH_INCOMPLETE'&&error.extra.available===3);
- assert.equal(h.modelCalls.length,3);assert.equal(h.persisted.length,0);assert.equal(h.fetchCalls.length,3);
+ assert.equal(h.modelCalls.length,5);assert.equal(h.persisted.length,0);assert.equal(h.fetchCalls.length,3);
 });
 test('cancelling while Gemini fills unavailable songs stops the refill and preserves an unsaved collection',async()=>{
  const songs=[sample('Artist 0','Song 0')];let calls=0,startRefill;const ready=new Promise(resolve=>startRefill=resolve),h=load({songs,model:async()=>{if(!calls++)return{text:JSON.stringify({plan,songs}),model:'gemini-3.8-flash'};startRefill();return new Promise(()=>{});}}),controller=new AbortController();
@@ -168,6 +168,32 @@ test('Cyrillic artist lookup falls back once to the title and verifies the canon
  assert.equal(h.fetchCalls.length,2);assert.equal(h.persisted[0][3][0].artist,'Tina Karol');assert.equal(h.persisted[0][3][0].providerId,'93');
 });
 
+test('verified band aliases resolve the original recording without accepting another performer',async()=>{
+ const songs=[sample('Mad Heads XL','Надія є')],h=load({songs,fetch:async url=>Response.json({data:new URL(url).searchParams.get('q')==='Mad Heads Надія є'?[{id:2522417261,title:'Надія є',artist:{id:1786,name:'Mad Heads'},rank:159190,preview:'https://cdn-preview.dzcdn.net/song.mp3'},{id:2721858702,title:'Надія є',artist:{id:9820,name:'VERLOKA'},rank:999999,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]:[]})});
+ await h.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal);
+ assert.equal(h.fetchCalls.length,1);assert.equal(h.persisted[0][3][0].providerId,'2522417261');assert.equal(h.persisted[0][3][0].artist,'Mad Heads');assert.deepEqual(Array.from(h.persisted[0][3][0].artistAliases),['Mad Heads XL']);
+});
+
+test('an explicit band request accepts its verified catalog alias while retaining the artist restriction',async()=>{
+ const songs=[sample('Mad Heads','Надія є'),sample('VERLOKA','Надія є')],h=load({songs,plan:{...plan,artists:['Mad Heads XL']}});
+ const parsed=h.api.parsePlaylistResponse(JSON.stringify({plan:{...plan,artists:['Mad Heads XL']},songs}),'songs by Mad Heads XL',1,20);
+ assert.deepEqual(Array.from(parsed.songs,song=>song.artist),['Mad Heads']);
+ await h.api.generateFastPlaylist('owner',{prompt:'songs by Mad Heads XL'},{...settings,count:1},new AbortController().signal);
+ assert.equal(h.fetchCalls.length,1);assert.equal(h.persisted[0][3][0].artist,'Mad Heads');
+});
+
+test('mixed Cyrillic and Latin typography is normalized before search and retained as a title alias',async()=>{
+ const songs=[sample('Бумбокс','Квiти в волоссi')],h=load({songs,fetch:async url=>Response.json({data:new URL(url).searchParams.get('q')==='Бумбокс Квіти в волоссі'?[{id:8145,title:'Квіти в волоссі',artist:{id:4394817,name:'Бумбокс'},rank:200000,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]:[]})});
+ await h.api.generateFastPlaylist('owner',{prompt:'українські хіти'},{...settings,count:1},new AbortController().signal);
+ assert.equal(h.fetchCalls.length,1);assert.equal(h.persisted[0][3][0].providerId,'8145');assert.deepEqual(Array.from(h.persisted[0][3][0].titleAliases),['Квiти в волоссi']);
+});
+
+test('Latin title search fallback accepts only the identical original artist and song',async()=>{
+ const songs=[sample('Океан Ельзи','Не питай')],h=load({songs,fetch:async url=>Response.json({data:new URL(url).searchParams.get('q').toLowerCase()==='okean elzy ne pytai'?[{id:9191,title:'Ne pytai',artist:{id:796042,name:'Okean Elzy'},rank:900000,preview:'https://cdn-preview.dzcdn.net/song.mp3'},{id:9192,title:'Ne pytai',artist:{id:796043,name:'Other artist'},rank:999999,preview:'https://cdn-preview.dzcdn.net/song.mp3'}]:[]})});
+ await h.api.generateFastPlaylist('owner',{prompt:'українські хіти 00-х'},{...settings,count:1},new AbortController().signal);
+ assert.equal(h.fetchCalls.length,3);assert.equal(h.persisted[0][3][0].providerId,'9191');
+});
+
 test('explicit artist requests cannot receive other artists suggested by the model',()=>{
  const h=load(),result=h.api.parsePlaylistResponse(JSON.stringify({plan:{...plan,artists:['Queen']},songs:[sample('Queen','Love of My Life'),sample('Aerosmith','I Do Not Want to Miss a Thing')],diversityExhausted:true,historyExhausted:false}),'romantic ballads by Queen',1,10);
  assert.equal(result.songs.length,1);assert.equal(result.songs[0].artist,'Queen');
@@ -225,7 +251,7 @@ test('transient Gemini overload switches between documented free models with the
  const calls=[],module={exports:{}};
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/server/gemini.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>name==='./http'?{ApiError}:{geminiCredentials:async()=> 'private-test-key'},AbortSignal,AbortController,JSON,Error,console,setTimeout:fn=>setTimeout(fn,1),clearTimeout,fetch:async(url,options)=>{calls.push({url,options});return Response.json({error:{}},{status:503});}});
  await assert.rejects(module.exports.geminiCompletion('owner',{purpose:'fast-playlist',limit:100,messages:[{role:'user',content:'a'.repeat(20000)}],responseSchema:{type:'object'}},new AbortController().signal),error=>error.code==='GEMINI_UNAVAILABLE');
- assert.equal(calls.length,3);assert.equal(new Set(calls.map(call=>call.url)).size,3);assert.ok(calls.every(call=>call.options.body===calls[0].options.body));assert.ok(calls[0].url.includes('gemini-3.5-flash:'));assert.ok(calls[1].url.includes('gemini-3.5-flash-lite:'));assert.ok(calls[2].url.includes('gemini-3.8-flash:'));const config=JSON.parse(calls[0].options.body).generationConfig;
+ assert.equal(calls.length,3);assert.equal(new Set(calls.map(call=>call.url)).size,3);assert.ok(calls.every(call=>call.options.body===calls[0].options.body));assert.ok(calls[0].url.includes('gemini-3.5-flash-lite:'));assert.ok(calls[1].url.includes('gemini-3.5-flash:'));assert.ok(calls[2].url.includes('gemini-3.8-flash:'));const config=JSON.parse(calls[0].options.body).generationConfig;
  assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.temperature,undefined);assert.deepEqual(config.responseJsonSchema,{type:'object'});assert.equal(config.responseMimeType,'application/json');
  assert.equal(config.maxOutputTokens,7424);
 });

@@ -262,6 +262,18 @@ export async function resolveArtist(name: string): Promise<Artist> {
   await rememberDiscoveredArtist(matches[0]);
   return matches[0];
 }
+/** Known spelling variants are metadata identities, not a restricted music
+ * catalog. Unknown performers pass through unchanged for live Deezer search. */
+export function catalogArtistNames(name:string):string[]{
+ const key=normalized(name).replace(/\s/g,'');
+ const same=(candidate:string)=>normalized(candidate).replace(/\s/g,'')===key;
+ const regional=ukrainianArtists.find(artist=>[artist.name,...artist.aliases].some(same));
+ if(regional)return [...new Set([regional.name,...regional.aliases,name])];
+ const alias=Object.entries(russianArtistAliases).find(([canonical,aliases])=>[canonical,...aliases].some(same));
+ if(alias)return [...new Set([alias[0],...alias[1],name])];
+ const named=artistDefinitions.find(artist=>[artist.title,...artist.aliases??[]].some(same));
+ return named?[...new Set([named.title,...named.aliases??[],name])]:[name];
+}
 export async function rememberDiscoveredArtist(artist:Artist){
  if(!Number.isSafeInteger(artist.id)||artist.id<=0||!artist.name?.trim())throw new ApiError(400,'INVALID_ARTIST_IDS','Некоректний виконавець.');
  await cacheMetadata(`deezer-discovered-artist:${artist.id}`,artist);

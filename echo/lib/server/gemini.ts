@@ -2,9 +2,9 @@ import {ApiError} from './http';
 import {geminiCredentials} from './settings';
 // All candidates have a documented free standard API tier:
 // https://ai.google.dev/gemini-api/docs/pricing
-// Flash 3.5 avoids making every music request depend on the newest, overloaded model.
+// Flash-Lite avoids waiting on overloaded Flash endpoints for a simple music list.
 const economyModels=['gemini-3.5-flash-lite','gemini-3.1-flash-lite'];
-const curatorModels=['gemini-3.5-flash','gemini-3.5-flash-lite','gemini-3.8-flash'];
+const curatorModels=['gemini-3.5-flash-lite','gemini-3.5-flash','gemini-3.8-flash'];
 type Message={role:'system'|'user';content:string};
 const providerStatuses=new Set(['INVALID_ARGUMENT','UNAUTHENTICATED','PERMISSION_DENIED','NOT_FOUND','RESOURCE_EXHAUSTED','INTERNAL','UNAVAILABLE','DEADLINE_EXCEEDED']);
 const providerReasons=new Set(['API_KEY_INVALID','API_KEY_EXPIRED','API_KEY_SERVICE_BLOCKED','API_KEY_HTTP_REFERRER_BLOCKED','API_KEY_IP_ADDRESS_BLOCKED','SERVICE_DISABLED','BILLING_DISABLED','RATE_LIMIT_EXCEEDED','CONSUMER_INVALID']);
