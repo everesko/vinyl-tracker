@@ -32,7 +32,7 @@ import CloudAISettings from './cloud-ai-settings';
 import GenerationProgress,{type GenerationState} from './generation-progress';
 import {request,RequestError} from './client-request';
 
-export const SITE_PUB_VERSION = '202611082135';
+export const SITE_PUB_VERSION = '202611082223';
 
 const QUICK_MIX_TAGS = [
  'Хиты 2000-х',

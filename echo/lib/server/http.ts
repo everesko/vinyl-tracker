@@ -45,6 +45,7 @@ export function identity(request: Request) {
   }
   const hostname = new URL(request.url).hostname;
   if (process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1", "[::1]"].includes(hostname)) return { id: "local-dev", displayName: "Игрок" };
+  if (process.env.VERCEL || process.env.ECHO_STANDALONE) return { id: "vercel-player", displayName: "Игрок" };
   throw new ApiError(401, "AUTH_REQUIRED", "Войдите через ChatGPT, чтобы сохранять игры и прогресс.");
 }
 export async function csrf(request: Request) {
