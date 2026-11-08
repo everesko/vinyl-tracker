@@ -2,7 +2,7 @@
 
 import {useState,useEffect,useCallback,useRef} from 'react';
 import Image from 'next/image';
-import {AudioLines,Headphones,Play,Sparkles,Trophy,Zap,Disc3,LoaderCircle,Info,Music2,UserRound,Search,X,Languages,Trash2,Lock,Check,SlidersHorizontal} from 'lucide-react';
+import {AudioLines,Headphones,Play,Sparkles,Trophy,Zap,Disc3,LoaderCircle,Info,Music2,UserRound,Search,X,Languages,Trash2,Lock,Check,SlidersHorizontal,Gamepad2,Swords,FastForward} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import {RadioGroup,RadioGroupItem} from '@/components/ui/radio-group';
@@ -17,6 +17,8 @@ import {levelForXP,type Settings,type Difficulty,difficultyLevel} from '@/lib/qu
 import {dictionaries,useI18n,type Locale} from '@/lib/i18n';
 import GamePanel,{type GameView} from './game-panel';
 import VinylPanel from './vinyl-panel';
+import TournamentPanel from './tournament-panel';
+import ArcadeHub from './arcade-hub';
 import type {PlaylistPlan} from '@/lib/playlist-plan';
 import {createAIPlaylist} from './playlist-ai';
 import {PlaylistAIError} from './playlist-ai-runtime';
@@ -29,6 +31,19 @@ import {inspectCloud,getCloudState} from './cloud-ai-runtime';
 import CloudAISettings from './cloud-ai-settings';
 import GenerationProgress,{type GenerationState} from './generation-progress';
 import {request,RequestError} from './client-request';
+
+export const SITE_PUB_VERSION = '202611082135';
+
+const QUICK_MIX_TAGS = [
+ 'Хиты 2000-х',
+ 'Рок баллады',
+ 'Украинские хиты',
+ 'Поп 90-х',
+ 'Синтвейв и ретро',
+ 'Инди и альтернатива',
+ 'Хип-хоп классика',
+ 'Саундтреки из кино',
+];
 
 type CatalogItem={ready?:boolean;libraryMode?:'prepared'|'indexed';artistCount?:number;ai?:boolean;aiPrompt?:string;aiPlan?:PlaylistPlan;id:string;title:string;subtitle?:string;count?:number;playable:boolean;color:string;tag:string;image?:string;images?:string[];supportedCounts?:number[];supportedUniqueCounts?:number[];maximumUniqueArtists?:number;category?:string;kind?:string;songOnly?:boolean;selectedArtistCount?:number;artistNames?:string[]};
 type Session={practice?:boolean;id:string;collectionTitle:string;index:number;total:number;score:number;phase:string};
@@ -46,17 +61,49 @@ async function prepareRequest<T>(url:string,data:unknown,onProgress:(available:n
 function category(item:CatalogItem){return item.id.startsWith('custom-')?'custom':item.category||item.kind||'genre';}
 function localTitle(item:CatalogItem,t:(key:string,args?:Record<string,string|number>)=>string){const slug=item.id.replace(/^popular-/,'');if(/^\d{2}s$/.test(slug))return t('genres.era',{era:slug.slice(0,2)});return dictionaries.uk[`genres.${slug}`]?t(`genres.${slug}`):item.title;}
 function AnimatedNumber({value}:{value:number}){const {locale}=useI18n();const [shown,setShown]=useState(value),previous=useRef(value);useEffect(()=>{const from=previous.current;previous.current=value;let frame=0;const start=performance.now(),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;const tick=(now:number)=>{const fraction=reduced?1:Math.min(1,(now-start)/950);setShown(from+(value-from)*(1-(1-fraction)**3));if(fraction<1)frame=requestAnimationFrame(tick);};frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);},[value]);return <>{new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(Math.round(shown*10)/10)}</>;}
-function CollectionCard({item,onSelect,onDelete}:{item:CatalogItem;onSelect:(id:string)=>void;onDelete:(id:string)=>void}){
- const {t}=useI18n(),title=localTitle(item,t),kind=category(item),art=item.image||(/rock|metal|punk/.test(item.id)?'/art/rock.png':/pop|rnb/.test(item.id)?'/art/pop.png':'/art/disco.png'),countLabel=item.count===undefined?t('home.freshQueue'):t('home.tracks',{count:item.count}),scopeLabel=kind==='mix'&&item.selectedArtistCount?t('home.artistScope',{count:item.selectedArtistCount}):item.artistCount?t('home.artistCount',{count:item.artistCount}):'',libraryLabel=item.libraryMode==='indexed'?t('home.indexed'):item.ready?t('home.ready'):countLabel;
- return <div className="collection-card-wrap"><button className="collection-card home-collection-card" onClick={()=>onSelect(item.id)} disabled={!item.playable} style={{'--set-color':item.color} as React.CSSProperties} aria-label={`${title}, ${countLabel}`}><div className="collection-cover">{item.images&&item.images.length>1?<div className={`collection-collage collage-${Math.min(4,item.images.length)}`}>{item.images.slice(0,4).map((image,index)=><span key={index}><Image src={image} fill sizes="(max-width:650px) 22vw,130px" alt="" unoptimized/></span>)}</div>:<Image src={art} fill sizes="(max-width:650px) 44vw,(max-width:1100px) 29vw,260px" alt="" unoptimized/>}<div className="cover-overlay"/><span className="cover-tag">{t(kind==='artist'?'home.artistFilter':kind==='era'?'home.eras':kind==='custom'?'home.mine':kind==='mix'?'home.mixes':'home.genres')}</span><span className="home-cover-title">{title}</span><span className="card-play"><Play size={18} fill="currentColor"/></span><span className="track-chip">{libraryLabel}</span></div><div className="collection-info"><h3 title={title}>{title}</h3><p>{item.playable?(scopeLabel||countLabel):t('home.unavailable')}</p>{!!item.artistNames?.length&&<small title={item.artistNames.join(' · ')}>{item.artistNames.slice(0,3).join(' · ')}{item.artistNames.length>3?' …':''}</small>}</div></button>{<button className="collection-delete" onClick={()=>onDelete(item.id)} aria-label={t("home.deleteCollection")}><Trash2 size={15}/></button>}</div>;
+
+function CollectionCard({item,customArt,onSelect,onDelete}:{item:CatalogItem;customArt?:string;onSelect:(id:string)=>void;onDelete:(id:string)=>void}){
+ const {t}=useI18n(),title=localTitle(item,t),kind=category(item),art=customArt||item.image||(/rock|metal|punk/.test(item.id)?'/art/rock.png':/pop|rnb/.test(item.id)?'/art/pop.png':'/art/disco.png'),countLabel=item.count===undefined?t('home.freshQueue'):t('home.tracks',{count:item.count}),scopeLabel=kind==='mix'&&item.selectedArtistCount?t('home.artistScope',{count:item.selectedArtistCount}):item.artistCount?t('home.artistCount',{count:item.artistCount}):'',libraryLabel=item.libraryMode==='indexed'?t('home.indexed'):item.ready?t('home.ready'):countLabel;
+ return (
+  <div className="collection-card-wrap nb-dossier-card">
+   <span className="nb-pin nb-pin-tl" aria-hidden="true"/>
+   <span className="nb-pin nb-pin-tr" aria-hidden="true"/>
+   <button className="collection-card home-collection-card" onClick={()=>onSelect(item.id)} disabled={!item.playable} style={{'--set-color':item.color} as React.CSSProperties} aria-label={`${title}, ${countLabel}`}>
+    <div className="collection-cover">
+     {item.images&&item.images.length>1?(
+      <div className={`collection-collage collage-${Math.min(4,item.images.length)}`}>
+       {item.images.slice(0,4).map((image,index)=><span key={index}><Image src={image} fill sizes="(max-width:650px) 22vw,130px" alt="" unoptimized/></span>)}
+      </div>
+     ):(
+      <Image src={art} fill sizes="(max-width:650px) 44vw,(max-width:1100px) 29vw,260px" alt="" unoptimized/>
+     )}
+     <div className="cover-overlay"/>
+     <span className="cover-tag">{t(kind==='artist'?'home.artistFilter':kind==='era'?'home.eras':kind==='custom'?'home.mine':kind==='mix'?'home.mixes':'home.genres')}</span>
+     <span className="home-cover-title">{title}</span>
+     <span className="card-play"><Play size={18} fill="currentColor"/></span>
+     <span className="track-chip">{libraryLabel}</span>
+    </div>
+    <div className="collection-info">
+     <h3 title={title}>{title}</h3>
+     <p>{item.playable?(scopeLabel||countLabel):t('home.unavailable')}</p>
+     {!!item.artistNames?.length&&<small title={item.artistNames.join(' · ')}>{item.artistNames.slice(0,3).join(' · ')}{item.artistNames.length>3?' …':''}</small>}
+    </div>
+   </button>
+   <button className="collection-delete" onClick={()=>onDelete(item.id)} aria-label={t("home.deleteCollection")}><Trash2 size={14}/></button>
+  </div>
+ );
 }
+
 export default function EchoApp(){
- const {locale,setLocale,t}=useI18n(),vinylTitle=({uk:'Вініл',en:'Vinyl',ru:'Винил'})[locale],format=(number:number)=>new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(number);
+ const {locale,setLocale,t}=useI18n(),vinylTitle=({uk:'Вініл',en:'Vinyl',ru:'Винил'})[locale],tournamentTitle=({uk:'Турнір',en:'Bracket',ru:'Турнир'})[locale],format=(number:number)=>new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(number);
  const [profile,setProfile]=useState<Profile|null>(null),[catalog,setCatalog]=useState<CatalogItem[]>([]),[loadingCatalog,setLoadingCatalog]=useState(true),[loadError,setLoadError]=useState('');
  const [miniCategories,setMiniCategories]=useState<{title:string;prompt:string;count:number}[]>([]);
  const [builderTab,setBuilderTab]=useState('description'),[searchMode,setSearchMode]=useState<'ai'|'catalog'>('ai');
  const [builderOpen,setBuilderOpen]=useState(false);
- const [account,setAccount]=useState(false),[rules,setRules]=useState(false),[deleteOpen,setDeleteOpen]=useState(false),[view,setView]=useState<'library'|'stats'|'vinyl'>('library'),[filter,setFilter]=useState('all'),[query,setQuery]=useState('');
+ const [arcadeOpen,setArcadeOpen]=useState(false);
+ const [noInputMode,setNoInputMode]=useState(false);
+ const [hydratedCovers,setHydratedCovers]=useState<Record<string,string>>({});
+ const [account,setAccount]=useState(false),[rules,setRules]=useState(false),[deleteOpen,setDeleteOpen]=useState(false),[view,setView]=useState<'library'|'tournament'|'stats'|'vinyl'>('library'),[filter,setFilter]=useState('all'),[query,setQuery]=useState('');
  const [vinylVisited,setVinylVisited]=useState(false);
  const [settings,setSettings]=useState<GameSettings>({duration:7,timer:false,difficulty:1,count:10,allowArtistRepeats:true}),[busy,setBusy]=useState(false),[game,setGame]=useState<GameView|null>(null),[prompt,setPrompt]=useState(''),[generating,setGenerating]=useState(false),[aiStatus,setAIStatus]=useState(''),[note,setNote]=useState(''),[preparing,setPreparing]=useState<{available:number;required:number}|null>(null),[selectedArtists,setSelectedArtists]=useState<ArtistChoice[]>([]),[walletDelta,setWalletDelta]=useState(0);
  const [generationState,setGenerationState]=useState<GenerationState|null>(null),[cancelSession,setCancelSession]=useState<Session|null>(null);const generationAbort=useRef<AbortController|null>(null);
@@ -82,9 +129,44 @@ export default function EchoApp(){
  const applyProfile=useCallback((value:Profile)=>{if(!alive.current)return;const next=value.profile.xp;if(wallet.current!==null&&next!==wallet.current){setWalletDelta(Math.round((next-wallet.current)*10)/10);clearTimeout(walletTimer.current);walletTimer.current=window.setTimeout(()=>setWalletDelta(0),2400);}wallet.current=next;setProfile(value);setLoadError('');},[]);
  const load=useCallback(async()=>{const results=await Promise.allSettled([request<Profile>('/api/profile'),request<{collections:CatalogItem[]}>('/api/catalog'),request<{categories:{title:string;prompt:string;count:number}[]}>('/api/collections/categories')]);if(!alive.current)return;if(results[0].status==='fulfilled')applyProfile(results[0].value);else setLoadError(errorRef.current(results[0].reason));if(results[1].status==='fulfilled')setCatalog(results[1].value.collections);else setLoadError(errorRef.current(results[1].reason));if(results[2].status==='fulfilled')setMiniCategories(results[2].value.categories);setLoadingCatalog(false);},[applyProfile]);
  const refreshBalance=useCallback(()=>{void(async()=>{for(let attempt=0;attempt<3;attempt++){try{applyProfile(await request<Profile>('/api/profile'));return;}catch(error){if(!alive.current)return;if(attempt===2){setLoadError(errorRef.current(error));return;}await new Promise<void>(resolve=>window.setTimeout(resolve,1000*(attempt+1)));}}})();},[applyProfile]);
- useEffect(()=>{void inspectCloud().then(()=>{if(alive.current&&!getCloudState().configured)setSearchMode('catalog');}).catch(()=>{});alive.current=true;const frame=requestAnimationFrame(()=>{void load();try{const saved=JSON.parse(localStorage.getItem('echo-preferences')||'null');if(saved&&[3,5,7].includes(saved.duration)&&typeof saved.timer==='boolean')setSettings({duration:saved.duration,timer:saved.timer,difficulty:difficultyLevel(saved.difficulty),count:Number.isSafeInteger(saved.count)&&saved.count>0?saved.count:10,allowArtistRepeats:saved.allowArtistRepeats!==false});}catch{}hydrated.current=true;if(new URLSearchParams(location.search).get('tab')==='vinyl'){setView('vinyl');setVinylVisited(true);}const id=new URLSearchParams(location.search).get('game');if(id&&/^[a-f0-9-]{36}$/i.test(id))void request<GameView>(`/api/games/${id}`).then(result=>{if(alive.current){gameRef.current=result;setGame(result);}}).catch(error=>{toast.error(errorRef.current(error));history.replaceState({},'',location.pathname);});});const visible=()=>{if(!document.hidden&&!gameRef.current)void load();};document.addEventListener('visibilitychange',visible);const interval=window.setInterval(()=>{if(!document.hidden&&!gameRef.current)refreshBalance();},15000);return()=>{alive.current=false;if(generationAbort.current){generationAbort.current.abort();}cancelAnimationFrame(frame);clearInterval(interval);clearTimeout(walletTimer.current);document.removeEventListener('visibilitychange',visible);};},[load,refreshBalance]);
+ useEffect(()=>{void inspectCloud().then(()=>{if(alive.current&&!getCloudState().configured)setSearchMode('catalog');}).catch(()=>{});alive.current=true;const frame=requestAnimationFrame(()=>{void load();try{const saved=JSON.parse(localStorage.getItem('echo-preferences')||'null');if(saved&&[3,5,7].includes(saved.duration)&&typeof saved.timer==='boolean')setSettings({duration:saved.duration,timer:saved.timer,difficulty:difficultyLevel(saved.difficulty),count:Number.isSafeInteger(saved.count)&&saved.count>0?saved.count:10,allowArtistRepeats:saved.allowArtistRepeats!==false});const savedNoInput=localStorage.getItem('echo-no-input-mode');if(savedNoInput==='1')setNoInputMode(true);}catch{}hydrated.current=true;if(new URLSearchParams(location.search).get('tab')==='vinyl'){setView('vinyl');setVinylVisited(true);}if(new URLSearchParams(location.search).get('tab')==='tournament'){setView('tournament');}const id=new URLSearchParams(location.search).get('game');if(id&&/^[a-f0-9-]{36}$/i.test(id))void request<GameView>(`/api/games/${id}`).then(result=>{if(alive.current){gameRef.current=result;setGame(result);}}).catch(error=>{toast.error(errorRef.current(error));history.replaceState({},'',location.pathname);});});const visible=()=>{if(!document.hidden&&!gameRef.current)void load();};document.addEventListener('visibilitychange',visible);const interval=window.setInterval(()=>{if(!document.hidden&&!gameRef.current)refreshBalance();},15000);return()=>{alive.current=false;if(generationAbort.current){generationAbort.current.abort();}cancelAnimationFrame(frame);clearInterval(interval);clearTimeout(walletTimer.current);document.removeEventListener('visibilitychange',visible);};},[load,refreshBalance]);
  useEffect(()=>{if(hydrated.current)try{localStorage.setItem('echo-preferences',JSON.stringify(settings));}catch{}},[settings]);
- useEffect(()=>{if(game)setBuilderOpen(false);},[game]);
+ useEffect(()=>{if(hydrated.current)try{localStorage.setItem('echo-no-input-mode',noInputMode?'1':'0');}catch{}},[noInputMode]);
+ useEffect(()=>{if(game){setBuilderOpen(false);setArcadeOpen(false);}},[game]);
+
+ // Dynamic iTunes Cover Art Hydration from +9.html
+ useEffect(()=>{
+  if(!catalog.length)return;
+  let cancelled=false;
+  const cacheKey='echo_itunes_covers_v2';
+  let cached:Record<string,string>={};
+  try{cached=JSON.parse(localStorage.getItem(cacheKey)||'{}');}catch{}
+  setHydratedCovers(prev=>({...cached,...prev}));
+  const missing=catalog.filter(item=>!item.image&&(!item.images||!item.images.length)&&!cached[item.id]).slice(0,12);
+  if(!missing.length)return;
+  void(async()=>{
+   for(const item of missing){
+    if(cancelled)return;
+    const term=item.artistNames?.[0]||item.title;
+    try{
+     const res=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=1`);
+     if(res.ok){
+      const data=await res.json() as {results?:{artworkUrl100?:string}[]};
+      const raw=data.results?.[0]?.artworkUrl100;
+      if(raw){
+       const hiRes=raw.replace('100x100bb','500x500bb');
+       cached[item.id]=hiRes;
+       if(!cancelled)setHydratedCovers(prev=>({...prev,[item.id]:hiRes}));
+       try{localStorage.setItem(cacheKey,JSON.stringify(cached));}catch{}
+      }
+     }
+    }catch{}
+    await new Promise(r=>setTimeout(r,180));
+   }
+  })();
+  return()=>{cancelled=true;};
+ },[catalog]);
+
  const [clockNow,setClockNow]=useState(()=>Date.now());
  useEffect(()=>{const timer=setInterval(()=>setClockNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
  useEffect(()=>{if(!profile)return;const frame=requestAnimationFrame(()=>setSettings(previous=>availableSettings(previous,profile.progression) as GameSettings));return()=>cancelAnimationFrame(frame)},[profile]);
@@ -134,26 +216,552 @@ export default function EchoApp(){
  const cap=countCap(profile?.progression);
  const [countDraft,setCountDraft]=useState('10');useEffect(()=>{setCountDraft(String(settings.count))},[settings.count]);
  const countPicker=<div className="count-options count-v9" aria-label={t('setup.count')}>{[10,20,50,100].map(count=>{const locked=count>cap;const id=nextRequired(`count-${count}`,profile?.progression)??`count-${count}`;const upgrade=upgrades.find(u=>u.id===id);return <button type="button" className={`count-tile ${settings.count===count?'selected':''} ${locked?'locked':''}`} aria-pressed={settings.count===count} key={count} disabled={busy||generating} onClick={async()=>{if(!locked||await unlock(id)){if(!locked||id===`count-${count}`)setSettings(previous=>({...previous,count}))}}}><strong>{count}</strong>{locked&&<small><Lock size={12}/>{upgrade?.cost} XP</small>}</button>})}<label className="custom-count"><span>{t('setup.customCount')}</span><input aria-label={t('setup.customCount')} disabled={busy||generating} type="number" min={1} step={1} value={countDraft} onChange={e=>{setCountDraft(e.target.value);const count=Number(e.target.value);if(Number.isSafeInteger(count)&&count>0&&count<=cap)setSettings(previous=>({...previous,count}))}}/></label>{Number.isFinite(cap)&&<button className="count-unlimited locked-setting" disabled={busy||generating} onClick={()=>void unlock('count-unlimited')}><Lock size={14}/>{t('setup.unlimited')} · {upgrades.find(u=>u.id===nextRequired('count-unlimited',profile?.progression))?.cost} XP</button>}</div>;
- return <div className="echo-shell echo-v5"><Toaster theme="dark" position="bottom-right"/>
-  <header className="topbar"><button className="brand brand-button" onClick={()=>setView('library')} aria-label={t('home.brand')}><AudioLines/><span>echo<span className="brand-dot">.</span></span></button><nav aria-label={t('home.nav')}><button className={view==='library'?'nav-active':''} onClick={()=>setView('library')}>{t('home.library')}</button><button className={view==='stats'?'nav-active':''} onClick={()=>setView('stats')}>{t('home.stats')}</button><button className={view==='vinyl'?'active':''} onClick={()=>{setView('vinyl');setVinylVisited(true)}}><Disc3 size={16}/>{vinylTitle}</button></nav>{!practice&&<div id="profile-wallet" className={`wallet-tile ${walletDelta<0?'wallet-down':walletDelta>0?'wallet-up':''}`} aria-label={t('home.wallet')}><Zap size={17}/><strong><AnimatedNumber value={xp}/></strong><span>XP</span>{walletDelta!==0&&<b key={`${xp}:${walletDelta}`} className="wallet-float">{walletDelta>0?'+':''}{format(walletDelta)}</b>}</div>}<label className="locale-picker"><Languages size={15}/><select value={locale} onChange={event=>setLocale(event.target.value as Locale)} aria-label={t('home.language')}><option value="uk">УКР</option><option value="en">ENG</option><option value="ru">РУС</option></select></label><button className="spotify-button account-settings" aria-label={t('home.account')} onClick={()=>setAccount(true)}><span className={`account-status-dot ${profile?'connected':''}`}/><span className="account-copy"><span>{profile?.profile.displayName||t('home.account')}</span><small>{t(profile?'home.connected':loadError?'home.offline':'home.connecting')}</small></span><UserRound size={17}/></button></header>
-  <nav className="mobile-nav" aria-label={t('home.nav')}><button className={view==='library'?'active':''} onClick={()=>setView('library')}><Music2 size={16}/>{t('home.library')}</button><button className={view==='stats'?'active':''} onClick={()=>setView('stats')}><Trophy size={16}/>{t('home.stats')}</button><button className={view==='vinyl'?'active':''} onClick={()=>{setView('vinyl');setVinylVisited(true)}}><Disc3 size={16}/>{vinylTitle}</button></nav>
-  <main className="main-wrap"><section className="dashboard-heading" hidden={view==='vinyl'}><div><span className="eyebrow">{t('home.eyebrow')}</span><h1>{view==='vinyl'?vinylTitle:t(view==='library'?'home.title':'home.statsTitle')}</h1></div><div className="dashboard-actions" hidden={view==='vinyl'}><button className="button-primary builder-trigger" onClick={()=>{setNote('');setBuilderOpen(true);}}><Sparkles size={16}/><span>{t('home.builderTitle')}</span></button><button className="quiet-button" onClick={()=>setRules(true)}><Info size={16}/>{t('home.rules')}</button></div></section>
-  {loadError&&<div className="load-error" role="alert">{loadError}<button onClick={()=>void load()}>{t('home.retry')}</button></div>}
-  <section className="dashboard-tiles" hidden={view==='vinyl'} aria-label={t('home.stats')}>{!practice&&<div className="dashboard-tile xp-dashboard"><span><Zap size={18}/>{t('home.wallet')}</span><strong><AnimatedNumber value={xp}/><small> XP</small></strong><Progress value={level.progress} aria-label={t('home.levelProgress')}/><small>{t('home.level',{level:level.level})} · {format(level.current)} / {format(level.next)} XP</small></div>}<div className="dashboard-tile"><span><Disc3 size={18}/>{t('home.completed')}</span><strong>{profile?.profile.games??'—'}</strong><small>{t('home.completedNote')}</small></div><div className="dashboard-tile"><span><Trophy size={18}/>{t('home.accuracy')}</span><strong>{profile?.profile.total?`${Math.round(profile.profile.correct/profile.profile.total*100)}%`:'—'}</strong><small>{t('home.accuracyNote')}</small></div>{!practice&&<div className="dashboard-tile"><span><Headphones size={18}/>{t('home.best')}</span><strong>{format(profile?.profile.bestScore??0)}</strong><small>{t('home.points')}</small></div>}</section>
-  {vinylVisited&&<div hidden={view!=='vinyl'}><VinylPanel locale={locale} userId={profile?.profile.id} active={view==='vinyl'&&!game}/></div>}{view==='vinyl'?null:view==='library'?<>
-   {!!profile?.sessions.length&&<section className="resume-section"><div className="section-heading"><h2>{t('home.resume')}</h2><span className="tiny">{t('home.saved')}</span></div><div className="resume-grid">{profile.sessions.map(session=><div className="resume-entry" key={session.id}><button className="resume-card" disabled={busy||generating} onClick={()=>void resume(session.id)}><div className="resume-icon"><Headphones/></div><div><h3>{session.collectionTitle}</h3><p>{Math.min(session.total,session.index+(session.phase==='reveal'?1:0))} / {session.total}{!practice&&!session.practice&&<> · {format(session.score)} {t('home.points')}</>}</p><Progress value={session.index/session.total*100} aria-label={t('home.resumeProgress',{title:session.collectionTitle})}/></div><Play size={18}/></button><button className="resume-finish" disabled={busy||generating} onClick={()=>setCancelSession(session)}><X size={16}/>{t('home.finishSession')}</button></div>)}</div></section>}
-   {!builderOpen&&generating&&generationState&&<GenerationProgress state={generationState} label={aiStatus||t('home.creating')} onCancel={stopGeneration}/>}
-   {!builderOpen&&(generating||busy)&&!generationState&&preparing&&<p className="builder-progress" role="status">{t('home.creating')}{preparing&&<span>{t('setup.catalogProgress',preparing)}</span>}</p>}
-   {!builderOpen&&note&&<p className="builder-note" role="alert">{note}</p>}
-   <section className="library"><div className="section-heading"><div><h2>{t('home.catalog')}</h2><span className="tiny">{visible.length}</span></div><button className="quiet-button library-builder-trigger" onClick={()=>{setNote('');setBuilderOpen(true);}}><SlidersHorizontal size={15}/><span>{t('home.builderTitle')}</span></button></div><div className="library-tools"><RadioGroup className="filter-group" aria-label={t('home.catalog')} value={filter} onValueChange={setFilter}>{[['all','home.all'],['ready','home.readyFilter'],['genre','home.genres'],['era','home.eras'],['mix','home.mixes'],['artist','home.artistFilter'],['custom','home.mine']].map(([id,label])=><label className={`filter-chip ${filter===id?'selected':''}`} key={id}><RadioGroupItem value={id}/><span>{t(label)}</span></label>)}</RadioGroup><label className="catalog-search"><Search size={16}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder={t('home.search')} aria-label={t('home.search')}/></label></div><div className="collection-grid">{visible.map(item=><CollectionCard key={item.id} item={item} onSelect={id=>void begin(id)} onDelete={id=>void deleteCollection(id)}/>)}</div>{!visible.length&&<div className="empty-state" role={loadingCatalog?'status':undefined}><Music2/><h3>{t(loadingCatalog?'home.loadingCatalog':'home.noResults')}</h3><p>{t(loadingCatalog?'home.loadingNote':'home.noResultsNote')}</p></div>}</section>
 
-  </>:<section className="history-section"><div className="section-heading"><h2>{t('home.history')}</h2><span className="tiny">{t('home.historyNote')}</span></div><div className="history-tiles">{profile?.history.map(item=><article className={`history-result ${item.status==='cancelled'?'cancelled':''}`} key={item.id}><div className="history-tile"><div className="resume-icon">{item.status==='cancelled'?<X/>:<Trophy/>}</div><div><h3>{item.collectionTitle}</h3><p>{item.status==='cancelled'?t('home.cancelled'):t('home.guessed',{correct:item.correct,total:item.total})} · {new Intl.DateTimeFormat(locale,{day:'numeric',month:'short'}).format(item.completedAt)}</p></div>{!practice&&!item.practice&&<strong>{item.xpAwarded>0?'+':''}{format(item.xpAwarded)} XP</strong>}</div>{item.status!=='cancelled'&&<ShareAchievement achievement={{...item,practice:practice||!!item.practice}} compact/>}</article>)}</div>{!profile?.history.length&&<div className="empty-state"><Trophy/><h3>{t('home.firstResult')}</h3><button className="button-primary" onClick={()=>setView('library')}>{t('home.pick')}</button></div>}</section>}
-  <footer><span className="brand footer-brand"><AudioLines/>echo.</span><span>{t('home.footer')}</span><button onClick={()=>setRules(true)}>{t('home.rules')}</button><button onClick={()=>setAccount(true)}>{t('home.account')}</button></footer></main>
-  <Dialog open={builderOpen} onOpenChange={open=>{if(!generating)setBuilderOpen(open);}}><DialogContent className="echo-dialog builder-dialog" showCloseButton={false}><div className="builder-modal-top"><div className="builder-heading"><span className="ai-icon"><Sparkles size={18}/></span><div><DialogTitle>{t('home.builderTitle')}</DialogTitle><DialogDescription>{t('home.builderDescription')}</DialogDescription><div className="search-status">{searchMode==='ai'&&<CloudAvailability onSettings={()=>setAccount(true)}/>}<span>{t(searchMode==='ai'?'search.economy':'search.catalogHint')}</span></div></div></div><button className="icon-button" aria-label={t('Закрыть')} disabled={generating} onClick={()=>setBuilderOpen(false)}><X size={18}/></button></div><section className="builder-v5" id="custom-mix"><Tabs value={builderTab} onValueChange={value=>{if(!busy&&!generating)setBuilderTab(value)}}><TabsList className="builder-tabs"><TabsTrigger value="description">{t('home.description')}</TabsTrigger><TabsTrigger value="artists">{t('home.artists')}</TabsTrigger></TabsList><TabsContent value="description"><form className="builder-form" onSubmit={event=>{event.preventDefault();void createCollection();}}><div className="search-mode-row"><label htmlFor="collection-prompt">{t('home.promptLabel')}</label><div className="search-mode" role="group" aria-label={t('search.mode')}>{(['ai','catalog'] as const).map(mode=><button type="button" key={mode} aria-pressed={searchMode===mode} disabled={busy||generating} onClick={()=>setSearchMode(mode)}>{t('search.'+mode)}</button>)}</div></div><div className="prompt-box"><input id="collection-prompt" disabled={busy||generating} value={prompt} onChange={event=>setPrompt(event.target.value)} maxLength={1000} placeholder={t('home.promptPlaceholder')} required/><button className="button-primary" disabled={busy||generating||!prompt.trim()||!profile}>{generating?<LoaderCircle className="spin" size={18}/>:<Disc3 size={18}/>}<span>{t('home.create')}</span></button></div><div className="prompt-examples">{[t('home.example80'),'Queen',t('home.examplePop'),t('home.exampleRockPop')].map(example=><button type="button" key={example} disabled={busy||generating} onClick={()=>setPrompt(example)}>{example}</button>)}</div>{!!miniCategories.length&&<div className="mini-categories" aria-label={t('search.categories')}><span>{t('search.categories')}</span>{miniCategories.slice(0,6).map(category=><button type="button" key={category.prompt} disabled={busy||generating} title={t('search.categoryHint',{count:category.count})} onClick={()=>{setSearchMode('ai');setPrompt(category.prompt);}}><Disc3 size={13}/><span>{category.title}</span><small>{category.count}</small></button>)}</div>}</form></TabsContent><TabsContent value="artists"><ArtistPicker selected={selectedArtists} onChange={setSelectedArtists} onCreate={()=>void createCollection(selectedArtists)} busy={busy||generating} disabled={!profile}/></TabsContent></Tabs><div className="builder-configuration"><div className="builder-preferences"><div className="builder-count"><span>{t('setup.count')}</span>{countPicker}</div><label className="builder-repeat"><Switch checked={repeatLocked||settings.allowArtistRepeats} disabled={repeatLocked||busy||generating} onCheckedChange={checked=>setSettings(previous=>({...previous,allowArtistRepeats:checked}))}/><span>{t('setup.repeats')}</span></label></div><GameOptions settings={settings} onChange={value=>setSettings(previous=>({...previous,...value}))} progress={profile?.progression} onUnlock={unlock} disabled={busy||generating}/><p className="configuration-note">{t('search.settingsHint')}</p></div>{generating&&generationState&&<GenerationProgress state={generationState} label={aiStatus||t('home.creating')} onCancel={stopGeneration}/>}{(generating||busy)&&!generationState&&preparing&&<p className="builder-progress" role="status">{t('home.creating')}{preparing&&<span>{t('setup.catalogProgress',preparing)}</span>}</p>}{note&&<p className="builder-note" role="alert">{note}</p>}</section></DialogContent></Dialog>
-  <Dialog open={!!game} onOpenChange={open=>{if(!open)exit();}}><DialogContent className="echo-dialog game-dialog" showCloseButton={false} onInteractOutside={event=>event.preventDefault()} onEscapeKeyDown={event=>event.preventDefault()}><DialogTitle className="sr-only">{t('Музыкальная игра')}</DialogTitle><DialogDescription className="sr-only">{game?.collectionTitle}</DialogDescription>{game&&<GamePanel key={game.id} initialGame={game} onExit={exit} onFinished={refreshBalance} onGameChange={gameChanged} balanceXp={xp}/>}</DialogContent></Dialog>
-  <AlertDialog open={!!cancelSession} onOpenChange={open=>{if(!busy&&!open)setCancelSession(null)}}><AlertDialogContent className="echo-dialog"><AlertDialogTitle>{t('home.finishSession')}?</AlertDialogTitle><AlertDialogDescription>{practice||cancelSession?.practice?t('home.finishPractice'):t('home.finishSettlement')}</AlertDialogDescription><AlertDialogFooter><AlertDialogCancel disabled={busy||generating}>{t('home.keepSession')}</AlertDialogCancel><AlertDialogAction disabled={busy||generating} onClick={()=>cancelSession&&void finishSession(cancelSession)}>{t('home.finishSession')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-  <Dialog open={account} onOpenChange={setAccount}><DialogContent className="echo-dialog account-v5" showCloseButton={false}><div className="setup-title"><div><DialogTitle>{t('account.title')}</DialogTitle><DialogDescription>{t('account.description')}</DialogDescription></div><button className="icon-button" aria-label={t('Закрыть')} onClick={()=>setAccount(false)}><X/></button></div><div className="account-summary"><UserRound/><div><h3>{profile?.profile.displayName||t('account.player')}</h3><p>{t(profile?'home.connected':loadError?'home.offline':'home.connecting')}</p></div>{!practice&&<strong>{format(xp)} XP</strong>}</div>{!practice&&<p className="account-note">{t('account.note')}</p>}<label className="practice-profile"><div><strong>{t('progress.practice')}</strong><p>{t('progress.practiceNote')}</p></div><Switch checked={profile?.progression.practice??false} disabled={!profile||busy} onCheckedChange={practice=>void changeProfile({action:'practice',practice})}/></label><CloudAISettings disabled={generating}/>{!practice&&<><h3>{t('progress.upgrades')}</h3><div className="upgrade-grid">{upgrades.map(upgrade=>{const bought=purchased(upgrade.id,profile?.progression);return <button key={upgrade.id} className={`upgrade-tile ${bought?'bought':''}`} disabled={busy||bought||xp<upgrade.cost||!!upgrade.requires&&!purchased(upgrade.requires,profile?.progression)} onClick={()=>void changeProfile({action:'unlock',id:upgrade.id})}>{bought?<Check size={17}/>:<Lock size={17}/>}<span>{t(`progress.${upgrade.kind}`,{value:Number.isFinite(upgrade.value)?upgrade.value:t('setup.unlimited')})}</span><strong>{bought?t('progress.bought'):`${upgrade.cost} XP`}</strong></button>})}</div><button className="button-secondary" disabled={!profile||busy||(profile.progression.resetAvailableAt??0)>clockNow} onClick={()=>void changeProfile({action:'reset'})}>{t('account.resetBalance')}{(profile?.progression.resetAvailableAt??0)>clockNow&&<small>{' · '+new Date(profile!.progression.resetAvailableAt-clockNow).toISOString().slice(11,19)}</small>}</button></>}<button className="danger-button" disabled={!profile||busy} onClick={()=>setDeleteOpen(true)}>{t('account.delete')}</button></DialogContent></Dialog>
-  <Dialog open={rules} onOpenChange={setRules}><DialogContent className="echo-dialog rules-v5" showCloseButton={false}><div className="setup-title"><div><DialogTitle>{t('rules.title')}</DialogTitle><DialogDescription>{t('rules.description')}</DialogDescription></div><button className="icon-button" aria-label={t('Закрыть')} onClick={()=>setRules(false)}><X/></button></div>{practice?<p>{t('rules.practice')}</p>:<><div className="rules-grid">{[['rules.single','+10'],['rules.both','+25'],['rules.partial','+10'],['rules.miss','−5']].map(([key,value])=><div key={key}><span>{t(key)}</span><strong>{value}</strong></div>)}</div><p>{t('rules.hint')}</p><p>{t('rules.math')}</p></>}</DialogContent></Dialog>
-  <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}><AlertDialogContent className="echo-dialog account-v5"><AlertDialogTitle>{t('account.deleteTitle')}</AlertDialogTitle><AlertDialogDescription>{t('account.deleteDescription')}</AlertDialogDescription><AlertDialogFooter><AlertDialogCancel disabled={busy||generating}>{t('account.keep')}</AlertDialogCancel><AlertDialogAction disabled={busy||generating} onClick={async event=>{event.preventDefault();if(operation.current)return;operation.current=true;setBusy(true);try{await request('/api/profile',{},'DELETE');setDeleteOpen(false);setAccount(false);exit();toast.success(t('account.deleted'));}catch(error){toast.error(errorRef.current(error));}finally{operation.current=false;setBusy(false);}}}>{busy?<LoaderCircle className="spin" size={16}/>:null}{t('account.deleteAction')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
- </div>;
+ return (
+  <div className="echo-shell echo-v5 nb-pumpkin-shell">
+   <Toaster theme="light" position="bottom-right"/>
+
+   {/* Top Brutalist Dossier Bar with concatenated publication version */}
+   <header className="topbar nb-topbar">
+    <div className="nb-brand-cluster">
+     <button className="brand brand-button" onClick={()=>setView('library')} aria-label={t('home.brand')}>
+      <span className="nb-brand-badge"><AudioLines size={18}/></span>
+      <span>ECHO<span className="brand-dot">.</span></span>
+     </button>
+     <span className="nb-version-stamp" title="Версия последней публикации">{SITE_PUB_VERSION}</span>
+    </div>
+
+    <nav className="nb-main-nav" aria-label={t('home.nav')}>
+     <button className={view==='library'?'nav-active':''} onClick={()=>setView('library')}>
+      <Music2 size={15}/>
+      <span>{t('home.library')}</span>
+     </button>
+     <button className={view==='tournament'?'nav-active':''} onClick={()=>setView('tournament')}>
+      <Swords size={15}/>
+      <span>{tournamentTitle}</span>
+     </button>
+     <button className={view==='vinyl'?'nav-active':''} onClick={()=>{setView('vinyl');setVinylVisited(true)}}>
+      <Disc3 size={15}/>
+      <span>{vinylTitle}</span>
+     </button>
+     <button className={view==='stats'?'nav-active':''} onClick={()=>setView('stats')}>
+      <Trophy size={15}/>
+      <span>{t('home.stats')}</span>
+     </button>
+    </nav>
+
+    <div className="nb-topbar-right">
+     <button
+      type="button"
+      className="nb-arcade-pill"
+      onClick={()=>setArcadeOpen(true)}
+      title="Мини-игры (5 игр в ожидании)"
+     >
+      <Gamepad2 size={15}/>
+      <span>5 ИГР</span>
+     </button>
+
+     {!practice&&(
+      <div id="profile-wallet" className={`wallet-tile ${walletDelta<0?'wallet-down':walletDelta>0?'wallet-up':''}`} aria-label={t('home.wallet')}>
+       <Zap size={15}/>
+       <strong><AnimatedNumber value={xp}/></strong>
+       <span>XP</span>
+       {walletDelta!==0&&<b key={`${xp}:${walletDelta}`} className="wallet-float">{walletDelta>0?'+':''}{format(walletDelta)}</b>}
+      </div>
+     )}
+
+     <label className="locale-picker">
+      <Languages size={14}/>
+      <select value={locale} onChange={event=>setLocale(event.target.value as Locale)} aria-label={t('home.language')}>
+       <option value="uk">УКР</option>
+       <option value="en">ENG</option>
+       <option value="ru">РУС</option>
+      </select>
+     </label>
+
+     <button className="spotify-button account-settings" aria-label={t('home.account')} onClick={()=>setAccount(true)}>
+      <span className={`account-status-dot ${profile?'connected':''}`}/>
+      <span className="account-copy">
+       <span>{profile?.profile.displayName||t('home.account')}</span>
+      </span>
+      <UserRound size={15}/>
+     </button>
+    </div>
+   </header>
+
+   <nav className="mobile-nav" aria-label={t('home.nav')}>
+    <button className={view==='library'?'active':''} onClick={()=>setView('library')}><Music2 size={15}/>{t('home.library')}</button>
+    <button className={view==='tournament'?'active':''} onClick={()=>setView('tournament')}><Swords size={15}/>{tournamentTitle}</button>
+    <button className={view==='vinyl'?'active':''} onClick={()=>{setView('vinyl');setVinylVisited(true)}}><Disc3 size={15}/>{vinylTitle}</button>
+    <button className={view==='stats'?'active':''} onClick={()=>setView('stats')}><Trophy size={15}/>{t('home.stats')}</button>
+   </nav>
+
+   <main className="main-wrap">
+    {/* Compact Neo-Brutalist Hero Dossier Banner */}
+    <section className="dashboard-heading nb-dossier-banner" hidden={view==='vinyl'||view==='tournament'}>
+     <div className="nb-banner-title-block">
+      <div className="nb-stamp-row">
+       <span className="eyebrow nb-stamp-tag">DOSSIER // No. 001</span>
+       <button
+        type="button"
+        className={`nb-mode-switch-chip ${noInputMode?'is-active':''}`}
+        onClick={()=>setNoInputMode(v=>!v)}
+        title="Режим без ввода названия песен — просто кнопка Далее"
+       >
+        <FastForward size={13}/>
+        <span>{noInputMode?'БЕЗ ВВОДА: ВКЛ':'БЕЗ ВВОДА: ВЫКЛ'}</span>
+       </button>
+      </div>
+      <h1>{view==='library'?t('home.title'):t('home.statsTitle')}</h1>
+     </div>
+
+     <div className="dashboard-actions nb-banner-actions">
+      <button className="button-primary builder-trigger nb-action-pumpkin" onClick={()=>{setNote('');setBuilderOpen(true);}}>
+       <SlidersHorizontal size={16}/>
+       <span>{t('home.builderTitle')}</span>
+      </button>
+      <button className="nb-action-gold" onClick={()=>setView('tournament')}>
+       <Swords size={16}/>
+       <span>{tournamentTitle}</span>
+      </button>
+      <button className="quiet-button nb-action-paper" onClick={()=>setRules(true)} title={t('home.rules')}>
+       <Info size={16}/>
+      </button>
+     </div>
+    </section>
+
+    {loadError&&(
+     <div className="load-error" role="alert">
+      <span>{loadError}</span>
+      <button onClick={()=>void load()}>{t('home.retry')}</button>
+     </div>
+    )}
+
+    {/* Compact 4-Stat Strip */}
+    <section className="dashboard-tiles nb-stat-strip" hidden={view!=='library'&&view!=='stats'} aria-label={t('home.stats')}>
+     {!practice&&(
+      <div className="dashboard-tile xp-dashboard">
+       <span><Zap size={15}/>{t('home.wallet')}</span>
+       <strong><AnimatedNumber value={xp}/><small> XP</small></strong>
+       <Progress value={level.progress} aria-label={t('home.levelProgress')}/>
+       <small>LVL {level.level} · {format(level.current)}/{format(level.next)}</small>
+      </div>
+     )}
+     <div className="dashboard-tile">
+      <span><Disc3 size={15}/>{t('home.completed')}</span>
+      <strong>{profile?.profile.games??'—'}</strong>
+      <small>{t('home.completedNote')}</small>
+     </div>
+     <div className="dashboard-tile">
+      <span><Trophy size={15}/>{t('home.accuracy')}</span>
+      <strong>{profile?.profile.total?`${Math.round(profile.profile.correct/profile.profile.total*100)}%`:'—'}</strong>
+      <small>{t('home.accuracyNote')}</small>
+     </div>
+     {!practice&&(
+      <div className="dashboard-tile">
+       <span><Headphones size={15}/>{t('home.best')}</span>
+       <strong>{format(profile?.profile.bestScore??0)}</strong>
+       <small>{t('home.points')}</small>
+      </div>
+     )}
+    </section>
+
+    {/* Vinyl View */}
+    {vinylVisited&&<div hidden={view!=='vinyl'}><VinylPanel locale={locale} userId={profile?.profile.id} active={view==='vinyl'&&!game}/></div>}
+
+    {/* Tournament View */}
+    {view==='tournament'&&(
+     <TournamentPanel onExit={()=>setView('library')}/>
+    )}
+
+    {/* Library View */}
+    {view==='library'&&(
+     <>
+      {!!profile?.sessions.length&&(
+       <section className="resume-section">
+        <div className="section-heading">
+         <h2>{t('home.resume')}</h2>
+         <span className="tiny">{profile.sessions.length}</span>
+        </div>
+        <div className="resume-grid">
+         {profile.sessions.map(session=>(
+          <div className="resume-entry" key={session.id}>
+           <button className="resume-card" disabled={busy||generating} onClick={()=>void resume(session.id)}>
+            <div className="resume-icon"><Headphones size={18}/></div>
+            <div>
+             <h3>{session.collectionTitle}</h3>
+             <p>{Math.min(session.total,session.index+(session.phase==='reveal'?1:0))} / {session.total}{!practice&&!session.practice&&<> · {format(session.score)} {t('home.points')}</>}</p>
+             <Progress value={session.index/session.total*100} aria-label={t('home.resumeProgress',{title:session.collectionTitle})}/>
+            </div>
+            <Play size={16}/>
+           </button>
+           <button className="resume-finish" disabled={busy||generating} onClick={()=>setCancelSession(session)} title={t('home.finishSession')}>
+            <X size={15}/>
+           </button>
+          </div>
+         ))}
+        </div>
+       </section>
+      )}
+
+      {!builderOpen&&generating&&generationState&&(
+       <div className="nb-live-gen-banner">
+        <GenerationProgress state={generationState} label={aiStatus||t('home.creating')} onCancel={stopGeneration}/>
+        <button type="button" className="nb-open-arcade-cta" onClick={()=>setArcadeOpen(true)}>
+         <Gamepad2 size={16}/>
+         <span>5 ИГР В ОЖИДАНИИ (БЕЗ СПОЙЛЕРОВ)</span>
+        </button>
+       </div>
+      )}
+      {!builderOpen&&(generating||busy)&&!generationState&&preparing&&(
+       <p className="builder-progress" role="status">{t('home.creating')}{preparing&&<span>{t('setup.catalogProgress',preparing)}</span>}</p>
+      )}
+      {!builderOpen&&note&&<p className="builder-note" role="alert">{note}</p>}
+
+      <section className="library">
+       <div className="library-tools nb-library-bar">
+        <RadioGroup className="filter-group" aria-label={t('home.catalog')} value={filter} onValueChange={setFilter}>
+         {[['all','home.all'],['ready','home.readyFilter'],['genre','home.genres'],['era','home.eras'],['mix','home.mixes'],['artist','home.artistFilter'],['custom','home.mine']].map(([id,label])=>(
+          <label className={`filter-chip ${filter===id?'selected':''}`} key={id}>
+           <RadioGroupItem value={id}/>
+           <span>{t(label)}</span>
+          </label>
+         ))}
+        </RadioGroup>
+
+        <div className="nb-search-and-create">
+         <label className="catalog-search">
+          <Search size={15}/>
+          <input value={query} onChange={event=>setQuery(event.target.value)} placeholder={t('home.search')} aria-label={t('home.search')}/>
+         </label>
+         <button className="quiet-button library-builder-trigger" onClick={()=>{setNote('');setBuilderOpen(true);}}>
+          <SlidersHorizontal size={14}/>
+          <span>МИКС / НАСТРОЙКИ</span>
+         </button>
+        </div>
+       </div>
+
+       <div className="collection-grid">
+        {visible.map(item=>(
+         <CollectionCard
+          key={item.id}
+          item={item}
+          customArt={hydratedCovers[item.id]}
+          onSelect={id=>void begin(id)}
+          onDelete={id=>void deleteCollection(id)}
+         />
+        ))}
+       </div>
+
+       {!visible.length&&(
+        <div className="empty-state" role={loadingCatalog?'status':undefined}>
+         <Music2/>
+         <h3>{t(loadingCatalog?'home.loadingCatalog':'home.noResults')}</h3>
+         <p>{t(loadingCatalog?'home.loadingNote':'home.noResultsNote')}</p>
+        </div>
+       )}
+      </section>
+     </>
+    )}
+
+    {/* Stats View */}
+    {view==='stats'&&(
+     <section className="history-section">
+      <div className="section-heading">
+       <h2>{t('home.history')}</h2>
+       <span className="tiny">{t('home.historyNote')}</span>
+      </div>
+      <div className="history-tiles">
+       {profile?.history.map(item=>(
+        <article className={`history-result ${item.status==='cancelled'?'cancelled':''}`} key={item.id}>
+         <div className="history-tile">
+          <div className="resume-icon">{item.status==='cancelled'?<X/>:<Trophy/>}</div>
+          <div>
+           <h3>{item.collectionTitle}</h3>
+           <p>{item.status==='cancelled'?t('home.cancelled'):t('home.guessed',{correct:item.correct,total:item.total})} · {new Intl.DateTimeFormat(locale,{day:'numeric',month:'short'}).format(item.completedAt)}</p>
+          </div>
+          {!practice&&!item.practice&&<strong>{item.xpAwarded>0?'+':''}{format(item.xpAwarded)} XP</strong>}
+         </div>
+         {item.status!=='cancelled'&&<ShareAchievement achievement={{...item,practice:practice||!!item.practice}} compact/>}
+        </article>
+       ))}
+      </div>
+      {!profile?.history.length&&(
+       <div className="empty-state">
+        <Trophy/>
+        <h3>{t('home.firstResult')}</h3>
+        <button className="button-primary" onClick={()=>setView('library')}>{t('home.pick')}</button>
+       </div>
+      )}
+     </section>
+    )}
+
+    <footer className="nb-footer">
+     <span className="brand footer-brand"><AudioLines size={15}/>ECHO. <b>v{SITE_PUB_VERSION}</b></span>
+     <div className="nb-footer-links">
+      <button onClick={()=>setBuilderOpen(true)}>Настройки микса</button>
+      <button onClick={()=>setArcadeOpen(true)}>5 Игр</button>
+      <button onClick={()=>setRules(true)}>{t('home.rules')}</button>
+      <button onClick={()=>setAccount(true)}>{t('home.account')}</button>
+     </div>
+    </footer>
+   </main>
+
+   {/* Popup Modal for Song Generation & Quiz Settings (Hidden from Start Page!) */}
+   <Dialog open={builderOpen} onOpenChange={open=>{if(!generating)setBuilderOpen(open);}}>
+    <DialogContent className="echo-dialog builder-dialog nb-dossier-modal" showCloseButton={false}>
+     <div className="builder-modal-top">
+      <div className="builder-heading">
+       <span className="ai-icon"><SlidersHorizontal size={18}/></span>
+       <div>
+        <DialogTitle>{t('home.builderTitle')}</DialogTitle>
+        <DialogDescription>Собери свой микс и настрой параметры игры</DialogDescription>
+       </div>
+      </div>
+      <button className="icon-button" aria-label={t('Закрыть')} disabled={generating} onClick={()=>setBuilderOpen(false)}>
+       <X size={18}/>
+      </button>
+     </div>
+
+     <section className="builder-v5" id="custom-mix">
+      <Tabs value={builderTab} onValueChange={value=>{if(!busy&&!generating)setBuilderTab(value)}}>
+       <TabsList className="builder-tabs">
+        <TabsTrigger value="description">{t('home.description')}</TabsTrigger>
+        <TabsTrigger value="artists">{t('home.artists')}</TabsTrigger>
+       </TabsList>
+
+       <TabsContent value="description">
+        <form className="builder-form" onSubmit={event=>{event.preventDefault();void createCollection();}}>
+         <div className="search-mode-row">
+          <label htmlFor="collection-prompt">{t('home.promptLabel')}</label>
+          <div className="search-mode" role="group" aria-label={t('search.mode')}>
+           {(['ai','catalog'] as const).map(mode=>(
+            <button type="button" key={mode} aria-pressed={searchMode===mode} disabled={busy||generating} onClick={()=>setSearchMode(mode)}>
+             {t('search.'+mode)}
+            </button>
+           ))}
+          </div>
+         </div>
+
+         <div className="prompt-box">
+          <input
+           id="collection-prompt"
+           disabled={busy||generating}
+           value={prompt}
+           onChange={event=>setPrompt(event.target.value)}
+           maxLength={1000}
+           placeholder={t('home.promptPlaceholder')}
+           required
+          />
+          <button className="button-primary" disabled={busy||generating||!prompt.trim()||!profile}>
+           {generating?<LoaderCircle className="spin" size={18}/>:<Disc3 size={18}/>}
+           <span>{t('home.create')}</span>
+          </button>
+         </div>
+
+         <div className="prompt-examples">
+          {QUICK_MIX_TAGS.map(example=>(
+           <button type="button" key={example} disabled={busy||generating} onClick={()=>setPrompt(example)}>
+            {example}
+           </button>
+          ))}
+         </div>
+
+         {!!miniCategories.length&&(
+          <div className="mini-categories" aria-label={t('search.categories')}>
+           <span>{t('search.categories')}</span>
+           {miniCategories.slice(0,6).map(cat=>(
+            <button type="button" key={cat.prompt} disabled={busy||generating} title={t('search.categoryHint',{count:cat.count})} onClick={()=>{setSearchMode('ai');setPrompt(cat.prompt);}}>
+             <Disc3 size={13}/>
+             <span>{cat.title}</span>
+             <small>{cat.count}</small>
+            </button>
+           ))}
+          </div>
+         )}
+        </form>
+       </TabsContent>
+
+       <TabsContent value="artists">
+        <ArtistPicker selected={selectedArtists} onChange={setSelectedArtists} onCreate={()=>void createCollection(selectedArtists)} busy={busy||generating} disabled={!profile}/>
+       </TabsContent>
+      </Tabs>
+
+      <div className="builder-configuration">
+       <div className="builder-preferences">
+        <div className="builder-count">
+         <span>{t('setup.count')}</span>
+         {countPicker}
+        </div>
+        <div className="nb-switches-col">
+         <label className="builder-repeat">
+          <Switch checked={repeatLocked||settings.allowArtistRepeats} disabled={repeatLocked||busy||generating} onCheckedChange={checked=>setSettings(previous=>({...previous,allowArtistRepeats:checked}))}/>
+          <span>{t('setup.repeats')}</span>
+         </label>
+         <label className="builder-repeat nb-noinput-toggle">
+          <Switch checked={noInputMode} disabled={busy||generating} onCheckedChange={setNoInputMode}/>
+          <span>Режим без ввода названия (просто кнопка «Далее»)</span>
+         </label>
+        </div>
+       </div>
+
+       <GameOptions settings={settings} onChange={value=>setSettings(previous=>({...previous,...value}))} progress={profile?.progression} onUnlock={unlock} disabled={busy||generating}/>
+      </div>
+
+      {generating&&generationState&&(
+       <div className="nb-modal-gen-wrap">
+        <GenerationProgress state={generationState} label={aiStatus||t('home.creating')} onCancel={stopGeneration}/>
+        <button type="button" className="nb-open-arcade-cta" onClick={()=>setArcadeOpen(true)}>
+         <Gamepad2 size={16}/>
+         <span>ИГРАТЬ В 5 ИГР ПОКА ИДЕТ СБОРКА (БЕЗ СПОЙЛЕРОВ)</span>
+        </button>
+       </div>
+      )}
+      {(generating||busy)&&!generationState&&preparing&&(
+       <p className="builder-progress" role="status">{t('home.creating')}{preparing&&<span>{t('setup.catalogProgress',preparing)}</span>}</p>
+      )}
+      {note&&<p className="builder-note" role="alert">{note}</p>}
+     </section>
+    </DialogContent>
+   </Dialog>
+
+   {/* 5 Mini-Games Waiting Arcade Hub (Zero Spoilers) */}
+   <ArcadeHub
+    open={arcadeOpen}
+    onClose={()=>setArcadeOpen(false)}
+    generationState={generationState}
+    generating={generating}
+    onCancelGeneration={stopGeneration}
+    readyToEnter={!!game}
+    readyCount={game?.total}
+    onEnterReady={()=>setArcadeOpen(false)}
+   />
+
+   {/* Main Quiz Dialog with Split-Screen Post-Guess Reveal */}
+   <Dialog open={!!game} onOpenChange={open=>{if(!open)exit();}}>
+    <DialogContent className="echo-dialog game-dialog" showCloseButton={false} onInteractOutside={event=>event.preventDefault()} onEscapeKeyDown={event=>event.preventDefault()}>
+     <DialogTitle className="sr-only">{t('Музыкальная игра')}</DialogTitle>
+     <DialogDescription className="sr-only">{game?.collectionTitle}</DialogDescription>
+     {game&&(
+      <GamePanel
+       key={game.id}
+       initialGame={game}
+       onExit={exit}
+       onFinished={refreshBalance}
+       onGameChange={gameChanged}
+       balanceXp={xp}
+       noInputMode={noInputMode}
+       onToggleNoInputMode={()=>setNoInputMode(v=>!v)}
+      />
+     )}
+    </DialogContent>
+   </Dialog>
+
+   <AlertDialog open={!!cancelSession} onOpenChange={open=>{if(!busy&&!open)setCancelSession(null)}}>
+    <AlertDialogContent className="echo-dialog">
+     <AlertDialogTitle>{t('home.finishSession')}?</AlertDialogTitle>
+     <AlertDialogDescription>{practice||cancelSession?.practice?t('home.finishPractice'):t('home.finishSettlement')}</AlertDialogDescription>
+     <AlertDialogFooter>
+      <AlertDialogCancel disabled={busy||generating}>{t('home.keepSession')}</AlertDialogCancel>
+      <AlertDialogAction disabled={busy||generating} onClick={()=>cancelSession&&void finishSession(cancelSession)}>{t('home.finishSession')}</AlertDialogAction>
+     </AlertDialogFooter>
+    </AlertDialogContent>
+   </AlertDialog>
+
+   <Dialog open={account} onOpenChange={setAccount}>
+    <DialogContent className="echo-dialog account-v5" showCloseButton={false}>
+     <div className="setup-title">
+      <div>
+       <DialogTitle>{t('account.title')}</DialogTitle>
+       <DialogDescription>{t('account.description')}</DialogDescription>
+      </div>
+      <button className="icon-button" aria-label={t('Закрыть')} onClick={()=>setAccount(false)}><X/></button>
+     </div>
+     <div className="account-summary">
+      <UserRound/>
+      <div>
+       <h3>{profile?.profile.displayName||t('account.player')}</h3>
+       <p>{t(profile?'home.connected':loadError?'home.offline':'home.connecting')}</p>
+      </div>
+      {!practice&&<strong>{format(xp)} XP</strong>}
+     </div>
+     {!practice&&<p className="account-note">{t('account.note')}</p>}
+     <label className="practice-profile">
+      <div>
+       <strong>{t('progress.practice')}</strong>
+       <p>{t('progress.practiceNote')}</p>
+      </div>
+      <Switch checked={profile?.progression.practice??false} disabled={!profile||busy} onCheckedChange={practice=>void changeProfile({action:'practice',practice})}/>
+     </label>
+     <CloudAISettings disabled={generating}/>
+     {!practice&&(
+      <>
+       <h3>{t('progress.upgrades')}</h3>
+       <div className="upgrade-grid">
+        {upgrades.map(upgrade=>{
+         const bought=purchased(upgrade.id,profile?.progression);
+         return (
+          <button
+           key={upgrade.id}
+           className={`upgrade-tile ${bought?'bought':''}`}
+           disabled={busy||bought||xp<upgrade.cost||!!upgrade.requires&&!purchased(upgrade.requires,profile?.progression)}
+           onClick={()=>void changeProfile({action:'unlock',id:upgrade.id})}
+          >
+           {bought?<Check size={17}/>:<Lock size={17}/>}
+           <span>{t(`progress.${upgrade.kind}`,{value:Number.isFinite(upgrade.value)?upgrade.value:t('setup.unlimited')})}</span>
+           <strong>{bought?t('progress.bought'):`${upgrade.cost} XP`}</strong>
+          </button>
+         );
+        })}
+       </div>
+       <button className="button-secondary" disabled={!profile||busy||(profile.progression.resetAvailableAt??0)>clockNow} onClick={()=>void changeProfile({action:'reset'})}>
+        {t('account.resetBalance')}
+        {(profile?.progression.resetAvailableAt??0)>clockNow&&<small>{' · '+new Date(profile!.progression.resetAvailableAt-clockNow).toISOString().slice(11,19)}</small>}
+       </button>
+      </>
+     )}
+     <button className="danger-button" disabled={!profile||busy} onClick={()=>setDeleteOpen(true)}>{t('account.delete')}</button>
+    </DialogContent>
+   </Dialog>
+
+   <Dialog open={rules} onOpenChange={setRules}>
+    <DialogContent className="echo-dialog rules-v5" showCloseButton={false}>
+     <div className="setup-title">
+      <div>
+       <DialogTitle>{t('rules.title')}</DialogTitle>
+       <DialogDescription>{t('rules.description')}</DialogDescription>
+      </div>
+      <button className="icon-button" aria-label={t('Закрыть')} onClick={()=>setRules(false)}><X/></button>
+     </div>
+     {practice?(
+      <p>{t('rules.practice')}</p>
+     ):(
+      <>
+       <div className="rules-grid">
+        {[['rules.single','+10'],['rules.both','+25'],['rules.partial','+10'],['rules.miss','−5']].map(([key,value])=>(
+         <div key={key}><span>{t(key)}</span><strong>{value}</strong></div>
+        ))}
+       </div>
+       <p>{t('rules.hint')}</p>
+       <p>{t('rules.math')}</p>
+      </>
+     )}
+    </DialogContent>
+   </Dialog>
+
+   <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+    <AlertDialogContent className="echo-dialog account-v5">
+     <AlertDialogTitle>{t('account.deleteTitle')}</AlertDialogTitle>
+     <AlertDialogDescription>{t('account.deleteDescription')}</AlertDialogDescription>
+     <AlertDialogFooter>
+      <AlertDialogCancel disabled={busy||generating}>{t('account.keep')}</AlertDialogCancel>
+      <AlertDialogAction disabled={busy||generating} onClick={async event=>{event.preventDefault();if(operation.current)return;operation.current=true;setBusy(true);try{await request('/api/profile',{},'DELETE');setDeleteOpen(false);setAccount(false);exit();toast.success(t('account.deleted'));}catch(error){toast.error(errorRef.current(error));}finally{operation.current=false;setBusy(false);}}}>
+       {busy?<LoaderCircle className="spin" size={16}/>:null}
+       {t('account.deleteAction')}
+      </AlertDialogAction>
+     </AlertDialogFooter>
+    </AlertDialogContent>
+   </AlertDialog>
+  </div>
+ );
 }

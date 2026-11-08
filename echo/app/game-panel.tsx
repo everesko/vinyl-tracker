@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import {createPortal} from 'react-dom';
 import {useI18n} from '@/lib/i18n';
 import {BalanceFlight} from './game-effects';
 import ShareAchievement from './share-achievement';
 import GameVinylButton from './game-vinyl-button';
-import { Check, Clock3, Disc3, ExternalLink, Headphones, Layers3, Loader2, Mic, Music2, Play, RotateCcw, Trophy, UserRound, Volume2, X } from 'lucide-react';
+import { Check, Clock3, Disc3, ExternalLink, Headphones, Layers3, Loader2, Mic, Music2, Pause, Play, RotateCcw, Trophy, UserRound, Volume2, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import {AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
@@ -15,7 +14,15 @@ import { createDemoPlayer, cutoffPlayback, gameRequest, preparePassage, recognit
 import { multiplier, type AnswerMode } from '@/lib/quiz';
 export type { GameView } from '@/lib/client-media';
 
-type Props = { initialGame: GameView; onExit: () => void; onFinished: (game: GameView) => void; onGameChange?: (game: GameView) => void; balanceXp?:number };
+type Props = {
+  initialGame: GameView;
+  onExit: () => void;
+  onFinished: (game: GameView) => void;
+  onGameChange?: (game: GameView) => void;
+  balanceXp?: number;
+  noInputMode?: boolean;
+  onToggleNoInputMode?: (value: boolean) => void;
+};
 const message = (error: unknown) => error instanceof Error ? error.message : 'Не удалось выполнить действие. Повторите попытку.';
 
 function AnimatedNumber({value,delay=0}:{value:number;delay?:number}){
@@ -24,16 +31,29 @@ function AnimatedNumber({value,delay=0}:{value:number;delay?:number}){
  useEffect(()=>{const from=previous.current;previous.current=value;let frame=0;const start=performance.now()+delay,reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;const update=(now:number)=>{const t=reduced?1:Math.max(0,Math.min(1,(now-start)/1100));setShown(Math.round((from+(value-from)*(1-(1-t)**3))*10)/10);if(t<1)frame=requestAnimationFrame(update)};frame=requestAnimationFrame(update);return()=>cancelAnimationFrame(frame)},[value,delay]);return <>{new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(shown)}</>;
 }
 
-export default function GamePanel({ initialGame, onExit, onFinished, onGameChange, balanceXp=0 }: Props) {
+export default function GamePanel({ initialGame, onExit, onFinished, onGameChange, balanceXp=0, noInputMode: propNoInput, onToggleNoInputMode }: Props) {
   const [game, setGame] = useState(initialGame), [artist, setArtist] = useState(''), [song, setSong] = useState('');
   const {locale,t}=useI18n();
   const format=(value:number)=>new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(value);
+  const [localNoInput, setLocalNoInput] = useState<boolean>(() => {
+    if (propNoInput !== undefined) return propNoInput;
+    if (typeof window !== 'undefined') return localStorage.getItem('echo_no_input_mode') === 'true';
+    return false;
+  });
+  const noInput = propNoInput !== undefined ? propNoInput : localNoInput;
+  const toggleNoInput = () => {
+    const next = !noInput;
+    setLocalNoInput(next);
+    try { localStorage.setItem('echo_no_input_mode', String(next)); } catch {}
+    onToggleNoInputMode?.(next);
+  };
+
   const [reportOpen,setReportOpen]=useState(false);
-  const [manual,setManual]=useState(false);
+  const [manual,setManual]=useState(true);
   const [settled,setSettled]=useState(false),[revealDone,setRevealDone]=useState(false),[revealBusy,setRevealBusy]=useState(false),[revealStarted,setRevealStarted]=useState(0);
   const [spoken,setSpoken]=useState(''),[cancelOpen,setCancelOpen]=useState(false);
   const [busy, setBusy] = useState(true), [error, setError] = useState(''), [retryAction, setRetryAction] = useState<'sync' | 'play' | 'answer' | 'next' | 'cancel' | 'hint'>('sync');
-  const [now, setNow] = useState(() => Date.now()), [volume, setVolume] = useState(.7), [audible, setAudible] = useState(false);
+  const [now, setNow] = useState(() => Date.now()), [volume, setVolume] = useState(.75), [audible, setAudible] = useState(false);
   const [mediaError,setMediaError]=useState(''),[encore,setEncore]=useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false), [voiceField, setVoiceField] = useState<'artist' | 'song' | null>(null), [interim, setInterim] = useState(''), [voiceError, setVoiceError] = useState(''), [language, setLanguage] = useState(locale==='uk'?'uk-UA':locale==='en'?'en-US':'ru-RU');
   const state = useRef(game), locked = useRef(true), mounted = useRef(true), finished = useRef<string | null>(null);
@@ -67,7 +87,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
     }
     const roundId = `${rawNext.id}:${rawNext.index}`;
     if (rawNext.index !== state.current.index || rawNext.id !== state.current.id) {
-      stopMedia(); stopVoice(); setArtist(''); setSong(''); setSpoken('');setReportOpen(false); setManual(false); setRevealDone(false); setRevealStarted(0); setVoiceError(''); setMediaError(''); boundaryKey.current = ''; completedRound.current = '';
+      stopMedia(); stopVoice(); setArtist(''); setSong(''); setSpoken('');setReportOpen(false); setRevealDone(false); setRevealStarted(0); setVoiceError(''); setMediaError(''); boundaryKey.current = ''; completedRound.current = '';
       void demo.current?.close().catch(() => {}); demo.current = null;
       if (audio.current) { audio.current.removeAttribute('src'); audio.current.load(); audio.current = null; }
     } else if (rawNext.phase === 'ready' || rawNext.phase === 'paused') {
@@ -105,7 +125,6 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
 
   useEffect(() => {
     mounted.current = true; const controller = new AbortController(); requestAbort.current = controller; locked.current = true;
-    // A resume always reads the server; no timer or media is restarted.
     void gameRequest(initialGame.id, undefined, undefined, controller.signal).then(next => { if (!controller.signal.aborted) { setVoiceAvailable(!!recognitionConstructor()); accept(next); } }).catch(e => { if (mounted.current && !controller.signal.aborted) { setError(message(e)); setRetryAction('sync'); } }).finally(() => { if (mounted.current && !controller.signal.aborted) { locked.current = false; setBusy(false); } });
     return () => {
       mounted.current = false; controller.abort(); mediaAbort.current?.abort(); stopCutoff.current?.();
@@ -288,14 +307,23 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
         if(!audio.current||audio.current.getAttribute('src')!==source){audio.current?.pause();const element=new Audio(source);element.preload='auto';audio.current=element;element.load()}
         const element=audio.current;element.volume=volume;element.onerror=()=>{if(valid()){stopMedia();setMediaError('Фрагмент недоступен. Можно перейти дальше.');setRevealDone(true)}};
         element.onstalled=null;element.oncanplay=null;element.onended=completed;
-        await preparePassage(element,current.reveal?.encoreStart??0,controller.signal,10);if(!valid()||document.hidden)return;
-        await element.play();if(!valid()){element.pause();return}setEncore(true);setRevealStarted(Date.now());stopCutoff.current=cutoffPlayback(element,10,completed);
+        await preparePassage(element,current.reveal?.encoreStart??0,controller.signal,25);if(!valid()||document.hidden)return;
+        await element.play();if(!valid()){element.pause();return}setEncore(true);setRevealStarted(Date.now());stopCutoff.current=cutoffPlayback(element,25,completed);
       }else if(current.track?.demoNotes?.length){
         if(!demo.current)demo.current=await createDemoPlayer(current.track.demoNotes);if(!valid())return;
-        await demo.current.play(10,volume);if(!valid()){demo.current.stop();return}setEncore(true);setRevealStarted(Date.now());encoreTimer.current=window.setTimeout(completed,10000);
+        await demo.current.play(15,volume);if(!valid()){demo.current.stop();return}setEncore(true);setRevealStarted(Date.now());encoreTimer.current=window.setTimeout(completed,15000);
       }else setRevealDone(true);
     }catch(e){if(valid()){setMediaError(message(e));setRevealDone(false)}}finally{if(valid())setRevealBusy(false)}
   },[stopMedia,volume]);
+
+  const toggleRevealPlayback = useCallback(() => {
+    if (encore && audio.current && !audio.current.paused) {
+      stopMedia();
+    } else {
+      void playReveal();
+    }
+  }, [encore, playReveal, stopMedia]);
+
   useEffect(()=>{if(game.phase==='reveal'&&autoReveal.current){autoReveal.current=false;void playReveal()}},[game.phase,playReveal]);
 
   const playHint=async()=>{
@@ -365,51 +393,727 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   const speechReady=!!spoken.trim();
   const pending=game.pendingSettings;
   const cancelAmount=Math.round((game.score>0?game.score*.5:game.score)*10)/10;
-  const revealProgress=encore&&revealStarted?Math.max(0,Math.min(100,(now-revealStarted)/100)):revealDone?100:0;
+  const revealProgress=encore&&revealStarted?Math.max(0,Math.min(100,(now-revealStarted)/250)):revealDone?100:0;
   const stageKey = game.phase === 'ready' || game.phase === 'playing' || game.phase === 'paused' ? 'listen' : game.phase;
   const retry=()=>{
     if(retryAction==='cancel')void cancelGame();else if(retryAction==='hint')void playHint();
     else if(retryAction==='sync')void synchronize();else if(retryAction==='play')void playRound();else void act(retryAction);
   };
-  return <section className={`quiz-window quiz-v5 phase-${game.phase} ${game.practice?'practice-game':''}`} aria-label={t('Музыкальная игра')}>
-    {game.phase==='reveal'&&game.reveal?.artworkUrl&&typeof document!=='undefined'&&createPortal(<div className={`quiz-fullscreen-art ${encore?'playing':''}`} aria-hidden="true"><Image src={game.reveal.artworkUrl} alt="" fill unoptimized/><i/></div>,document.body)}
-    <header className="quiz-window-header"><div><span className="eyebrow">{t(closed?'РЕЗУЛЬТАТ':'МУЗЫКАЛЬНЫЙ КВИЗ')}</span><h2>{t(game.collectionTitle)}</h2></div>{!game.practice&&<div className="game-wallet"><ZapIcon/><span><AnimatedNumber value={balanceXp}/> XP</span></div>}<button className="icon-button" aria-label={t('Свернуть игру')} onClick={exit}><X size={21}/></button></header>
-    <div className="quiz-mini-stats"><span><Headphones size={15}/>{closed?`${game.summary?.correct??0} / ${game.total}`:`${game.index+1} / ${game.total}`}</span>{!game.practice&&<><span><Trophy size={15}/><AnimatedNumber value={game.score}/> {t('очков')}</span><span>×{factor.toLocaleString(locale,{maximumFractionDigits:4})}</span></>}<span className={remaining!==undefined&&remaining<=3?'urgent':''}><Clock3 size={15}/>{game.settings.timer?`${remaining??10} ${t('сек')}`:t('Без таймера')}</span></div>
-    <Progress className="quiz-round-progress" aria-label={t('Прогресс игры')} value={closed?100:game.index/game.total*100}/>
-    {error&&<div className="quiz-error" role="alert"><span>{t(error)}</span><button disabled={busy} onClick={retry}><RotateCcw size={15}/>{t('Повторить')}</button></div>}
-    <div className="quiz-body" key={`${game.index}:${stageKey}`}>
-      {(game.phase==='ready'||game.phase==='playing'||game.phase==='paused')&&<div className="listen-surface"><div className={`vinyl-disc ${audible?'spinning':''}`} aria-hidden="true"><Disc3/><span>echo.</span></div><h1>{t('Слушай внимательно')}</h1><p>{t(audible?'Фрагмент играет…':'Название откроется после ответа')}</p><div className="listen-deck"><Wave active={audible}/><button className="listen-button" disabled={busy||game.mediaError?.retryAvailable===false} onClick={()=>audible?void pauseRound():void playRound()} aria-label={t('Слушать фрагмент')}>{busy?<Loader2 className="spin"/>:audible?<Headphones/>:<Play fill="currentColor"/>}<span>{busy?t('Готовим звук…'):audible?t('game.pause'):game.phase==='paused'?t('game.resume'):t('Слушать {count} сек',{count:game.settings.duration})}</span></button></div><div className="clip-timeline"><span>00:0{Math.min(game.settings.duration,Math.floor(game.settings.duration*clipProgress/100))}</span><Progress value={clipProgress} aria-label={t('Длительность фрагмента')}/><span>00:0{game.settings.duration}</span></div>{pending&&<span className="queued-settings-note">{t('Новые настройки — со следующего трека')}</span>}{game.mediaError?.retryAvailable===false&&<p role="status">{t('Запись недоступна. Можно отменить игру.')}</p>}<button className="guess-utility listen-report" disabled={busy} onClick={()=>setReportOpen(!reportOpen)}><Volume2 size={18}/>{t('game.incorrectMedia')}</button></div>}
-      {game.phase==='answer'&&<div className={`answer-surface answer-v5 ${game.songOnly?'song-only':''}`}>
-        <button className={`voice-tile ${voiceField?'recording':''}`} type="button" disabled={blockedAnswer||!voiceAvailable} aria-label={t(voiceField?'Остановить голосовой ввод':'Продиктовать ответ')} aria-pressed={!!voiceField} onClick={()=>voiceField?stopVoice():startVoice(game.songOnly?'song':'artist')}><span className="voice-orb"><Mic size={32}/><i/><i/></span><span className="voice-copy"><strong>{t(voiceField?'Слушаю тебя…':spoken?'Ответ распознан':'Скажи свой ответ')}</strong><span>{interim||spoken||t(voiceAvailable?(game.songOnly?'Назови песню':'Назови исполнителя и песню одной фразой'):'В этом браузере используй ручной ввод')}</span></span>{voiceField&&<Wave active/>}</button>
-        <div className="manual-toggle-row"><button className="manual-toggle" aria-expanded={manual} onClick={()=>setManual(!manual)}>{t(manual?'Скрыть поля':'Ввести вручную')}</button><button className="voice-language" aria-label={t('Язык голосового ввода')} onClick={()=>{stopVoice();setLanguage(language==='uk-UA'?'en-US':language==='en-US'?'ru-RU':'uk-UA')}}>{language==='uk-UA'?'UK':language==='en-US'?'EN':'RU'} · {t('Совпадение от 40%')}</button></div>
-        <div className={`guess-answer-cards ${game.songOnly?'single':''}`}>
-          {(['artist','song'] as const).filter(field=>!game.songOnly||field==='song').map(field=><div className={`guess-answer-card ${manual?'expanded':''}`} key={field}><label htmlFor={`guess-${field}`}><span>{field==='artist'?<UserRound size={16}/>:<Music2 size={16}/>} {t(field==='artist'?'Исполнитель':'Название песни')}</span>{manual?<input id={`guess-${field}`} value={field==='artist'?artist:song} onChange={e=>{setSpoken('');if(field==='artist')setArtist(e.target.value);else setSong(e.target.value)}} placeholder={t(field==='artist'?'Кто поёт?':'Как называется?')} autoComplete="off" spellCheck={false} maxLength={200} disabled={blockedAnswer}/>:<small>{t(speechReady?'Голосовой ответ готов':'Ответь голосом или открой поле')}</small>}</label></div>)}
+
+  return (
+    <div className={`nb-quiz-stage ${game.phase === 'reveal' ? 'is-split-reveal' : ''}`}>
+      {/* ЛЕВАЯ ЧАСТЬ ЭКРАНА ПРИ РАСКРЫТИИ ПЕСНИ: КРУПНАЯ ОБЛОЖКА АЛЬБОМА */}
+      {game.phase === 'reveal' && game.reveal && (
+        <aside className="nb-reveal-left-pane" aria-label={t('Обложка альбома')}>
+          <div className="nb-cover-frame" onClick={toggleRevealPlayback}>
+            <div className="nb-dossier-pin tl" />
+            <div className="nb-dossier-pin tr" />
+            <div className="nb-dossier-pin bl" />
+            <div className="nb-dossier-pin br" />
+
+            <div className={`nb-vinyl-peek ${encore ? 'spinning' : ''}`} aria-hidden="true">
+              <div className="nb-vinyl-peek-label">ECHO</div>
+            </div>
+
+            <div className="nb-cover-artwork-box">
+              {game.reveal.artworkUrl ? (
+                <Image
+                  src={game.reveal.artworkUrl}
+                  width={560}
+                  height={560}
+                  alt={game.reveal.title}
+                  unoptimized
+                  className="nb-cover-large-img"
+                />
+              ) : (
+                <div className="nb-cover-fallback">
+                  <Disc3 size={88} />
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="nb-cover-play-pill"
+                aria-label={encore ? 'Пауза' : 'Слушать'}
+              >
+                {encore ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
+                <span>{encore ? 'ЗВУЧИТ' : 'СЛУШАТЬ'}</span>
+              </button>
+            </div>
+
+            <div className="nb-cover-caption">
+              <span className="nb-stamp">ALBUM MASTER #{String(game.index + 1).padStart(2, '0')}</span>
+              <strong>{game.reveal.artist}</strong>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* ПРАВАЯ ЧАСТЬ (ИЛИ ЦЕНТРАЛЬНОЕ ОКНО ДО ОТКРЫТИЯ): ОКНО КВИЗА */}
+      <section
+        className={`quiz-window quiz-v5 phase-${game.phase} ${game.practice ? 'practice-game' : ''} ${
+          game.phase === 'reveal' ? 'slid-right' : ''
+        }`}
+        aria-label={t('Музыкальная игра')}
+      >
+        <header className="quiz-window-header">
+          <div>
+            <span className="eyebrow">
+              {closed
+                ? t('РЕЗУЛЬТАТ')
+                : `#${String(game.index + 1).padStart(2, '0')} / ${String(game.total).padStart(2, '0')}`}
+            </span>
+            <h2>{t(game.collectionTitle)}</h2>
+          </div>
+
+          <div className="nb-quiz-header-tools">
+            {!closed && (
+              <button
+                type="button"
+                className={`nb-mode-pill ${noInput ? 'active' : ''}`}
+                onClick={toggleNoInput}
+                title="Переключить режим без ввода названия песен"
+              >
+                {noInput ? '⚡ Без ввода (Далее)' : '⌨ С вводом'}
+              </button>
+            )}
+            {!game.practice && !noInput && (
+              <div className="game-wallet">
+                <ZapIcon />
+                <span>
+                  <AnimatedNumber value={balanceXp} /> XP
+                </span>
+              </div>
+            )}
+            <button className="icon-button" aria-label={t('Свернуть игру')} onClick={exit}>
+              <X size={20} />
+            </button>
+          </div>
+        </header>
+
+        <div className="quiz-mini-stats">
+          <span>
+            <Headphones size={14} />
+            {closed
+              ? `${game.summary?.correct ?? 0} / ${game.total}`
+              : `${game.index + 1} / ${game.total}`}
+          </span>
+          {!game.practice && !noInput && (
+            <>
+              <span>
+                <Trophy size={14} />
+                <AnimatedNumber value={game.score} /> {t('очков')}
+              </span>
+              <span>×{factor.toLocaleString(locale, { maximumFractionDigits: 4 })}</span>
+            </>
+          )}
+          <span className={remaining !== undefined && remaining <= 3 ? 'urgent' : ''}>
+            <Clock3 size={14} />
+            {game.settings.timer ? `${remaining ?? 10} ${t('сек')}` : `${game.settings.duration}с`}
+          </span>
         </div>
-        <div className={`guess-action-grid ${game.songOnly?'single':''}`}>
-          {!game.songOnly&&<button className="guess-main" disabled={blockedAnswer||!(speechReady||artist.trim()||song.trim())} onClick={()=>void act('answer',false,'both')}><Layers3 size={24}/><strong>{t('game.guessAll')}</strong>{!game.practice&&<span>+{format(25*rewardFactor*(game.hint?.used?.valueOf()?0.75:1))}</span>}</button>}
-          {(['artist','song'] as const).filter(field=>!game.songOnly||field==='song').map(field=><button className="guess-single" key={field} disabled={blockedAnswer||!(speechReady||(field==='artist'?artist:song).trim())} onClick={()=>void act('answer',false,field)}>{field==='artist'?<UserRound size={21}/>:<Music2 size={21}/>}<strong>{t(field==='artist'?'Угадать исполнителя':'Угадать песню')}</strong>{!game.practice&&<span>+{format(10*rewardFactor*(game.hint?.used?0.75:1))}</span>}</button>)}
+
+        <Progress
+          className="quiz-round-progress"
+          aria-label={t('Прогресс игры')}
+          value={closed ? 100 : (game.index / game.total) * 100}
+        />
+
+        {error && (
+          <div className="quiz-error" role="alert">
+            <span>{t(error)}</span>
+            <button disabled={busy} onClick={retry}>
+              <RotateCcw size={15} />
+              {t('Повторить')}
+            </button>
+          </div>
+        )}
+
+        <div className="quiz-body" key={`${game.index}:${stageKey}`}>
+          {(game.phase === 'ready' || game.phase === 'playing' || game.phase === 'paused') && (
+            <div className="listen-surface">
+              <div className={`vinyl-disc ${audible ? 'spinning' : ''}`} aria-hidden="true">
+                <Disc3 />
+                <span>echo.</span>
+              </div>
+              <h1>{audible ? t('Слушай фрагмент') : t('Запусти фрагмент')}</h1>
+              <div className="listen-deck">
+                <Wave active={audible} />
+                <button
+                  className="listen-button"
+                  disabled={busy || game.mediaError?.retryAvailable === false}
+                  onClick={() => (audible ? void pauseRound() : void playRound())}
+                  aria-label={t('Слушать фрагмент')}
+                >
+                  {busy ? (
+                    <Loader2 className="spin" />
+                  ) : audible ? (
+                    <Pause />
+                  ) : (
+                    <Play fill="currentColor" />
+                  )}
+                  <span>
+                    {busy
+                      ? t('Готовим…')
+                      : audible
+                        ? t('game.pause')
+                        : game.phase === 'paused'
+                          ? t('game.resume')
+                          : t('Слушать {count} сек', { count: game.settings.duration })}
+                  </span>
+                </button>
+              </div>
+              <div className="clip-timeline">
+                <span>
+                  00:0
+                  {Math.min(
+                    game.settings.duration,
+                    Math.floor((game.settings.duration * clipProgress) / 100)
+                  )}
+                </span>
+                <Progress value={clipProgress} aria-label={t('Длительность фрагмента')} />
+                <span>00:0{game.settings.duration}</span>
+              </div>
+              {pending && (
+                <span className="queued-settings-note">
+                  {t('Новые настройки — со следующего трека')}
+                </span>
+              )}
+              <div className="nb-listen-bottom-row">
+                <button
+                  className="guess-utility listen-report"
+                  disabled={busy}
+                  onClick={() => setReportOpen(!reportOpen)}
+                >
+                  <Volume2 size={16} />
+                  {t('game.incorrectMedia')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {game.phase === 'answer' && (
+            <div className={`answer-surface answer-v5 ${game.songOnly ? 'song-only' : ''}`}>
+              {noInput ? (
+                /* РЕЖИМ БЕЗ ВВОДА НАЗВАНИЯ ПЕСЕН (ПРОСТО КНОПКА «ДАЛЕЕ») */
+                <div className="nb-noinput-deck">
+                  <div className="nb-noinput-head">
+                    <span className="nb-stamp">CUE LOCKED · СТОП</span>
+                    <h3>Готовы открыть песню?</h3>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="nb-btn nb-btn-primary nb-btn-xl nb-next-reveal-btn"
+                    disabled={busy || audible}
+                    onClick={() => void act('answer', true)}
+                  >
+                    <span>ДАЛЕЕ — ОТКРЫТЬ ПЕСНЮ</span>
+                    <span className="nb-arrow-badge">→</span>
+                  </button>
+
+                  <div className="nb-noinput-tools">
+                    <button
+                      type="button"
+                      className="guess-utility"
+                      disabled={busy || audible || game.settings.timer}
+                      onClick={() => void playRound(true)}
+                    >
+                      <RotateCcw size={16} />
+                      <span>Повторить</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`guess-utility ${game.hint?.used ? 'used' : ''}`}
+                      disabled={blockedAnswer || !game.hint?.available || game.hint?.used}
+                      onClick={() => void playHint()}
+                    >
+                      <Headphones size={16} />
+                      <span>Другой кусок</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="guess-utility"
+                      disabled={busy || audible}
+                      onClick={() => setReportOpen(!reportOpen)}
+                    >
+                      <Volume2 size={16} />
+                      <span>Заменить</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* СТАНДАРТНЫЙ РЕЖИМ С ВВОДОМ + КНОПКА «ДАЛЕЕ» */
+                <>
+                  <div className="manual-toggle-row">
+                    <button
+                      className="manual-toggle"
+                      aria-expanded={manual}
+                      onClick={() => setManual(!manual)}
+                    >
+                      {t(manual ? 'Скрыть поля' : 'Ввести вручную')}
+                    </button>
+                    {voiceAvailable && (
+                      <button
+                        className={`voice-language ${voiceField ? 'recording' : ''}`}
+                        onClick={() =>
+                          voiceField
+                            ? stopVoice()
+                            : startVoice(game.songOnly ? 'song' : 'artist')
+                        }
+                      >
+                        <Mic size={14} />{' '}
+                        {voiceField ? t('Слушаю…') : spoken ? spoken : t('Голосом')}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className={`guess-answer-cards ${game.songOnly ? 'single' : ''}`}>
+                    {(['artist', 'song'] as const)
+                      .filter((field) => !game.songOnly || field === 'song')
+                      .map((field) => (
+                        <div
+                          className={`guess-answer-card ${manual ? 'expanded' : ''}`}
+                          key={field}
+                        >
+                          <label htmlFor={`guess-${field}`}>
+                            <span>
+                              {field === 'artist' ? (
+                                <UserRound size={15} />
+                              ) : (
+                                <Music2 size={15} />
+                              )}{' '}
+                              {t(field === 'artist' ? 'Исполнитель' : 'Название песни')}
+                            </span>
+                            {manual ? (
+                              <input
+                                id={`guess-${field}`}
+                                value={field === 'artist' ? artist : song}
+                                onChange={(e) => {
+                                  setSpoken('');
+                                  if (field === 'artist') setArtist(e.target.value);
+                                  else setSong(e.target.value);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && !blockedAnswer) {
+                                    if (artist.trim() || song.trim() || speechReady) {
+                                      void act(
+                                        'answer',
+                                        false,
+                                        game.songOnly ? 'song' : 'both'
+                                      );
+                                    } else {
+                                      void act('answer', true);
+                                    }
+                                  }
+                                }}
+                                placeholder={t(
+                                  field === 'artist' ? 'Кто поёт?' : 'Как называется?'
+                                )}
+                                autoComplete="off"
+                                spellCheck={false}
+                                maxLength={200}
+                                disabled={blockedAnswer}
+                              />
+                            ) : (
+                              <small>
+                                {t(speechReady ? 'Голосовой ответ готов' : 'Открой поле')}
+                              </small>
+                            )}
+                          </label>
+                        </div>
+                      ))}
+                  </div>
+
+                  <div className={`guess-action-grid ${game.songOnly ? 'single' : ''}`}>
+                    {!game.songOnly && (
+                      <button
+                        className="guess-main"
+                        disabled={
+                          blockedAnswer || !(speechReady || artist.trim() || song.trim())
+                        }
+                        onClick={() => void act('answer', false, 'both')}
+                      >
+                        <Layers3 size={18} />
+                        <strong>{t('game.guessAll')}</strong>
+                        {!game.practice && (
+                          <span>
+                            +
+                            {format(
+                              25 * rewardFactor * (game.hint?.used?.valueOf() ? 0.75 : 1)
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                    {(['artist', 'song'] as const)
+                      .filter((field) => !game.songOnly || field === 'song')
+                      .map((field) => (
+                        <button
+                          className="guess-single"
+                          key={field}
+                          disabled={
+                            blockedAnswer ||
+                            !(speechReady || (field === 'artist' ? artist : song).trim())
+                          }
+                          onClick={() => void act('answer', false, field)}
+                        >
+                          {field === 'artist' ? (
+                            <UserRound size={17} />
+                          ) : (
+                            <Music2 size={17} />
+                          )}
+                          <strong>
+                            {t(
+                              field === 'artist' ? 'Исполнитель' : 'Угадать песню'
+                            )}
+                          </strong>
+                          {!game.practice && (
+                            <span>
+                              +{format(10 * rewardFactor * (game.hint?.used ? 0.75 : 1))}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                  </div>
+
+                  <div className="guess-utility-grid">
+                    <button
+                      className="guess-utility"
+                      disabled={busy || audible || game.settings.timer}
+                      onClick={() => void playRound(true)}
+                    >
+                      <RotateCcw size={16} />
+                      <span>Повторить</span>
+                    </button>
+                    <button
+                      className={`guess-utility ${game.hint?.used ? 'used' : ''}`}
+                      disabled={blockedAnswer || !game.hint?.available || game.hint?.used}
+                      onClick={() => void playHint()}
+                    >
+                      <Headphones size={16} />
+                      <span>Другой кусок</span>
+                    </button>
+                    <button
+                      className="guess-utility guess-skip"
+                      disabled={busy || audible}
+                      onClick={() => void act('answer', true)}
+                    >
+                      <strong>Далее →</strong>
+                    </button>
+                  </div>
+                </>
+              )}
+              {(voiceError || remaining === 0) && (
+                <p className="inline-voice-status" role="status">
+                  {t(remaining === 0 ? 'Время вышло. Получаем результат…' : voiceError)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {game.phase === 'reveal' && game.reveal && (
+            <div className="reveal-surface reveal-v5">
+              {!noInput && (
+                <div
+                  className={`points-burst ${
+                    game.reveal.result.correct ? 'positive' : 'negative'
+                  }`}
+                  role="status"
+                >
+                  {!game.practice && (
+                    <strong>
+                      {game.reveal.result.points > 0 ? '+' : ''}
+                      <AnimatedNumber value={game.reveal.result.points} delay={100} />
+                    </strong>
+                  )}
+                  <span>
+                    {t(game.reveal.result.correct ? 'Точно в ноту' : 'Ответ открыт')}
+                  </span>
+                </div>
+              )}
+
+              <div className="revealed-song">
+                <div>
+                  <span className="nb-stamp">
+                    TRACK #{String(game.index + 1).padStart(2, '0')}
+                    {game.reveal.verifiedYear ? ` · ${game.reveal.verifiedYear}` : ''}
+                  </span>
+                  <h1 title={game.reveal.title}>{game.reveal.title}</h1>
+                  <p>{game.reveal.artist}</p>
+
+                  {!noInput && (
+                    <div className="answer-checks">
+                      {revealMode !== 'song' && (
+                        <span
+                          className={
+                            game.reveal.result.artistCorrect ? 'correct' : 'incorrect'
+                          }
+                        >
+                          {game.reveal.result.artistCorrect ? (
+                            <Check size={14} />
+                          ) : (
+                            <X size={14} />
+                          )}{' '}
+                          {t('Исполнитель')}{' '}
+                          {(
+                            Math.floor((game.reveal.result.artistConfidence ?? 0) * 1000) /
+                            10
+                          ).toFixed(1)}
+                          %
+                        </span>
+                      )}
+                      {revealMode !== 'artist' && (
+                        <span
+                          className={
+                            game.reveal.result.songCorrect ? 'correct' : 'incorrect'
+                          }
+                        >
+                          {game.reveal.result.songCorrect ? (
+                            <Check size={14} />
+                          ) : (
+                            <X size={14} />
+                          )}{' '}
+                          {t('Песня')}{' '}
+                          {(
+                            Math.floor((game.reveal.result.songConfidence ?? 0) * 1000) /
+                            10
+                          ).toFixed(1)}
+                          %
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {game.reveal.sourceUrl && (
+                    <a
+                      className="media-source-link"
+                      href={game.reveal.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t('Открыть в источнике')}
+                      <ExternalLink size={13} />
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {!!correctionEntries.length && !noInput && (
+                <div className="correction-notes" role="status">
+                  {correctionEntries.map(([field, correction]) => (
+                    <p key={field}>
+                      <span>{t('Правильное написание')}:</span>
+                      <strong>{correction?.canonical}</strong>
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              <div className="reveal-playback">
+                <button
+                  type="button"
+                  className="nb-reveal-play-toggle"
+                  onClick={toggleRevealPlayback}
+                  aria-label={encore ? 'Пауза' : 'Воспроизвести'}
+                >
+                  {encore ? <Pause size={15} /> : <Play fill="currentColor" size={15} />}
+                </button>
+                <Wave active={encore} />
+                <Progress
+                  value={revealProgress}
+                  aria-label={t('Проигрывание после ответа')}
+                />
+              </div>
+
+              {mediaError && (
+                <p className="inline-voice-status" role="alert">
+                  {t(mediaError)}
+                </p>
+              )}
+
+              <button
+                className="button-primary next-button"
+                disabled={busy}
+                onClick={() => void act('next')}
+              >
+                {busy ? <Loader2 className="spin" size={18} /> : <Disc3 size={18} />}{' '}
+                {t(
+                  game.index + 1 >= game.total ? 'Показать результат' : 'Следующий трек →'
+                )}
+              </button>
+            </div>
+          )}
+
+          {closed && game.summary && (
+            <div className="finish-surface finish-v5">
+              <div
+                className={`award-medal ${
+                  game.phase === 'cancelled' ? 'cancelled' : ''
+                }`}
+              >
+                {game.phase === 'cancelled' ? <X size={32} /> : <Trophy size={32} />}
+              </div>
+              <h1>
+                {t(game.phase === 'cancelled' ? 'Игра отменена' : 'Подборка пройдена!')}
+              </h1>
+              <p>
+                {game.phase === 'cancelled'
+                  ? t(
+                      game.practice
+                        ? 'progress.practiceNote'
+                        : game.summary.score > 0
+                          ? 'При отмене зачисляется 50% общего результата'
+                          : game.summary.score < 0
+                            ? 'Отрицательный счёт будет списан полностью.'
+                            : 'game.zeroBalance'
+                    )
+                  : t('{correct} из {total} треков угадано', {
+                      correct: game.summary.correct,
+                      total: game.summary.total,
+                    })}
+              </p>
+              {!game.practice && !noInput && (
+                <>
+                  <div className="settlement-tiles">
+                    <div>
+                      <span>{t('Итоговый счёт')}</span>
+                      <strong>
+                        <AnimatedNumber value={game.summary.score} delay={150} />
+                      </strong>
+                    </div>
+                    <div>
+                      <span>{t('В профиль')}</span>
+                      <strong className={reward < 0 ? 'negative' : ''}>
+                        {reward > 0 ? '+' : ''}
+                        <AnimatedNumber value={reward} delay={300} /> XP
+                      </strong>
+                    </div>
+                  </div>
+                  <div
+                    className={`reward-transfer ${reward < 0 ? 'negative' : ''}`}
+                    data-reward-anchor
+                  >
+                    <span>
+                      {t(
+                        game.practice
+                          ? 'progress.practice'
+                          : settled
+                            ? 'Зачислено в профиль'
+                            : 'Переводим в профиль'
+                      )}
+                    </span>
+                    <strong>
+                      {reward > 0 ? '+' : ''}
+                      <AnimatedNumber value={reward} delay={600} />
+                      <small> XP</small>
+                    </strong>
+                    <p>
+                      {t('Общий баланс')}: {format(balanceXp)} XP
+                    </p>
+                  </div>
+                </>
+              )}
+              <div className="finish-actions">
+                <ShareAchievement
+                  compact
+                  achievement={{
+                    correct: game.summary.correct,
+                    total: game.summary.total,
+                    score: game.summary.score,
+                    xpAwarded: reward,
+                    collectionTitle: game.collectionTitle,
+                    practice: game.practice,
+                  }}
+                />
+                <button className="button-primary" onClick={exit}>
+                  {t('К подборкам')}
+                </button>
+              </div>
+              {!game.practice && !settled && (
+                <BalanceFlight amount={reward} onArrive={settlementArrived} />
+              )}
+            </div>
+          )}
         </div>
-        <div className="guess-utility-grid"><button className={`guess-utility ${game.hint?.used?'used':''}`} disabled={blockedAnswer||!game.hint?.available||game.hint?.used} onClick={()=>void playHint()}><Headphones size={18}/><span>{t(game.practice?'game.anotherPractice':game.hint?.used?'Другой фрагмент использован · 75% награды':game.hint?.failed?'Другой фрагмент недоступен':'Другой фрагмент · 75% награды')}</span></button><button className="guess-utility" disabled={busy||audible} onClick={()=>setReportOpen(!reportOpen)}><Volume2 size={18}/><span>{t('game.incorrectMedia')}</span></button><button className="guess-utility guess-skip" disabled={busy||audible} onClick={()=>void act('answer',true)}><X size={18}/><strong>{t('Не знаю')}</strong></button></div>
-        {(voiceError||remaining===0)&&<p className="inline-voice-status" role="status">{t(remaining===0?'Время вышло. Получаем результат…':voiceError)}</p>}
-      </div>}
-      {game.phase==='reveal'&&game.reveal&&<div className={`reveal-surface reveal-v5 `}>
-        <div className={`points-burst ${game.reveal.result.correct?'positive':'negative'}`} role="status">{!game.practice&&<strong>{game.reveal.result.points>0?'+':''}<AnimatedNumber value={game.reveal.result.points} delay={100}/></strong>}<span>{t(game.reveal.result.correct?'Точно в ноту':'Теперь ты знаешь')}</span>{Array.from({length:8},(_,i)=><i key={i} style={{'--particle':i} as React.CSSProperties}/>)}</div>
-        <div className="revealed-song">
-          <div className={`reveal-cover-v5 ${encore?'pulsing':''}`}>{game.reveal.artworkUrl?<Image src={game.reveal.artworkUrl} width={170} height={170} alt={t('Обложка альбома')} unoptimized/>:<Disc3 size={62}/>}<span className="cover-play-ring"/></div>
-          <div><h1 title={game.reveal.title}>{game.reveal.title}</h1><p>{game.reveal.artist}</p><div className="answer-checks">{revealMode!=='song'&&<span className={game.reveal.result.artistCorrect?'correct':'incorrect'}>{game.reveal.result.artistCorrect?<Check size={14}/>:<X size={14}/>} {t('Исполнитель')} {(Math.floor((game.reveal.result.artistConfidence??0)*1000)/10).toFixed(1)}%</span>}{revealMode!=='artist'&&<span className={game.reveal.result.songCorrect?'correct':'incorrect'}>{game.reveal.result.songCorrect?<Check size={14}/>:<X size={14}/>} {t('Песня')} {(Math.floor((game.reveal.result.songConfidence??0)*1000)/10).toFixed(1)}%</span>}</div>{game.reveal.sourceUrl&&<a className="media-source-link" href={game.reveal.sourceUrl} target="_blank" rel="noreferrer">{t('Открыть песню')}<ExternalLink size={13}/></a>}{game.reveal.verifiedYear&&<div className="reveal-proof"><span>{t('game.originalYear',{year:game.reveal.verifiedYear})}</span>{game.reveal.dateSources?.map((source,i)=><a key={i} href={source.url} target="_blank" rel="noreferrer">{i===0?'Deezer':source.url.includes('wikidata')?'Wikidata':source.url.includes('apple.com')?'Apple Music':'MusicBrainz'}</a>)}</div>}</div>
-        </div>
-        {!!correctionEntries.length&&<div className="correction-notes" role="status">{correctionEntries.map(([field,correction])=><p key={field}><span>{t('Правильное написание')}:</span><strong>{correction?.canonical}</strong></p>)}</div>}
-        <div className="reveal-playback"><Wave active={encore}/><span>{t(revealBusy?'Готовим звук…':encore?'Ещё 10 секунд музыки':revealDone?'Фрагмент завершён':'Нажми, чтобы послушать')}</span><Progress value={revealProgress} aria-label={t('Проигрывание после ответа')}/>{!encore&&!revealBusy&&!revealDone&&<button onClick={()=>void playReveal()} aria-label={t('Воспроизвести')}><Play fill="currentColor" size={16}/></button>}</div>
-        {mediaError&&<p className="inline-voice-status" role="alert">{t(mediaError)}</p>}
-        {!game.practice&&<div className="round-settlement"><span>{t('Общий счёт')}: <strong className={game.score<0?'negative':''}>{format(game.score)}</strong></span><span>{game.reveal.result.hintUsed?t('Награда с подсказкой ×0,75'):t('Баланс профиля пока не меняется')}</span></div>}
-        <button className="button-primary next-button" disabled={busy} onClick={()=>void act('next')}>{busy?<Loader2 className="spin" size={18}/>:<Disc3 size={18}/>} {t(game.index+1>=game.total?'Показать результат':'Следующий трек')}</button>
-      </div>}
-      {closed&&game.summary&&<div className="finish-surface finish-v5"><div className={`award-medal ${game.phase==='cancelled'?'cancelled':''}`}>{game.phase==='cancelled'?<X size={36}/>:<Trophy size={36}/>}</div><h1>{t(game.phase==='cancelled'?'Игра отменена':'Подборка пройдена!')}</h1><p>{game.phase==='cancelled'?t(game.practice?'progress.practiceNote':game.summary.score>0?'При отмене зачисляется 50% общего результата':game.summary.score<0?'Отрицательный счёт будет списан полностью.':'game.zeroBalance'):t('{correct} из {total} треков угадано',{correct:game.summary.correct,total:game.summary.total})}</p>{!game.practice&&<><div className="settlement-tiles"><div><span>{t('Итоговый счёт')}</span><strong><AnimatedNumber value={game.summary.score} delay={150}/></strong></div><div><span>{t('В профиль')}</span><strong className={reward<0?'negative':''}>{reward>0?'+':''}<AnimatedNumber value={reward} delay={300}/> XP</strong></div></div><div className={`reward-transfer ${reward<0?'negative':''}`} data-reward-anchor><span>{t(game.practice?'progress.practice':settled?'Зачислено в профиль':'Переводим в профиль')}</span><strong>{reward>0?'+':''}<AnimatedNumber value={reward} delay={600}/><small> XP</small></strong><p>{t('Общий баланс')}: {format(balanceXp)} XP</p></div></>}<div className="finish-actions"><ShareAchievement compact achievement={{correct:game.summary.correct,total:game.summary.total,score:game.summary.score,xpAwarded:reward,collectionTitle:game.collectionTitle,practice:game.practice}}/><button className="button-primary" onClick={exit}>{t('К подборкам')}</button></div>{!game.practice&&!settled&&<BalanceFlight amount={reward} onArrive={settlementArrived}/>}</div>}
+
+        {!closed && (
+          <footer className="quiz-window-footer">
+            <div className="compact-volume">
+              <Volume2 size={16} />
+              <Slider
+                aria-label={t('Громкость')}
+                min={0}
+                max={100}
+                step={1}
+                value={[Math.round(volume * 100)]}
+                onValueChange={(v) => setVolume(v[0] / 100)}
+              />
+            </div>
+            <GameVinylButton gameId={game.id} round={game.index} />
+            <button
+              className="cancel-game-button"
+              disabled={busy}
+              onClick={() => setCancelOpen(true)}
+            >
+              {t('Завершить')}
+            </button>
+          </footer>
+        )}
+
+        {reportOpen && !closed && (
+          <div className="media-report-panel">
+            <span>{t('game.incorrectMedia')}</span>
+            <button disabled={busy} onClick={() => void replaceMedia('replace-fragment')}>
+              {t('game.replaceFragment')}
+            </button>
+            <button disabled={busy} onClick={() => void replaceMedia('replace-track')}>
+              {t('game.replaceTrack')}
+            </button>
+            <button
+              className="icon-button"
+              onClick={() => setReportOpen(false)}
+              aria-label={t('Закрыть')}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+          <AlertDialogContent className="echo-dialog cancel-confirmation">
+            <AlertDialogTitle>{t('Отменить эту игру?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                game.practice
+                  ? 'progress.practiceNote'
+                  : game.score > 0
+                    ? 'При отмене ты получишь 50% общего счёта.'
+                    : game.score < 0
+                      ? 'Отрицательный счёт будет списан полностью.'
+                      : 'game.zeroBalance'
+              )}
+              {!game.practice && (
+                <>
+                  <strong className="cancel-settlement-amount">
+                    {cancelAmount > 0 ? '+' : ''}
+                    {format(cancelAmount)} XP
+                  </strong>
+                  {t('Баланс профиля изменится один раз после отмены.')}
+                </>
+              )}
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('Продолжить')}</AlertDialogCancel>
+              <AlertDialogAction disabled={busy} onClick={() => void cancelGame()}>
+                {t('Отменить игру')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </section>
     </div>
-    {!closed&&<footer className="quiz-window-footer">{game.practice&&<span className="practice-label">{t('progress.practice')}</span>}<div className="compact-volume"><Volume2 size={16}/><Slider aria-label={t('Громкость')} min={0} max={100} step={1} value={[Math.round(volume*100)]} onValueChange={v=>setVolume(v[0]/100)}/></div><GameVinylButton gameId={game.id} round={game.index}/><button className="cancel-game-button" disabled={busy} onClick={()=>setCancelOpen(true)}>{t('Отменить игру')}</button></footer>}
-    {reportOpen&&!closed&&<div className="media-report-panel"><span>{t('game.incorrectMedia')}</span><button disabled={busy} onClick={()=>void replaceMedia('replace-fragment')}>{t('game.replaceFragment')}</button><button disabled={busy} onClick={()=>void replaceMedia('replace-track')}>{t('game.replaceTrack')}</button><button className="icon-button" onClick={()=>setReportOpen(false)} aria-label={t('Закрыть')}><X size={16}/></button></div>}
-    <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}><AlertDialogContent className="echo-dialog cancel-confirmation"><AlertDialogTitle>{t('Отменить эту игру?')}</AlertDialogTitle><AlertDialogDescription>{t(game.practice?'progress.practiceNote':game.score>0?'При отмене ты получишь 50% общего счёта.':game.score<0?'Отрицательный счёт будет списан полностью.':'game.zeroBalance')}{!game.practice&&<><strong className="cancel-settlement-amount">{cancelAmount>0?'+':''}{format(cancelAmount)} XP</strong>{t('Баланс профиля изменится один раз после отмены.')}</>}</AlertDialogDescription><AlertDialogFooter><AlertDialogCancel>{t('Продолжить')}</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={()=>void cancelGame()}>{t('Отменить игру')}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-  </section>;
+  );
 }
-function ZapIcon(){return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 10-13h-7z"/></svg>}
-function Wave({active}:{active:boolean}){return <div className={`game-wave ${active?'playing':''}`} aria-hidden="true">{Array.from({length:36},(_,i)=><i key={i} style={{height:`${18+(Math.sin(i*1.9)+1)*28}px`,'--wave-height':`${18+(Math.sin(i*1.9)+1)*28}px`,animationDelay:`${i*.037}s`} as React.CSSProperties}/>)}</div>}
+function ZapIcon(){return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 10-13h-7z"/></svg>}
+function Wave({active}:{active:boolean}){return <div className={`game-wave ${active?'playing':''}`} aria-hidden="true">{Array.from({length:24},(_,i)=><i key={i} style={{height:`${14+(Math.sin(i*1.9)+1)*20}px`,'--wave-height':`${14+(Math.sin(i*1.9)+1)*20}px`,animationDelay:`${i*.04}s`} as React.CSSProperties}/>)}</div>}
