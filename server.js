@@ -513,6 +513,23 @@ const handleRequest = async (req, res) => {
     return;
   }
 
+  // Delegate ECHO Music Quiz & integrated Vinyl API routes to the bundled ECHO handler
+  if (
+    pathname.startsWith('/api/catalog') ||
+    pathname.startsWith('/api/collections') ||
+    pathname.startsWith('/api/games') ||
+    pathname.startsWith('/api/profile') ||
+    pathname.startsWith('/api/settings') ||
+    pathname.startsWith('/api/artists') ||
+    pathname.startsWith('/api/ai') ||
+    pathname.startsWith('/api/spotify') ||
+    pathname.startsWith('/api/vinyl')
+  ) {
+    const echoApiHandler = require('./api/index.js');
+    req.url = reqUrl;
+    return echoApiHandler(req, res);
+  }
+
   const userToken = req.headers['x-discogs-token'] || 
                     (req.headers['authorization'] ? req.headers['authorization'].replace(/^Discogs token=|^Bearer /i, '') : null) || 
                     query.token || 
