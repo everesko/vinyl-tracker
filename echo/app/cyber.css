@@ -2906,3 +2906,45 @@ button {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Builder Modal Inner Surface Polish (Warm Parchment instead of legacy dark surface) */
+.echo-dialog.builder-dialog .builder-v5 {
+  background: var(--nb-paper-warm) !important;
+  color: var(--nb-ink) !important;
+  border: 2px solid var(--nb-ink) !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+  box-shadow: 3px 3px 0 var(--nb-ink) !important;
+}
+
+.echo-dialog.builder-dialog .builder-v5 label,
+.echo-dialog.builder-dialog .builder-v5 span,
+.echo-dialog.builder-dialog .builder-v5 h3 {
+  color: var(--nb-ink) !important;
+}
+
+.echo-dialog.builder-dialog .search-mode {
+  background: var(--nb-paper-card) !important;
+  border: 1.5px solid var(--nb-ink) !important;
+}
+
+.echo-dialog.builder-dialog .search-mode button[aria-pressed="true"] {
+  background: var(--nb-pumpkin) !important;
+  color: #fffaf1 !important;
+}
+
+.echo-dialog.builder-dialog .custom-count,
+.echo-dialog.builder-dialog .custom-count input {
+  background: var(--nb-paper-card) !important;
+  color: var(--nb-ink) !important;
+  border: 1.5px solid var(--nb-ink) !important;
+}
+
+.echo-dialog.builder-dialog [data-slot="tabs"],
+.echo-dialog.builder-dialog [data-slot="tabs-content"],
+.echo-dialog.builder-dialog .builder-form {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  grid-column: 1 / -1 !important;
+}
