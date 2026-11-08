@@ -538,22 +538,57 @@ export async function popularDeck(id: string, settings?: Settings) {
     return{collection:{...card,trackIds:deck.map(track=>track.id)},deck,songOnly};
   }
   const query: PopularQuery = { theme:definition.theme ?? (definition.slug==="ballads"?"ballads":definition.slug==="eurovision"?"eurovision":undefined), artists: definition.artists, genreSlugs: definition.genreSlugs ?? (definition.category === "genre" && definition.slug!=="ballads" ? [definition.slug] : []), decade:definition.decade, region:definition.region, canonicalIds:definition.canonicalIds, title: definition.title, category: definition.category, explicitArtists: definition.category === "artist" || !!card.selectedArtistCount };
-  const deck = selectPopularTracks(await queryPool(query, settings), settings, definition.category !== "artist");
+  let deck: Track[];
+  try {
+    deck = selectPopularTracks(await queryPool(query, settings), settings, definition.category !== "artist");
+  } catch {
+    const fallback = await fallbackSearchCollection(definition.title, settings);
+    deck = fallback.deck;
+  }
   const collection: Collection = { ...card, trackIds: deck.map(track => track.id) };
   return { collection, deck, songOnly: definition.category === "artist" };
 }
-export async function constructPopularCollection(prompt: string, options: DeckOptions = {}) {
-  let query: PopularQuery; try { query = parsePopularPrompt(prompt); } catch (error) { if (!(error instanceof ApiError) || error.code !== "PROMPT_NOT_UNDERSTOOD") throw error; const cleaned = prompt.replace(/^(?:песни|музыка|треки|хиты|пісні|музика|треки|хіти|songs|tracks|music|hits)(?:\s+(?:группы|исполнителя|артиста|гурту|виконавця|артиста|by|of))?\s+/i, "").trim(), parts = cleaned.split(/\s*(?:[,;]|\s+(?:и|і|та|й|and)\s+)\s*/i).map(p => p.trim()).filter(Boolean); if (!parts.length || parts.length > 5 || parts.some(p => p.length > 60)) throw error; const resolved = await Promise.all(parts.map(p => resolveArtist(p))), names = [...new Set(resolved.map(a => a.name))]; query = { artists: names, genreSlugs: [], title: names.join(" · ").slice(0, 80), category: names.length === 1 ? "artist" : "mix", explicitArtists: true }; }
-  if (!query.artists.length && !query.genreSlugs.length && !query.decade) {
-    // A direct artist name not in our RU/EN dictionary is resolved against canonical provider identities.
-    const name = prompt.replace(/^(?:песни|музыка|треки|хиты|songs|tracks|music)(?:\s+(?:группы|исполнителя|артиста|by|of))?\s+/i, "").trim();
-    if (name.length > 80 || /[,;]|\sи\s|\sand\s/i.test(name)) throw new ApiError(422, "PROMPT_NOT_UNDERSTOOD", "Укажите жанр, эпоху или одного исполнителя; для смешанного запроса используйте известные имена.");
-    const artist = await resolveArtist(name);
-    query = { ...query, artists: [artist.name], category: "artist", explicitArtists: true };
+async function fallbackSearchCollection(prompt: string, options: DeckOptions = {}) {
+  const wanted = Math.max(50, options.count ?? 10);
+  const gathered: Track[] = [];
+  if (/укра[їиі]н|ukrain/i.test(prompt)) gathered.push(...(readyDecks.get("ukrainian-hits") ?? []));
+  if (/синтвейв|synth|ретро|retro|80|электро|electro/i.test(prompt)) gathered.push(...(readyDecks.get("synth-pop") ?? []), ...(readyGenreIndexes.pop?.deck ?? []));
+  if (/инди|indie|альтернат|alternative/i.test(prompt)) gathered.push(...(readyDecks.get("indie-rock") ?? []), ...(readyGenreIndexes.rock?.deck ?? []));
+  if (/хип-хоп|hip-hop|рэп|rap|rnb/i.test(prompt)) gathered.push(...(readyGenreIndexes["hip-hop"]?.deck ?? []), ...(readyGenreIndexes.pop?.deck ?? []));
+  if (/рок|rock|метал|metal|панк|punk|баллад|ballad/i.test(prompt)) gathered.push(...(readyGenreIndexes.rock?.deck ?? []), ...(readyDecks.get("classic-rock") ?? []));
+  try {
+    const searchRes = await deezerRequest<{ data?: Recording[] }>(`/search?q=${encodeURIComponent(prompt.trim())}&limit=100`);
+    for (const rec of searchRes.data ?? []) {
+      if (Number.isSafeInteger(rec.id) && rec.id > 0 && rec.readable !== false && previewUrl(rec.preview) && rec.artist?.name && rec.title?.trim()) {
+        const track = recordingTrack({ ...rec, rank: Math.max(MIN_RANK, rec.rank || MIN_RANK), duration: Math.max(60, rec.duration || 180) }, "Mix");
+        gathered.push(track);
+      }
+    }
+  } catch { /* Fall back to pre-indexed decks if live search times out */ }
+  for (const slug of ["pop", "rock", "hip-hop", "dance"]) {
+    if (deduplicateRecordings(gathered).length >= wanted) break;
+    gathered.push(...(readyGenreIndexes[slug]?.deck ?? []));
   }
-  if(query.explicitArtists&&query.artists.length<(options.count??10))options={...options,allowArtistRepeats:true};
-  const pool = await queryPool(query, options), deck = selectPopularTracks(pool, options, query.artists.length > 1);
-  return { title: query.title, subtitle: `${pool.length} известных песен · поиск по каталогу Deezer${query.decade ? ` · ${query.decade}–${query.decade + 9}` : ""}`, deck, pool, category: query.category, songOnly: query.explicitArtists && query.artists.length===1 };
+  const pool = deduplicateRecordings(gathered);
+  const deck = selectPopularTracks(pool, { ...options, allowArtistRepeats: true }, true);
+  return { title: prompt.trim().slice(0, 80) || "Авторский микс", subtitle: `${pool.length} известных песен · поиск по каталогу Deezer`, deck, pool, category: "mix" as const, songOnly: false };
+}
+export async function constructPopularCollection(prompt: string, options: DeckOptions = {}) {
+  try {
+    let query: PopularQuery; try { query = parsePopularPrompt(prompt); } catch (error) { if (!(error instanceof ApiError) || error.code !== "PROMPT_NOT_UNDERSTOOD") throw error; const cleaned = prompt.replace(/^(?:песни|музыка|треки|хиты|пісні|музика|треки|хіти|songs|tracks|music|hits)(?:\s+(?:группы|исполнителя|артиста|гурту|виконавця|артиста|by|of))?\s+/i, "").trim(), parts = cleaned.split(/\s*(?:[,;]|\s+(?:и|і|та|й|and)\s+)\s*/i).map(p => p.trim()).filter(Boolean); if (!parts.length || parts.length > 5 || parts.some(p => p.length > 60)) throw error; const resolved = await Promise.all(parts.map(p => resolveArtist(p))), names = [...new Set(resolved.map(a => a.name))]; query = { artists: names, genreSlugs: [], title: names.join(" · ").slice(0, 80), category: names.length === 1 ? "artist" : "mix", explicitArtists: true }; }
+    if (!query.artists.length && !query.genreSlugs.length && !query.decade) {
+      // A direct artist name not in our RU/EN dictionary is resolved against canonical provider identities.
+      const name = prompt.replace(/^(?:песни|музыка|треки|хиты|songs|tracks|music)(?:\s+(?:группы|исполнителя|артиста|by|of))?\s+/i, "").trim();
+      if (name.length > 80 || /[,;]|\sи\s|\sand\s/i.test(name)) throw new ApiError(422, "PROMPT_NOT_UNDERSTOOD", "Укажите жанр, эпоху или одного исполнителя; для смешанного запроса используйте известные имена.");
+      const artist = await resolveArtist(name);
+      query = { ...query, artists: [artist.name], category: "artist", explicitArtists: true };
+    }
+    if(query.explicitArtists&&query.artists.length<(options.count??10))options={...options,allowArtistRepeats:true};
+    const pool = await queryPool(query, options), deck = selectPopularTracks(pool, options, query.artists.length > 1);
+    return { title: query.title, subtitle: `${pool.length} известных песен · поиск по каталогу Deezer${query.decade ? ` · ${query.decade}–${query.decade + 9}` : ""}`, deck, pool, category: query.category, songOnly: query.explicitArtists && query.artists.length===1 };
+  } catch {
+    return fallbackSearchCollection(prompt, options);
+  }
 }
 export async function constructArtistCollection(ids: unknown, title: unknown, options: DeckOptions = {}) {
   if (!Array.isArray(ids) || !ids.length || new Set(ids).size !== ids.length || !ids.every(id => typeof id === "string" && /^[1-9]\d{0,10}$/.test(id))) throw new ApiError(400, "INVALID_ARTIST_IDS", "Выберите разных исполнителей из каталога.");

@@ -6,7 +6,7 @@ import {useI18n} from '@/lib/i18n';
 import {BalanceFlight} from './game-effects';
 import ShareAchievement from './share-achievement';
 import GameVinylButton from './game-vinyl-button';
-import { Check, Clock3, Disc3, ExternalLink, Headphones, Layers3, Loader2, Mic, Music2, Pause, Play, RotateCcw, Trophy, UserRound, Volume2, X } from 'lucide-react';
+import { Check, Clock3, Disc3, ExternalLink, FastForward, Headphones, Layers3, Loader2, Mic, Music2, Pause, Play, RotateCcw, Trophy, UserRound, Volume2, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import {AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
@@ -90,10 +90,8 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
       stopMedia(); stopVoice(); setArtist(''); setSong(''); setSpoken('');setReportOpen(false); setRevealDone(false); setRevealStarted(0); setVoiceError(''); setMediaError(''); boundaryKey.current = ''; completedRound.current = '';
       void demo.current?.close().catch(() => {}); demo.current = null;
       if (audio.current) { audio.current.removeAttribute('src'); audio.current.load(); audio.current = null; }
-    } else if (rawNext.phase === 'ready' || rawNext.phase === 'paused') {
-      completedRound.current = '';
     }
-    const next: GameView = rawNext.phase === 'playing' && completedRound.current === roundId
+    const next: GameView = (rawNext.phase === 'playing' || rawNext.phase === 'paused' || rawNext.phase === 'ready') && completedRound.current === roundId
       ? {
           ...rawNext,
           phase: 'answer',
@@ -107,11 +105,11 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   const transitionToAnswer = useCallback(() => {
     if (!mounted.current) return;
     const current = state.current;
-    if (current.phase !== 'playing') return;
+    if (current.phase !== 'playing' && current.phase !== 'paused' && current.phase !== 'ready') return;
     completedRound.current = `${current.id}:${current.index}`;
     freshPlayback.current = false;
     clipWindow.current = null;
-    setAudible(false);
+    stopMedia();
     const next: GameView = {
       ...current,
       phase: 'answer',
@@ -121,7 +119,15 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
     setGame(next);
     setNow(Date.now());
     callbacks.current.onGameChange?.(next);
-  }, []);
+  }, [stopMedia]);
+
+  const jumpToGuess = useCallback(() => {
+    const current = state.current;
+    if (current.phase === 'ready') {
+      void gameRequest(current.id, 'play', { round: current.index }, requestAbort.current.signal).catch(() => {});
+    }
+    transitionToAnswer();
+  }, [transitionToAnswer]);
 
   useEffect(() => {
     mounted.current = true; const controller = new AbortController(); requestAbort.current = controller; locked.current = true;
@@ -286,10 +292,6 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
     try {
       autoReveal.current = action === 'answer';
       const current = state.current;
-      if (action === 'answer' && current.clipEndsAt) {
-        const waitMs = current.clipEndsAt - serverNow();
-        if (waitMs > 0 && waitMs <= 2000) await new Promise(resolve => window.setTimeout(resolve, waitMs + 30));
-      }
       accept(await gameRequest(current.id, action, { round: current.index, ...(action === 'answer' ? { artist: empty || mode === 'song' ? '' : artist, song: empty || mode === 'artist' ? '' : song, spoken:empty?'':spoken, mode } : {}) }, requestAbort.current.signal));
     } catch (e) { autoReveal.current = false; if (mounted.current) setError(message(e)); }
     finally { locked.current = false; if (mounted.current) setBusy(false); }
@@ -307,8 +309,11 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
         if(!audio.current||audio.current.getAttribute('src')!==source){audio.current?.pause();const element=new Audio(source);element.preload='auto';audio.current=element;element.load()}
         const element=audio.current;element.volume=volume;element.onerror=()=>{if(valid()){stopMedia();setMediaError('Фрагмент недоступен. Можно перейти дальше.');setRevealDone(true)}};
         element.onstalled=null;element.oncanplay=null;element.onended=completed;
-        await preparePassage(element,current.reveal?.encoreStart??0,controller.signal,25);if(!valid()||document.hidden)return;
-        await element.play();if(!valid()){element.pause();return}setEncore(true);setRevealStarted(Date.now());stopCutoff.current=cutoffPlayback(element,25,completed);
+        const rawStart=current.reveal?.encoreStart??current.reveal?.chorusStart??current.track?.verseStart??0;
+        const safeStart=Math.max(0,Math.min(rawStart,15));
+        await preparePassage(element,safeStart,controller.signal,0);if(!valid()||document.hidden)return;
+        const maxPlay=Number.isFinite(element.duration)&&element.duration>safeStart?Math.max(5,Math.min(25,element.duration-safeStart)):20;
+        await element.play();if(!valid()){element.pause();return}setEncore(true);setRevealStarted(Date.now());stopCutoff.current=cutoffPlayback(element,maxPlay,completed);
       }else if(current.track?.demoNotes?.length){
         if(!demo.current)demo.current=await createDemoPlayer(current.track.demoNotes);if(!valid())return;
         await demo.current.play(15,volume);if(!valid()){demo.current.stop();return}setEncore(true);setRevealStarted(Date.now());encoreTimer.current=window.setTimeout(completed,15000);
@@ -317,7 +322,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   },[stopMedia,volume]);
 
   const toggleRevealPlayback = useCallback(() => {
-    if (encore && audio.current && !audio.current.paused) {
+    if (encore) {
       stopMedia();
     } else {
       void playReveal();
@@ -334,10 +339,6 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
       const current=state.current,controller=new AbortController();mediaAbort.current=controller;
       if(audio.current)await preparePassage(audio.current,current.hint?.start??12,controller.signal,current.settings.duration);
       else if(current.track?.audioUrl){await prepare();if(audio.current)await preparePassage(audio.current,current.hint?.start??12,mediaAbort.current?.signal,current.settings.duration)}
-      if (current.clipEndsAt) {
-        const waitMs = current.clipEndsAt - serverNow();
-        if (waitMs > 0 && waitMs <= 2000) await new Promise(resolve => window.setTimeout(resolve, waitMs + 30));
-      }
       const next=await gameRequest(current.id,'hint',{round:current.index},requestAbort.current.signal);accept(next);reserved=!!next.hint?.used;
       if(next.phase!=='answer')return;
       await playPrepared(next.settings.duration);
@@ -539,29 +540,41 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
               <h1>{audible ? t('Слушай фрагмент') : t('Запусти фрагмент')}</h1>
               <div className="listen-deck">
                 <Wave active={audible} />
-                <button
-                  className="listen-button"
-                  disabled={busy || game.mediaError?.retryAvailable === false}
-                  onClick={() => (audible ? void pauseRound() : void playRound())}
-                  aria-label={t('Слушать фрагмент')}
-                >
-                  {busy ? (
-                    <Loader2 className="spin" />
-                  ) : audible ? (
-                    <Pause />
-                  ) : (
-                    <Play fill="currentColor" />
-                  )}
-                  <span>
-                    {busy
-                      ? t('Готовим…')
-                      : audible
-                        ? t('game.pause')
-                        : game.phase === 'paused'
-                          ? t('game.resume')
-                          : t('Слушать {count} сек', { count: game.settings.duration })}
-                  </span>
-                </button>
+                <div className="nb-listen-action-pair">
+                  <button
+                    className="listen-button"
+                    disabled={busy || game.mediaError?.retryAvailable === false}
+                    onClick={() => (audible ? void pauseRound() : void playRound())}
+                    aria-label={t('Слушать фрагмент')}
+                  >
+                    {busy ? (
+                      <Loader2 className="spin" />
+                    ) : audible ? (
+                      <Pause />
+                    ) : (
+                      <Play fill="currentColor" />
+                    )}
+                    <span>
+                      {busy
+                        ? t('Готовим…')
+                        : audible
+                          ? t('game.pause')
+                          : game.phase === 'paused'
+                            ? t('game.resume')
+                            : t('Слушать {count} сек', { count: game.settings.duration })}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="nb-jump-guess-btn"
+                    disabled={busy}
+                    onClick={jumpToGuess}
+                  >
+                    <FastForward size={18} />
+                    <span>Угадать →</span>
+                  </button>
+                </div>
               </div>
               <div className="clip-timeline">
                 <span>
@@ -644,40 +657,31 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                 </div>
               ) : (
                 /* СТАНДАРТНЫЙ РЕЖИМ С ВВОДОМ + КНОПКА «ДАЛЕЕ» */
-                <>
-                  <div className="manual-toggle-row">
-                    <button
-                      className="manual-toggle"
-                      aria-expanded={manual}
-                      onClick={() => setManual(!manual)}
-                    >
-                      {t(manual ? 'Скрыть поля' : 'Ввести вручную')}
-                    </button>
-                    {voiceAvailable && (
+                <div className="nb-guess-dossier">
+                  {voiceAvailable && (
+                    <div className="nb-voice-bar">
                       <button
-                        className={`voice-language ${voiceField ? 'recording' : ''}`}
+                        type="button"
+                        className={`nb-voice-btn ${voiceField ? 'recording' : ''}`}
                         onClick={() =>
                           voiceField
                             ? stopVoice()
                             : startVoice(game.songOnly ? 'song' : 'artist')
                         }
                       >
-                        <Mic size={14} />{' '}
-                        {voiceField ? t('Слушаю…') : spoken ? spoken : t('Голосом')}
+                        <Mic size={15} />
+                        <span>{voiceField ? t('Слушаю…') : spoken ? spoken : t('Голосом')}</span>
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div className={`guess-answer-cards ${game.songOnly ? 'single' : ''}`}>
                     {(['artist', 'song'] as const)
                       .filter((field) => !game.songOnly || field === 'song')
                       .map((field) => (
-                        <div
-                          className={`guess-answer-card ${manual ? 'expanded' : ''}`}
-                          key={field}
-                        >
+                        <div className="guess-answer-card expanded" key={field}>
                           <label htmlFor={`guess-${field}`}>
-                            <span>
+                            <span className="nb-input-label">
                               {field === 'artist' ? (
                                 <UserRound size={15} />
                               ) : (
@@ -685,41 +689,35 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                               )}{' '}
                               {t(field === 'artist' ? 'Исполнитель' : 'Название песни')}
                             </span>
-                            {manual ? (
-                              <input
-                                id={`guess-${field}`}
-                                value={field === 'artist' ? artist : song}
-                                onChange={(e) => {
-                                  setSpoken('');
-                                  if (field === 'artist') setArtist(e.target.value);
-                                  else setSong(e.target.value);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && !blockedAnswer) {
-                                    if (artist.trim() || song.trim() || speechReady) {
-                                      void act(
-                                        'answer',
-                                        false,
-                                        game.songOnly ? 'song' : 'both'
-                                      );
-                                    } else {
-                                      void act('answer', true);
-                                    }
+                            <input
+                              id={`guess-${field}`}
+                              value={field === 'artist' ? artist : song}
+                              onChange={(e) => {
+                                setSpoken('');
+                                if (field === 'artist') setArtist(e.target.value);
+                                else setSong(e.target.value);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !blockedAnswer) {
+                                  if (artist.trim() || song.trim() || speechReady) {
+                                    void act(
+                                      'answer',
+                                      false,
+                                      game.songOnly ? 'song' : 'both'
+                                    );
+                                  } else {
+                                    void act('answer', true);
                                   }
-                                }}
-                                placeholder={t(
-                                  field === 'artist' ? 'Кто поёт?' : 'Как называется?'
-                                )}
-                                autoComplete="off"
-                                spellCheck={false}
-                                maxLength={200}
-                                disabled={blockedAnswer}
-                              />
-                            ) : (
-                              <small>
-                                {t(speechReady ? 'Голосовой ответ готов' : 'Открой поле')}
-                              </small>
-                            )}
+                                }
+                              }}
+                              placeholder={t(
+                                field === 'artist' ? 'Кто поёт?' : 'Как называется?'
+                              )}
+                              autoComplete="off"
+                              spellCheck={false}
+                              maxLength={200}
+                              disabled={blockedAnswer}
+                            />
                           </label>
                         </div>
                       ))}
@@ -728,6 +726,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                   <div className={`guess-action-grid ${game.songOnly ? 'single' : ''}`}>
                     {!game.songOnly && (
                       <button
+                        type="button"
                         className="guess-main"
                         disabled={
                           blockedAnswer || !(speechReady || artist.trim() || song.trim())
@@ -750,6 +749,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                       .filter((field) => !game.songOnly || field === 'song')
                       .map((field) => (
                         <button
+                          type="button"
                           className="guess-single"
                           key={field}
                           disabled={
@@ -779,6 +779,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
 
                   <div className="guess-utility-grid">
                     <button
+                      type="button"
                       className="guess-utility"
                       disabled={busy || audible || game.settings.timer}
                       onClick={() => void playRound(true)}
@@ -787,6 +788,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                       <span>Повторить</span>
                     </button>
                     <button
+                      type="button"
                       className={`guess-utility ${game.hint?.used ? 'used' : ''}`}
                       disabled={blockedAnswer || !game.hint?.available || game.hint?.used}
                       onClick={() => void playHint()}
@@ -795,6 +797,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                       <span>Другой кусок</span>
                     </button>
                     <button
+                      type="button"
                       className="guess-utility guess-skip"
                       disabled={busy || audible}
                       onClick={() => void act('answer', true)}
@@ -802,7 +805,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                       <strong>Далее →</strong>
                     </button>
                   </div>
-                </>
+                </div>
               )}
               {(voiceError || remaining === 0) && (
                 <p className="inline-voice-status" role="status">
@@ -915,9 +918,17 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
                   type="button"
                   className="nb-reveal-play-toggle"
                   onClick={toggleRevealPlayback}
+                  disabled={revealBusy}
                   aria-label={encore ? 'Пауза' : 'Воспроизвести'}
                 >
-                  {encore ? <Pause size={15} /> : <Play fill="currentColor" size={15} />}
+                  {revealBusy ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : encore ? (
+                    <Pause size={16} />
+                  ) : (
+                    <Play fill="currentColor" size={16} />
+                  )}
+                  <span>{encore ? 'Пауза' : 'Слушать трек'}</span>
                 </button>
                 <Wave active={encore} />
                 <Progress

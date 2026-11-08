@@ -105,8 +105,12 @@ async function readRawBody(req: IncomingMessage): Promise<Buffer> {
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   try {
-    const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0]?.trim() || "https";
+    const forwardedProto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0]?.trim();
+    const originHeader = typeof req.headers.origin === "string" ? req.headers.origin : "";
+    const originProto = originHeader.startsWith("http://") ? "http" : originHeader.startsWith("https://") ? "https" : undefined;
     const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "localhost";
+    const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host);
+    const proto = forwardedProto || originProto || (isLocal ? "http" : "https");
     const rawUrl = req.url || "/";
     const parsed = new URL(rawUrl, `${proto}://${host}`);
 
@@ -161,8 +165,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     webRes.headers.forEach((val, key) => {
       res.setHeader(key, val);
     });
-    const arrayBuf = await webRes.arrayBuffer();
-    res.end(Buffer.from(arrayBuf));
+    if (webRes.body) {
+      const reader = webRes.body.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) res.write(Buffer.from(value));
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      res.end();
+    } else {
+      const arrayBuf = await webRes.arrayBuffer();
+      res.end(Buffer.from(arrayBuf));
+    }
   } catch (err) {
     console.error("Vercel API Entry Error:", err);
     res.statusCode = 500;

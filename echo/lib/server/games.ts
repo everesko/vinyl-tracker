@@ -165,7 +165,7 @@ export async function changeGame(userId: string, id: string, action: Action) {
         }
       } else if (action.type === "hint") {
         if (!changed) {
-          if (state.phase !== "playing" || now < (state.clipEndsAt ?? Infinity)) throw new ApiError(409, "HINT_NOT_AVAILABLE", "Дополнительный фрагмент доступен после основного, до ответа.");
+          if (state.phase !== "playing" && state.phase !== "paused") throw new ApiError(409, "HINT_NOT_AVAILABLE", "Дополнительный фрагмент доступен после основного, до ответа.");
           if (!state.hints?.[state.index]?.attempted) {
             const start = hintStart(state);
             if (start === undefined) throw new ApiError(409, "HINT_NOT_AVAILABLE", "В этой записи нет другого доступного фрагмента.");
@@ -182,10 +182,8 @@ export async function changeGame(userId: string, id: string, action: Action) {
           state.phase = "ready"; state.deadline = undefined; state.clipEndsAt = undefined; changed = true;
         }
       } else if (action.type === "answer") {
-        if (state.phase === "paused")throw new ApiError(409,"CLIP_PAUSED","Продолжите воспроизведение фрагмента.");
-        if (state.phase === "ready") throw new ApiError(409, "CLIP_NOT_PLAYED", "Сначала прослушайте фрагмент.");
-        if (state.phase === "playing" && now < (state.clipEndsAt ?? 0)) throw new ApiError(409, "CLIP_PLAYING", "Дождитесь конца фрагмента.");
-        if (state.phase !== "reveal") { answer(state, action.artist, action.song, action.mode, action.spoken); changed = true; }
+        /* allow early guess at any point during listening */
+        if (state.phase !== "reveal") { state.phase = "playing"; answer(state, action.artist, action.song, action.mode, action.spoken); changed = true; }
       } else if (action.type === "next") {
         if (state.phase !== "reveal") throw new ApiError(409, "ANSWER_REQUIRED", "Сначала завершите этот раунд.");
         if (state.index === state.deck.length - 1) state.phase = "finished";

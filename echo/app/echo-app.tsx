@@ -32,7 +32,7 @@ import CloudAISettings from './cloud-ai-settings';
 import GenerationProgress,{type GenerationState} from './generation-progress';
 import {request,RequestError} from './client-request';
 
-export const SITE_PUB_VERSION = '202611082242';
+export const SITE_PUB_VERSION = '202611082330';
 
 const QUICK_MIX_TAGS = [
  'Хиты 2000-х',
@@ -126,7 +126,7 @@ export default function EchoApp(){
   return t('request.error');
  };
  const errorRef=useRef(errorText);useEffect(()=>{errorRef.current=errorText;});
- const applyProfile=useCallback((value:Profile)=>{if(!alive.current)return;const next=value.profile.xp;if(wallet.current!==null&&next!==wallet.current){setWalletDelta(Math.round((next-wallet.current)*10)/10);clearTimeout(walletTimer.current);walletTimer.current=window.setTimeout(()=>setWalletDelta(0),2400);}wallet.current=next;setProfile(value);setLoadError('');},[]);
+ const applyProfile=useCallback((value:Profile)=>{if(!alive.current)return;try{const savedPractice=localStorage.getItem('echo-practice-mode');const wantPractice=savedPractice===null?true:savedPractice==='1';if(value.progression.practice!==wantPractice){value={...value,progression:{...value.progression,practice:wantPractice}};void request('/api/profile',{action:'practice',practice:wantPractice}).catch(()=>{});}}catch{}const next=value.profile.xp;if(wallet.current!==null&&next!==wallet.current){setWalletDelta(Math.round((next-wallet.current)*10)/10);clearTimeout(walletTimer.current);walletTimer.current=window.setTimeout(()=>setWalletDelta(0),2400);}wallet.current=next;setProfile(value);setLoadError('');},[]);
  const load=useCallback(async()=>{const results=await Promise.allSettled([request<Profile>('/api/profile'),request<{collections:CatalogItem[]}>('/api/catalog'),request<{categories:{title:string;prompt:string;count:number}[]}>('/api/collections/categories')]);if(!alive.current)return;if(results[0].status==='fulfilled')applyProfile(results[0].value);else setLoadError(errorRef.current(results[0].reason));if(results[1].status==='fulfilled')setCatalog(results[1].value.collections);else setLoadError(errorRef.current(results[1].reason));if(results[2].status==='fulfilled')setMiniCategories(results[2].value.categories);setLoadingCatalog(false);},[applyProfile]);
  const refreshBalance=useCallback(()=>{void(async()=>{for(let attempt=0;attempt<3;attempt++){try{applyProfile(await request<Profile>('/api/profile'));return;}catch(error){if(!alive.current)return;if(attempt===2){setLoadError(errorRef.current(error));return;}await new Promise<void>(resolve=>window.setTimeout(resolve,1000*(attempt+1)));}}})();},[applyProfile]);
  useEffect(()=>{void inspectCloud().then(()=>{if(alive.current&&!getCloudState().configured)setSearchMode('catalog');}).catch(()=>{});alive.current=true;const frame=requestAnimationFrame(()=>{void load();try{const saved=JSON.parse(localStorage.getItem('echo-preferences')||'null');if(saved&&[3,5,7].includes(saved.duration)&&typeof saved.timer==='boolean')setSettings({duration:saved.duration,timer:saved.timer,difficulty:difficultyLevel(saved.difficulty),count:Number.isSafeInteger(saved.count)&&saved.count>0?saved.count:10,allowArtistRepeats:saved.allowArtistRepeats!==false});const savedNoInput=localStorage.getItem('echo-no-input-mode');if(savedNoInput==='1')setNoInputMode(true);}catch{}hydrated.current=true;if(new URLSearchParams(location.search).get('tab')==='vinyl'){setView('vinyl');setVinylVisited(true);}if(new URLSearchParams(location.search).get('tab')==='tournament'){setView('tournament');}const id=new URLSearchParams(location.search).get('game');if(id&&/^[a-f0-9-]{36}$/i.test(id))void request<GameView>(`/api/games/${id}`).then(result=>{if(alive.current){gameRef.current=result;setGame(result);}}).catch(error=>{toast.error(errorRef.current(error));history.replaceState({},'',location.pathname);});});const visible=()=>{if(!document.hidden&&!gameRef.current)void load();};document.addEventListener('visibilitychange',visible);const interval=window.setInterval(()=>{if(!document.hidden&&!gameRef.current)refreshBalance();},15000);return()=>{alive.current=false;if(generationAbort.current){generationAbort.current.abort();}cancelAnimationFrame(frame);clearInterval(interval);clearTimeout(walletTimer.current);document.removeEventListener('visibilitychange',visible);};},[load,refreshBalance]);
@@ -171,7 +171,7 @@ export default function EchoApp(){
  useEffect(()=>{const timer=setInterval(()=>setClockNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
  useEffect(()=>{if(!profile)return;const frame=requestAnimationFrame(()=>setSettings(previous=>availableSettings(previous,profile.progression) as GameSettings));return()=>cancelAnimationFrame(frame)},[profile]);
  useEffect(()=>{if(builderTab==='artists'&&selectedArtists.length&&selectedArtists.length<settings.count&&!settings.allowArtistRepeats){const frame=requestAnimationFrame(()=>setSettings(previous=>({...previous,allowArtistRepeats:true})));return()=>cancelAnimationFrame(frame)}},[builderTab,selectedArtists.length,settings.count,settings.allowArtistRepeats]);
- const changeProfile=async(data:unknown):Promise<boolean>=>{if(operation.current)return false;operation.current=true;setBusy(true);try{await request('/api/profile',data);applyProfile(await request<Profile>('/api/profile'));toast.success(t('progress.saved'));return true;}catch(error){toast.error(errorRef.current(error));return false;}finally{operation.current=false;setBusy(false);}};
+ const changeProfile=async(data:unknown):Promise<boolean>=>{if(operation.current)return false;operation.current=true;setBusy(true);try{if(data&&typeof data==='object'&&'action' in data&&(data as {action?:string}).action==='practice'&&'practice' in data){try{localStorage.setItem('echo-practice-mode',(data as {practice?:boolean}).practice?'1':'0');}catch{}}await request('/api/profile',data);applyProfile(await request<Profile>('/api/profile'));toast.success(t('progress.saved'));return true;}catch(error){toast.error(errorRef.current(error));return false;}finally{operation.current=false;setBusy(false);}};
  const unlock=(id:string)=>changeProfile({action:'unlock',id:nextRequired(id,profile?.progression)??id});
  const deleteCollection=async(id:string)=>{if(operation.current)return;operation.current=true;setBusy(true);try{await request('/api/collections',{id},'DELETE');setCatalog(previous=>previous.filter(item=>item.id!==id));toast.success(t('home.collectionDeleted'));}catch(error){toast.error(errorRef.current(error));}finally{operation.current=false;setBusy(false);}};
  const prepareGameFlow=async<T,>(chosen:GameSettings,work:(control:AbortController,report:(available:number,required:number)=>void)=>Promise<T>)=>{
@@ -184,7 +184,7 @@ export default function EchoApp(){
   const requestId=crypto.randomUUID();const result=await generationRetry(()=>prepareRequest<GameView>('/api/games',{collectionId:id,settings:chosen,requestId},report,control.signal),control.signal,error=>setAIStatus(errorRef.current(error)));
   if(control.signal.aborted)throw new RequestError('CANCELLED','');if(!alive.current)return;report(result.total,chosen.count);gameRef.current=result;setGame(result);history.replaceState({},'',`?game=${result.id}`);
  };
- const begin=async(id:string)=>{if(operation.current)return;operation.current=true;setBusy(true);setNote('');setPreparing(null);try{const item=catalog.find(c=>c.id===id),chosen={...availableSettings(settings,profile?.progression),allowArtistRepeats:item?.selectedArtistCount&&item.selectedArtistCount<settings.count||(item?category(item):'custom')==='artist'?true:settings.allowArtistRepeats} as GameSettings;document.getElementById('custom-mix')?.scrollIntoView({behavior:'smooth',block:'start'});await prepareGameFlow(chosen,async(control,report)=>{if(item?.ai&&item.aiPrompt)await generateAICollection(item.aiPrompt,item.aiPlan,id,chosen,control);await startGame(id,chosen,control,report);});}catch(error){setNote(errorRef.current(error));toast.error(errorRef.current(error));}finally{operation.current=false;setBusy(false);setGenerating(false);setAIStatus('');setPreparing(null);}};
+ const begin=async(id:string)=>{if(operation.current)return;operation.current=true;setBusy(true);setNote('');setPreparing(null);try{const item=catalog.find(c=>c.id===id),chosen={...availableSettings(settings,profile?.progression),allowArtistRepeats:item?.selectedArtistCount&&item.selectedArtistCount<settings.count||(item?category(item):'custom')==='artist'?true:settings.allowArtistRepeats} as GameSettings;await prepareGameFlow(chosen,async(control,report)=>{if(item?.ai&&item.aiPrompt){try{await generateAICollection(item.aiPrompt,item.aiPlan,id,chosen,control);}catch(e){if(e instanceof RequestError&&e.code==='CANCELLED')throw e;}}await startGame(id,chosen,control,report);});}catch(error){setNote(errorRef.current(error));toast.error(errorRef.current(error));}finally{operation.current=false;setBusy(false);setGenerating(false);setAIStatus('');setPreparing(null);}};
  const exit=useCallback(()=>{gameRef.current=null;setGame(null);history.replaceState({},'',location.pathname);void load();},[load]);
  const gameChanged=useCallback((value:GameView)=>{gameRef.current=value;},[]);
  const resume=async(id:string)=>{if(operation.current)return;operation.current=true;setBusy(true);try{const result=await request<GameView>(`/api/games/${id}`);gameRef.current=result;setGame(result);history.replaceState({},'',`?game=${id}`);refreshBalance();}catch(error){toast.error(errorRef.current(error));}finally{operation.current=false;setBusy(false);}};
@@ -199,53 +199,54 @@ export default function EchoApp(){
    setGenerationState(previous=>previous?{...previous,phase,stage,available:event.resolved,found:event.resolved,scanned:event.processed,percent:Math.max(previous.percent??0,event.progress)}:previous);
   },control.signal);}finally{if(!flowControl){if(generationAbort.current===control)generationAbort.current=null;setGenerationState(null);}}
  };
- const createCollection=async(artists?:ArtistChoice[])=>{
-  if(operation.current||(!artists?.length&&!prompt.trim()))return;operation.current=true;setGenerating(true);setAIStatus('');setNote('');setPreparing(null);
+ const createCollection=async(artists?:ArtistChoice[],overridePrompt?:string)=>{
+  const activePrompt=(overridePrompt??prompt).trim();
+  if(operation.current||(!artists?.length&&!activePrompt))return;operation.current=true;setGenerating(true);setAIStatus('');setNote('');setPreparing(null);
   try{
    const chosen={...availableSettings(settings,profile?.progression),allowArtistRepeats:artists&&artists.length<settings.count?true:settings.allowArtistRepeats} as GameSettings;
    await prepareGameFlow(chosen,async(control,report)=>{let result:{collection:CatalogItem};
-    if(artists||searchMode==='catalog'){const payload=artists?{artistIds:artists.map(a=>a.id),count:chosen.count,allowArtistRepeats:chosen.allowArtistRepeats,difficulty:chosen.difficulty}:{prompt:prompt.trim(),count:chosen.count,allowArtistRepeats:chosen.allowArtistRepeats,difficulty:chosen.difficulty};result=await generationRetry(()=>prepareRequest('/api/collections',payload,report,control.signal),control.signal,error=>setAIStatus(errorRef.current(error)));}
-    else{try{result=await generateAICollection(prompt.trim(),undefined,undefined,chosen,control);}catch(aiError){if(!(aiError instanceof RequestError)||!['GEMINI_NOT_CONFIGURED','GEMINI_FREE_TIER_REQUIRED'].includes(aiError.code))throw aiError;const payload={prompt:prompt.trim(),count:chosen.count,allowArtistRepeats:chosen.allowArtistRepeats,difficulty:chosen.difficulty};try{result=await generationRetry(()=>prepareRequest('/api/collections',payload,report,control.signal),control.signal,error=>setAIStatus(errorRef.current(error)));}catch{throw aiError;}}}
+    if(artists||searchMode==='catalog'){const payload=artists?{artistIds:artists.map(a=>a.id),count:chosen.count,allowArtistRepeats:chosen.allowArtistRepeats,difficulty:chosen.difficulty}:{prompt:activePrompt,count:chosen.count,allowArtistRepeats:chosen.allowArtistRepeats,difficulty:chosen.difficulty};result=await generationRetry(()=>prepareRequest('/api/collections',payload,report,control.signal),control.signal,error=>setAIStatus(errorRef.current(error)));}
+    else{try{result=await generateAICollection(activePrompt,undefined,undefined,chosen,control);}catch(aiError){if(aiError instanceof RequestError&&aiError.code==='CANCELLED')throw aiError;const payload={prompt:activePrompt,count:chosen.count,allowArtistRepeats:chosen.allowArtistRepeats,difficulty:chosen.difficulty};result=await generationRetry(()=>prepareRequest('/api/collections',payload,report,control.signal),control.signal,error=>setAIStatus(errorRef.current(error)));}}
     if(control.signal.aborted)throw new RequestError('CANCELLED','');if(alive.current){setCatalog(previous=>[result.collection,...previous.filter(item=>item.id!==result.collection.id)]);toast.success(t('home.created'));await startGame(result.collection.id,chosen,control,report);}
    });
-  }catch(error){setNote(errorRef.current(error));if(error instanceof RequestError&&['GEMINI_NOT_CONFIGURED','GEMINI_FREE_TIER_REQUIRED','GEMINI_KEY'].includes(error.code))setAccount(true);}finally{operation.current=false;setGenerating(false);setAIStatus('');setPreparing(null);}
+  }catch(error){if(!(error instanceof RequestError&&error.code==='CANCELLED')){setNote(errorRef.current(error));toast.error(errorRef.current(error));}}finally{operation.current=false;setGenerating(false);setAIStatus('');setPreparing(null);}
  };
  const visible=catalog.filter(item=>(filter==='all'||filter==='ready'&&item.ready||category(item)===filter)&&`${localTitle(item,t)} ${item.title} ${item.artistNames?.join(' ')||''}`.toLocaleLowerCase(locale).includes(query.toLocaleLowerCase(locale)));
  const xp=profile?.profile.xp??0,level=levelForXP(xp),repeatLocked=builderTab==='artists'&&selectedArtists.length>0&&selectedArtists.length<settings.count;
  const practice=!!profile?.progression.practice;
  const cap=countCap(profile?.progression);
  const [countDraft,setCountDraft]=useState('10');useEffect(()=>{setCountDraft(String(settings.count))},[settings.count]);
- const countPicker=<div className="count-options count-v9" aria-label={t('setup.count')}>{[10,20,50,100].map(count=>{const locked=count>cap;const id=nextRequired(`count-${count}`,profile?.progression)??`count-${count}`;const upgrade=upgrades.find(u=>u.id===id);return <button type="button" className={`count-tile ${settings.count===count?'selected':''} ${locked?'locked':''}`} aria-pressed={settings.count===count} key={count} disabled={busy||generating} onClick={async()=>{if(!locked||await unlock(id)){if(!locked||id===`count-${count}`)setSettings(previous=>({...previous,count}))}}}><strong>{count}</strong>{locked&&<small><Lock size={12}/>{upgrade?.cost} XP</small>}</button>})}<label className="custom-count"><span>{t('setup.customCount')}</span><input aria-label={t('setup.customCount')} disabled={busy||generating} type="number" min={1} step={1} value={countDraft} onChange={e=>{setCountDraft(e.target.value);const count=Number(e.target.value);if(Number.isSafeInteger(count)&&count>0&&count<=cap)setSettings(previous=>({...previous,count}))}}/></label>{Number.isFinite(cap)&&<button className="count-unlimited locked-setting" disabled={busy||generating} onClick={()=>void unlock('count-unlimited')}><Lock size={14}/>{t('setup.unlimited')} · {upgrades.find(u=>u.id===nextRequired('count-unlimited',profile?.progression))?.cost} XP</button>}</div>;
+ const countPicker=<div className="count-options count-v9 nb-count-row" aria-label={t('setup.count')}>{[10,20,50,100].map(count=>{const locked=count>cap;const id=nextRequired(`count-${count}`,profile?.progression)??`count-${count}`;const upgrade=upgrades.find(u=>u.id===id);return <button type="button" className={`count-tile ${settings.count===count?'selected':''} ${locked?'locked':''}`} aria-pressed={settings.count===count} key={count} disabled={busy||generating} onClick={async()=>{if(!locked||await unlock(id)){if(!locked||id===`count-${count}`)setSettings(previous=>({...previous,count}))}}}><strong>{count}</strong>{locked&&<small><Lock size={11}/>{upgrade?.cost}</small>}</button>})}<label className="custom-count nb-custom-count-pill" title={t('setup.customCount')}><span>№</span><input aria-label={t('setup.customCount')} disabled={busy||generating} type="number" min={1} step={1} value={countDraft} onChange={e=>{setCountDraft(e.target.value);const count=Number(e.target.value);if(Number.isSafeInteger(count)&&count>0&&count<=cap)setSettings(previous=>({...previous,count}))}}/></label></div>;
 
  return (
   <div className="echo-shell echo-v5 nb-pumpkin-shell">
    <Toaster theme="light" position="bottom-right"/>
 
-   {/* Top Brutalist Dossier Bar with concatenated publication version */}
+   {/* Полностью переработанная верхняя панель: ровно, лаконично, без вылезания текста, с флажками выбора языка */}
    <header className="topbar nb-topbar">
-    <div className="nb-brand-cluster">
-     <button className="brand brand-button" onClick={()=>setView('library')} aria-label={t('home.brand')}>
-      <span className="nb-brand-badge"><AudioLines size={18}/></span>
-      <span>ECHO<span className="brand-dot">.</span></span>
+    <div className="nb-topbar-left">
+     <button className="brand brand-button nb-brand-btn" onClick={()=>setView('library')} aria-label={t('home.brand')}>
+      <span className="nb-brand-badge"><AudioLines size={17}/></span>
+      <span className="nb-brand-word">ECHO<span className="brand-dot">.</span></span>
      </button>
-     <span className="nb-version-stamp" title="Версия последней публикации">{SITE_PUB_VERSION}</span>
+     <span className="nb-version-stamp" title="Версия сайта от даты и времени последней публикации">v{SITE_PUB_VERSION}</span>
     </div>
 
     <nav className="nb-main-nav" aria-label={t('home.nav')}>
-     <button className={view==='library'?'nav-active':''} onClick={()=>setView('library')}>
-      <Music2 size={15}/>
+     <button type="button" className={view==='library'?'nav-active':''} onClick={()=>setView('library')}>
+      <Music2 size={14}/>
       <span>{t('home.library')}</span>
      </button>
-     <button className={view==='tournament'?'nav-active':''} onClick={()=>setView('tournament')}>
-      <Swords size={15}/>
+     <button type="button" className={view==='tournament'?'nav-active':''} onClick={()=>setView('tournament')}>
+      <Swords size={14}/>
       <span>{tournamentTitle}</span>
      </button>
-     <button className={view==='vinyl'?'nav-active':''} onClick={()=>{setView('vinyl');setVinylVisited(true)}}>
-      <Disc3 size={15}/>
+     <button type="button" className={view==='vinyl'?'nav-active':''} onClick={()=>{setView('vinyl');setVinylVisited(true)}}>
+      <Disc3 size={14}/>
       <span>{vinylTitle}</span>
      </button>
-     <button className={view==='stats'?'nav-active':''} onClick={()=>setView('stats')}>
-      <Trophy size={15}/>
+     <button type="button" className={view==='stats'?'nav-active':''} onClick={()=>setView('stats')}>
+      <Trophy size={14}/>
       <span>{t('home.stats')}</span>
      </button>
     </nav>
@@ -257,33 +258,65 @@ export default function EchoApp(){
       onClick={()=>setArcadeOpen(true)}
       title="Мини-игры (5 игр в ожидании)"
      >
-      <Gamepad2 size={15}/>
+      <Gamepad2 size={14}/>
       <span>5 ИГР</span>
      </button>
 
      {!practice&&(
       <div id="profile-wallet" className={`wallet-tile ${walletDelta<0?'wallet-down':walletDelta>0?'wallet-up':''}`} aria-label={t('home.wallet')}>
-       <Zap size={15}/>
+       <Zap size={13}/>
        <strong><AnimatedNumber value={xp}/></strong>
        <span>XP</span>
        {walletDelta!==0&&<b key={`${xp}:${walletDelta}`} className="wallet-float">{walletDelta>0?'+':''}{format(walletDelta)}</b>}
       </div>
      )}
 
-     <label className="locale-picker">
-      <Languages size={14}/>
-      <select value={locale} onChange={event=>setLocale(event.target.value as Locale)} aria-label={t('home.language')}>
-       <option value="uk">УКР</option>
-       <option value="en">ENG</option>
-       <option value="ru">РУС</option>
-      </select>
-     </label>
+     {/* Выбор языка сайта красивыми флажками */}
+     <div className="nb-flag-switcher" role="group" aria-label={t('home.language')}>
+      <button
+       type="button"
+       className={`nb-flag-btn ${locale==='uk'?'active':''}`}
+       onClick={()=>setLocale('uk')}
+       title="Українська"
+       aria-pressed={locale==='uk'}
+      >
+       <svg viewBox="0 0 28 20" width="22" height="16" aria-hidden="true" className="nb-flag-svg">
+        <rect width="28" height="10" fill="#005BBB"/>
+        <rect y="10" width="28" height="10" fill="#FFD500"/>
+       </svg>
+      </button>
+      <button
+       type="button"
+       className={`nb-flag-btn ${locale==='en'?'active':''}`}
+       onClick={()=>setLocale('en')}
+       title="English"
+       aria-pressed={locale==='en'}
+      >
+       <svg viewBox="0 0 28 20" width="22" height="16" aria-hidden="true" className="nb-flag-svg">
+        <rect width="28" height="20" fill="#012169"/>
+        <path d="M0,0 L28,20 M28,0 L0,20" stroke="#FFF" strokeWidth="4"/>
+        <path d="M0,0 L28,20 M28,0 L0,20" stroke="#C8102E" strokeWidth="2"/>
+        <path d="M14,0 V20 M0,10 H28" stroke="#FFF" strokeWidth="6.5"/>
+        <path d="M14,0 V20 M0,10 H28" stroke="#C8102E" strokeWidth="3.8"/>
+       </svg>
+      </button>
+      <button
+       type="button"
+       className={`nb-flag-btn ${locale==='ru'?'active':''}`}
+       onClick={()=>setLocale('ru')}
+       title="Русский"
+       aria-pressed={locale==='ru'}
+      >
+       <svg viewBox="0 0 28 20" width="22" height="16" aria-hidden="true" className="nb-flag-svg">
+        <rect width="28" height="6.67" fill="#FFFFFF"/>
+        <rect y="6.67" width="28" height="6.67" fill="#0039A6"/>
+        <rect y="13.33" width="28" height="6.67" fill="#D52B1E"/>
+       </svg>
+      </button>
+     </div>
 
-     <button className="spotify-button account-settings" aria-label={t('home.account')} onClick={()=>setAccount(true)}>
+     <button type="button" className="spotify-button account-settings nb-account-btn" aria-label={t('home.account')} onClick={()=>setAccount(true)} title={profile?.profile.displayName||t('home.account')}>
       <span className={`account-status-dot ${profile?'connected':''}`}/>
-      <span className="account-copy">
-       <span>{profile?.profile.displayName||t('home.account')}</span>
-      </span>
       <UserRound size={15}/>
      </button>
     </div>
@@ -561,7 +594,7 @@ export default function EchoApp(){
 
          <div className="prompt-examples">
           {QUICK_MIX_TAGS.map(example=>(
-           <button type="button" key={example} disabled={busy||generating} onClick={()=>setPrompt(example)}>
+           <button type="button" key={example} disabled={busy||generating} onClick={()=>{setPrompt(example);void createCollection(undefined,example);}}>
             {example}
            </button>
           ))}
@@ -571,7 +604,7 @@ export default function EchoApp(){
           <div className="mini-categories" aria-label={t('search.categories')}>
            <span>{t('search.categories')}</span>
            {miniCategories.slice(0,6).map(cat=>(
-            <button type="button" key={cat.prompt} disabled={busy||generating} title={t('search.categoryHint',{count:cat.count})} onClick={()=>{setSearchMode('ai');setPrompt(cat.prompt);}}>
+            <button type="button" key={cat.prompt} disabled={busy||generating} title={t('search.categoryHint',{count:cat.count})} onClick={()=>{setPrompt(cat.prompt);void createCollection(undefined,cat.prompt);}}>
              <Disc3 size={13}/>
              <span>{cat.title}</span>
              <small>{cat.count}</small>
@@ -588,20 +621,40 @@ export default function EchoApp(){
       </Tabs>
 
       <div className="builder-configuration">
-       <div className="builder-preferences">
-        <div className="builder-count">
-         <span>{t('setup.count')}</span>
+       <div className="nb-visual-prefs-grid">
+        <div className="nb-opt-card nb-count-card">
+         <div className="nb-opt-head">
+          <span className="nb-opt-title"><Disc3 size={15}/><span>ТРЕКОВ</span></span>
+         </div>
          {countPicker}
         </div>
-        <div className="nb-switches-col">
-         <label className="builder-repeat">
-          <Switch checked={repeatLocked||settings.allowArtistRepeats} disabled={repeatLocked||busy||generating} onCheckedChange={checked=>setSettings(previous=>({...previous,allowArtistRepeats:checked}))}/>
-          <span>{t('setup.repeats')}</span>
-         </label>
-         <label className="builder-repeat nb-noinput-toggle">
-          <Switch checked={noInputMode} disabled={busy||generating} onCheckedChange={setNoInputMode}/>
-          <span>Режим без ввода названия (просто кнопка «Далее»)</span>
-         </label>
+
+        <div className="nb-opt-card nb-mode-toggle-card">
+         <div className="nb-opt-head">
+          <span className="nb-opt-title"><Sparkles size={15}/><span>БЕЗ ОПЫТА</span></span>
+         </div>
+         <div className="nb-yesno-grid">
+          <button type="button" className={`nb-yesno-pill ${practice?'selected':''}`} disabled={busy||generating||!profile} onClick={()=>void changeProfile({action:'practice',practice:true})}>
+           <Check size={15}/><strong>ДА</strong>
+          </button>
+          <button type="button" className={`nb-yesno-pill ${!practice?'selected':''}`} disabled={busy||generating||!profile} onClick={()=>void changeProfile({action:'practice',practice:false})}>
+           <X size={15}/><strong>НЕТ</strong>
+          </button>
+         </div>
+        </div>
+
+        <div className="nb-opt-card nb-mode-toggle-card">
+         <div className="nb-opt-head">
+          <span className="nb-opt-title"><FastForward size={15}/><span>БЕЗ ВВОДА</span></span>
+         </div>
+         <div className="nb-yesno-grid">
+          <button type="button" className={`nb-yesno-pill ${noInputMode?'selected':''}`} disabled={busy||generating} onClick={()=>setNoInputMode(true)}>
+           <Check size={15}/><strong>ДА</strong>
+          </button>
+          <button type="button" className={`nb-yesno-pill ${!noInputMode?'selected':''}`} disabled={busy||generating} onClick={()=>setNoInputMode(false)}>
+           <X size={15}/><strong>НЕТ</strong>
+          </button>
+         </div>
         </div>
        </div>
 

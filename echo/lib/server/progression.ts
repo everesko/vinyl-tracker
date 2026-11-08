@@ -4,7 +4,7 @@ import { ApiError,database } from './http';
 
 export async function progressFor(userId:string):Promise<Progression>{
  const db=database();const [row,reset]=await Promise.all([db.prepare('SELECT * FROM echo_progression WHERE user_id = ?').bind(userId).first<{unlocks:string;practice:number}>(),db.prepare('SELECT reset_at FROM echo_profile_balances WHERE user_id = ?').bind(userId).first<{reset_at:number}>()]);
- return {practice:!!row?.practice,unlocks:row?JSON.parse(row.unlocks):{},resetAvailableAt:reset?reset.reset_at+86400000:0};
+ return {practice:row?!!row.practice:true,unlocks:row?JSON.parse(row.unlocks):{},resetAvailableAt:reset?reset.reset_at+86400000:0};
 }
 export async function wallet(userId:string){const row=await database().prepare('SELECT MAX(0, CAST(ROUND(COALESCE((SELECT SUM(xp) FROM echo_games WHERE user_id = ? AND finished = 1),0)*10) AS INTEGER) - COALESCE((SELECT offset_tenths FROM echo_profile_balances WHERE user_id = ?),0) - COALESCE((SELECT spent_tenths FROM echo_progression WHERE user_id = ?),0)) / 10.0 AS xp').bind(userId,userId,userId).first<{xp:number}>();return row?.xp??0;}
 export async function ensureSettings(userId:string,settings:Settings,practice?:boolean){const progress=await progressFor(userId);if(practice!==undefined)progress.practice=practice;const allowed=availableSettings(settings,progress);if(['duration','difficulty','timer','count'].some(key=>allowed[key as keyof Settings]!==settings[key as keyof Settings]))throw new ApiError(403,'SETTING_LOCKED','Откройте настройку за XP в профиле или включите тренировку без очков.');return progress;}
