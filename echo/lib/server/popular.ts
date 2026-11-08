@@ -363,7 +363,7 @@ export function deduplicateRecordings(tracks: Track[]) {
   const found = new Map<string, Track>();
   for (const track of [...tracks].sort((a, b) => (b.popularityRank ?? 0) - (a.popularityRank ?? 0))) {
     const key = `${normalized(track.artist)}:${normalized(track.title.replace(/\([^)]*\)/g, ""))}`;
-    if (!found.has(key)) found.set(key, track);
+    if (!found.has(key)) found.set(key, track); else if (!found.get(key)!.year && track.year) found.set(key, { ...found.get(key)!, year: track.year });
   }
   return [...found.values()];
 }
@@ -395,10 +395,10 @@ async function artistPool(artist:Artist,query:PopularQuery,desired=10):Promise<T
  // Incrementally page the full album catalog when the top recordings are insufficient.
  if(state.deck.length<desired||query.decade&&state.scanned===0){
   if(!state.albumDone){const result=await deezerRequest<{data?:Album[];total?:number;next?:string}>(`/artist/${artist.id}/albums?limit=100&index=${state.albumCursor}`);state.albums.push(...(result.data??[]));state.albumCursor+=(result.data??[]).length;state.albumDone=!result.next||!(result.data??[]).length;}
-  const limit=Math.min(state.albums.length,state.scanned+4);
-  while(state.scanned<limit){const album=state.albums[state.scanned++],year=Number(album.release_date?.slice(0,4));
+  let fetchedAlbums=0;
+  while(state.scanned<state.albums.length&&fetchedAlbums<4){const album=state.albums[state.scanned++],year=Number(album.release_date?.slice(0,4));
    if(/live|concert|karaoke|tribute/i.test(album.title)||query.decade&&!(year>=query.decade&&year<query.decade+10))continue;
-   const full=await deezerRequest<Album>(`/album/${album.id}`);
+   fetchedAlbums++;const full=await deezerRequest<Album>(`/album/${album.id}`);
    state.deck.push(...(full.tracks?.data??[]).filter(t=>eligibleRecording(t,artist.id)).map(t=>recordingTrack({...t,album:full},genre,full.release_date)));
   }
   state.deck=deduplicateRecordings(state.deck);await cacheMetadata(key,state);
@@ -468,7 +468,7 @@ async function queryPool(query: PopularQuery, options: DeckOptions = {}) {
   const key = `popular-pool-${Array.from(new Uint8Array(keyBytes)).map(value => value.toString(16).padStart(2, "0")).join("")}`;
   const cached = await database().prepare("SELECT track_data, updated_at FROM echo_media_collections WHERE id = ?").bind(key).first<{ track_data: string; updated_at: number }>();
   type CachedPool = { deck: Track[]; scanned: number; forceExpand?: boolean;verifiedDeck?:Track[];relatedArtists?:Artist[];relatedCursor?:number };
-  const preindexed=!query.decade&&!query.region&&!query.explicitArtists?compactPool(query.genreSlugs.flatMap(slug=>readyGenreIndexes[slug]?.deck??[])):[];
+  const presetMatches=query.explicitArtists&&!query.decade&&!query.region&&!query.genreSlugs.length&&!query.theme?query.artists.map(name=>Object.values(readyPresets).find(item=>normalized(item.title)===normalized(name))):[];const preindexed=!query.decade&&!query.region&&!query.explicitArtists?compactPool(query.genreSlugs.flatMap(slug=>readyGenreIndexes[slug]?.deck??[])):presetMatches.length&&presetMatches.every(Boolean)?compactPool(presetMatches.flatMap(item=>item!.deck)):[];
   const prior:CachedPool = cached && cached.updated_at > Date.now() - 21600000 ? await readJson<CachedPool>(cached.track_data) : { deck: preindexed, scanned: 0,verifiedDeck:preindexed };
   let deck = prior.deck, scanned = prior.scanned;
   const target = options.count ?? 50, seeds = [...new Set([...query.artists,...(prior.relatedArtists??[]).map(artist=>artist.name)])];
@@ -506,7 +506,7 @@ async function queryPool(query: PopularQuery, options: DeckOptions = {}) {
     const extra=needed?await (query.genreSlugs.every(slug=>addedProviderGenres[slug])?verifyAddedGenres:verifyGenrePool)(spreadArtists(remaining),query.genreSlugs,needed,!needUnique):[];
     deck=compactPool([...indexed,...extra]);
   }
-  if(query.decade)deck=await verifyEraPool(spreadArtists(deck),query.decade,target,options.allowArtistRepeats!==false);
+  if(query.decade)deck=await verifyEraPool([...spreadArtists(deck.filter(t=>t.year>=query.decade!&&t.year<query.decade!+10)),...spreadArtists(deck.filter(t=>!(t.year>=query.decade!&&t.year<query.decade!+10)))],query.decade,target,options.allowArtistRepeats!==false);
   const available = options.allowArtistRepeats === false ? new Set(deck.map(track => normalized(track.artist))).size : deck.length;
   if ((available < target||!query.explicitArtists&&uniqueCount(deck)<target) && scanned < seeds.length) {
     await cacheMetadata(key, {...prior,deck:rawDeck,scanned,forceExpand:true,verifiedDeck:deck});
@@ -543,7 +543,7 @@ export async function popularDeck(id: string, settings?: Settings) {
   return { collection, deck, songOnly: definition.category === "artist" };
 }
 export async function constructPopularCollection(prompt: string, options: DeckOptions = {}) {
-  let query = parsePopularPrompt(prompt);
+  let query: PopularQuery; try { query = parsePopularPrompt(prompt); } catch (error) { if (!(error instanceof ApiError) || error.code !== "PROMPT_NOT_UNDERSTOOD") throw error; const cleaned = prompt.replace(/^(?:песни|музыка|треки|хиты|пісні|музика|треки|хіти|songs|tracks|music|hits)(?:\s+(?:группы|исполнителя|артиста|гурту|виконавця|артиста|by|of))?\s+/i, "").trim(), parts = cleaned.split(/\s*(?:[,;]|\s+(?:и|і|та|й|and)\s+)\s*/i).map(p => p.trim()).filter(Boolean); if (!parts.length || parts.length > 5 || parts.some(p => p.length > 60)) throw error; const resolved = await Promise.all(parts.map(p => resolveArtist(p))), names = [...new Set(resolved.map(a => a.name))]; query = { artists: names, genreSlugs: [], title: names.join(" · ").slice(0, 80), category: names.length === 1 ? "artist" : "mix", explicitArtists: true }; }
   if (!query.artists.length && !query.genreSlugs.length && !query.decade) {
     // A direct artist name not in our RU/EN dictionary is resolved against canonical provider identities.
     const name = prompt.replace(/^(?:песни|музыка|треки|хиты|songs|tracks|music)(?:\s+(?:группы|исполнителя|артиста|by|of))?\s+/i, "").trim();

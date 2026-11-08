@@ -45,25 +45,63 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   const stalledTimer = useRef<number | undefined>(undefined), runtimeFailure = useRef<(reason: string) => void>(() => {});
   const freshPlayback = useRef(false);
   const boundaryKey = useRef('');
+  const clockSkew = useRef(0);
+  const completedRound = useRef('');
+  const clipWindow = useRef<{ start: number; duration: number } | null>(null);
+  const serverNow = useCallback(() => Date.now() - clockSkew.current, []);
+
   const stopVoice = useCallback(() => { recognition.current?.abort(); recognition.current = null; setVoiceField(null); setInterim(''); }, []);
   const stopMedia = useCallback(() => {
     freshPlayback.current = false;
+    clipWindow.current = null;
     mediaAbort.current?.abort(); stopCutoff.current?.(); stopCutoff.current = null;
     audio.current?.pause(); demo.current?.stop(); clearTimeout(encoreTimer.current);
     clearTimeout(stalledTimer.current);
     setAudible(false); setEncore(false); setRevealBusy(false);
   }, []);
-  const accept = useCallback((next: GameView) => {
+
+  const accept = useCallback((rawNext: GameView) => {
     if (!mounted.current) return;
-    if (next.index !== state.current.index || next.id !== state.current.id) {
-      stopMedia(); stopVoice(); setArtist(''); setSong(''); setSpoken('');setReportOpen(false); setManual(false); setRevealDone(false); setRevealStarted(0); setVoiceError(''); setMediaError(''); boundaryKey.current = '';
+    if (typeof rawNext.serverTime === 'number' && Number.isFinite(rawNext.serverTime)) {
+      clockSkew.current = Date.now() - rawNext.serverTime;
+    }
+    const roundId = `${rawNext.id}:${rawNext.index}`;
+    if (rawNext.index !== state.current.index || rawNext.id !== state.current.id) {
+      stopMedia(); stopVoice(); setArtist(''); setSong(''); setSpoken('');setReportOpen(false); setManual(false); setRevealDone(false); setRevealStarted(0); setVoiceError(''); setMediaError(''); boundaryKey.current = ''; completedRound.current = '';
       void demo.current?.close().catch(() => {}); demo.current = null;
       if (audio.current) { audio.current.removeAttribute('src'); audio.current.load(); audio.current = null; }
+    } else if (rawNext.phase === 'ready' || rawNext.phase === 'paused') {
+      completedRound.current = '';
     }
+    const next: GameView = rawNext.phase === 'playing' && completedRound.current === roundId
+      ? {
+          ...rawNext,
+          phase: 'answer',
+          hint: rawNext.hint ? { ...rawNext.hint, available: rawNext.hintStart !== undefined && !rawNext.hint.used && !rawNext.hint.failed } : rawNext.hint,
+        }
+      : rawNext;
     if (next.phase !== 'answer') stopVoice();
     state.current = next; setGame(next); setNow(Date.now()); callbacks.current.onGameChange?.(next);
-
   }, [stopMedia, stopVoice]);
+
+  const transitionToAnswer = useCallback(() => {
+    if (!mounted.current) return;
+    const current = state.current;
+    if (current.phase !== 'playing') return;
+    completedRound.current = `${current.id}:${current.index}`;
+    freshPlayback.current = false;
+    clipWindow.current = null;
+    setAudible(false);
+    const next: GameView = {
+      ...current,
+      phase: 'answer',
+      hint: current.hint ? { ...current.hint, available: current.hintStart !== undefined && !current.hint.used && !current.hint.failed } : current.hint,
+    };
+    state.current = next;
+    setGame(next);
+    setNow(Date.now());
+    callbacks.current.onGameChange?.(next);
+  }, []);
 
   useEffect(() => {
     mounted.current = true; const controller = new AbortController(); requestAbort.current = controller; locked.current = true;
@@ -92,22 +130,34 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   }, [accept]);
 
   useEffect(() => {
-    if (game.phase !== 'playing' && game.phase !== 'answer' && game.phase !== 'reveal') return;
-    const clock = window.setInterval(() => setNow(Date.now()), 100);
+    if (!audible && game.phase !== 'playing' && game.phase !== 'answer' && game.phase !== 'reveal') return;
+    const clock = window.setInterval(() => setNow(Date.now()), 50);
     return () => clearInterval(clock);
-  }, [game.phase]);
+  }, [audible, game.phase]);
   useEffect(()=>{const frame=requestAnimationFrame(()=>{stopVoice();setLanguage(locale==='uk'?'uk-UA':locale==='en'?'en-US':'ru-RU')});return()=>cancelAnimationFrame(frame)},[locale,stopVoice]);
   useEffect(() => {
     const bound = game.phase === 'playing' ? game.clipEndsAt : game.phase === 'answer' ? game.deadline : undefined;
     const key = `${game.id}:${game.index}:${game.phase}:${bound}`;
     if (!bound || busy || boundaryKey.current === key) return;
+    const delay = Math.max(0, bound - serverNow());
     const timer = window.setTimeout(() => {
       if (document.visibilityState !== 'visible' || boundaryKey.current === key) return;
-      if (game.phase === 'playing' && freshPlayback.current) return;
-      boundaryKey.current = key; if (game.phase === 'playing') stopMedia(); void synchronize();
-    }, Math.max(0, bound - Date.now()));
+      if (game.phase === 'playing') {
+        if (freshPlayback.current) return;
+        boundaryKey.current = key;
+        stopMedia();
+        transitionToAnswer();
+        return;
+      }
+      boundaryKey.current = key;
+      void synchronize().then(() => {
+        if (mounted.current && state.current.phase === 'answer' && state.current.deadline === bound) {
+          window.setTimeout(() => { boundaryKey.current = ''; setNow(Date.now()); }, 180);
+        }
+      });
+    }, delay);
     return () => clearTimeout(timer);
-  }, [game, busy, stopMedia, synchronize]);
+  }, [game, busy, serverNow, stopMedia, synchronize, transitionToAnswer]);
   useEffect(() => {
     const visibility = () => {
       if (document.hidden) { const current=state.current;if(current.phase==='playing'&&!locked.current){void gameRequest(current.id,'pause',{round:current.index}).then(accept).catch(()=>{});}stopMedia(); stopVoice(); }
@@ -127,7 +177,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
         element.onerror = () => runtimeFailure.current('Воспроизведение прервалось. Повторите фрагмент без штрафа.');
         element.onstalled = () => { clearTimeout(stalledTimer.current); if (!element.paused) stalledTimer.current = window.setTimeout(() => { if (!element.paused && element.readyState < 3) runtimeFailure.current('Звук остановился при загрузке. Повторите фрагмент без штрафа.'); }, 800); };
         element.oncanplay = () => clearTimeout(stalledTimer.current);
-        element.onended = () => { if ((state.current.clipEndsAt ?? 0) > Date.now() + 150) runtimeFailure.current('Аудиофрагмент закончился слишком рано. Повторите без штрафа.'); };
+        element.onended = () => { if ((state.current.clipEndsAt ?? 0) > serverNow() + 250) runtimeFailure.current('Аудиофрагмент закончился слишком рано. Повторите без штрафа.'); };
         element.load();
       }
       const current=state.current,resuming=current.phase==='paused',seconds=resuming?(current.pauseRemaining??current.settings.duration*1000)/1000:current.settings.duration;
@@ -138,20 +188,21 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   };
   const handleRuntimeFailure = useCallback((reason: string) => {
     const current = state.current;
-    if (!mounted.current || locked.current || current.phase !== 'playing' || !current.clipEndsAt || Date.now() >= current.clipEndsAt) return;
+    if (!mounted.current || locked.current || current.phase !== 'playing' || !current.clipEndsAt || serverNow() >= current.clipEndsAt) return;
     locked.current = true; setBusy(true); stopMedia(); setError(reason); setRetryAction('play');
     void gameRequest(current.id, 'media-error', { round: current.index, clipEndsAt: current.clipEndsAt }, requestAbort.current.signal)
       .then(accept).catch(e => { if (mounted.current) { setError(`${reason} ${message(e)}`); setRetryAction('sync'); } })
       .finally(() => { locked.current = false; if (mounted.current) setBusy(false); });
-  }, [accept, stopMedia]);
+  }, [accept, serverNow, stopMedia]);
   useEffect(() => { runtimeFailure.current = handleRuntimeFailure; }, [handleRuntimeFailure]);
   const playPrepared = async (seconds: number, fresh = false) => {
     if (document.hidden || !mounted.current) return;
     stopCutoff.current?.();
     freshPlayback.current = fresh;
+    clipWindow.current = { start: Date.now(), duration: seconds * 1000 };
     const stopped = () => {
-      const completedFresh = freshPlayback.current; freshPlayback.current = false; setAudible(false);
-      if (completedFresh && mounted.current) { boundaryKey.current = ''; void synchronize(); }
+      const completedFresh = freshPlayback.current; freshPlayback.current = false; clipWindow.current = null; setAudible(false);
+      if (completedFresh && mounted.current) { boundaryKey.current = ''; transitionToAnswer(); }
     };
     if (audio.current) {
       await audio.current.play();
@@ -167,8 +218,14 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   const playRound = async (replay = false) => {
     if (locked.current) return;
     if (replay && state.current.settings.timer) return;
+    if (!replay && state.current.phase === 'playing' && serverNow() >= (state.current.clipEndsAt ?? 0)) {
+      transitionToAnswer();
+      return;
+    }
     locked.current = true; setBusy(true); setError(''); setRetryAction('play');
     let started: GameView | undefined;
+    const wasPaused = state.current.phase === 'paused';
+    const pausedMs = state.current.pauseRemaining ?? state.current.settings.duration * 1000;
     try {
       await prepare();
       if (!mounted.current || document.hidden) return;
@@ -179,8 +236,13 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
       const current = started ?? state.current;
       if (current.phase === 'reveal' || current.phase === 'finished'||current.phase === 'cancelled') return;
       const fresh = !!started && !replay;
-      const seconds = replay ? current.settings.duration : Math.max(0, Math.min(current.settings.duration, ((current.clipEndsAt ?? Date.now() + current.settings.duration * 1000) - Date.now()) / 1000));
+      const seconds = replay
+        ? current.settings.duration
+        : started
+          ? (wasPaused ? pausedMs / 1000 : current.settings.duration)
+          : Math.max(0, Math.min(current.settings.duration, ((current.clipEndsAt ?? serverNow() + current.settings.duration * 1000) - serverNow()) / 1000));
       if (seconds > 0) await playPrepared(seconds, fresh);
+      else if (current.phase === 'playing') transitionToAnswer();
     } catch (e) {
       stopMedia();
       if (started?.clipEndsAt && mounted.current) {
@@ -196,7 +258,7 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   };
   const replaceMedia=async(kind:'replace-fragment'|'replace-track')=>{
     if(locked.current)return;locked.current=true;setBusy(true);setError('');stopMedia();stopVoice();
-    try{const next=await gameRequest(game.id,kind,{round:game.index},requestAbort.current.signal);if(audio.current){audio.current.removeAttribute('src');audio.current.load();audio.current=null;}accept(next);setReportOpen(false);setArtist('');setSong('');setSpoken('');boundaryKey.current='';}
+    try{const next=await gameRequest(game.id,kind,{round:game.index},requestAbort.current.signal);if(audio.current){audio.current.removeAttribute('src');audio.current.load();audio.current=null;}accept(next);setReportOpen(false);setArtist('');setSong('');setSpoken('');boundaryKey.current='';completedRound.current='';}
     catch(e){setError(message(e));setRetryAction('sync');}finally{locked.current=false;if(mounted.current)setBusy(false)}
   };
   const act = async (action: 'answer' | 'next', empty = false, mode:AnswerMode = game.songOnly?'song':'both') => {
@@ -205,6 +267,10 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
     try {
       autoReveal.current = action === 'answer';
       const current = state.current;
+      if (action === 'answer' && current.clipEndsAt) {
+        const waitMs = current.clipEndsAt - serverNow();
+        if (waitMs > 0 && waitMs <= 2000) await new Promise(resolve => window.setTimeout(resolve, waitMs + 30));
+      }
       accept(await gameRequest(current.id, action, { round: current.index, ...(action === 'answer' ? { artist: empty || mode === 'song' ? '' : artist, song: empty || mode === 'artist' ? '' : song, spoken:empty?'':spoken, mode } : {}) }, requestAbort.current.signal));
     } catch (e) { autoReveal.current = false; if (mounted.current) setError(message(e)); }
     finally { locked.current = false; if (mounted.current) setBusy(false); }
@@ -240,6 +306,10 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
       const current=state.current,controller=new AbortController();mediaAbort.current=controller;
       if(audio.current)await preparePassage(audio.current,current.hint?.start??12,controller.signal,current.settings.duration);
       else if(current.track?.audioUrl){await prepare();if(audio.current)await preparePassage(audio.current,current.hint?.start??12,mediaAbort.current?.signal,current.settings.duration)}
+      if (current.clipEndsAt) {
+        const waitMs = current.clipEndsAt - serverNow();
+        if (waitMs > 0 && waitMs <= 2000) await new Promise(resolve => window.setTimeout(resolve, waitMs + 30));
+      }
       const next=await gameRequest(current.id,'hint',{round:current.index},requestAbort.current.signal);accept(next);reserved=!!next.hint?.used;
       if(next.phase!=='answer')return;
       await playPrepared(next.settings.duration);
@@ -267,11 +337,18 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
     try { instance.start(); setVoiceField(field); } catch { recognition.current = null; setVoiceError('Не удалось включить микрофон. Введите ответ с клавиатуры.'); }
   };
   const exit = () => { const current=state.current;if(current.phase==='playing')void gameRequest(current.id,'pause',{round:current.index}).catch(()=>{});stopMedia(); stopVoice(); requestAbort.current.abort(); callbacks.current.onExit(); };
-  const remaining = game.deadline ? Math.max(0, Math.ceil((game.deadline - now) / 1000)) : undefined;
+  const effectiveNow = now - clockSkew.current;
+  const remaining = game.deadline ? Math.max(0, Math.ceil((game.deadline - effectiveNow) / 1000)) : undefined;
   const factor = multiplier(game.settings),rewardFactor=game.practice?0:factor;
   const revealMode = game.reveal?.result.mode ?? (game.songOnly?'song':'both');
-  const clipProgress = game.clipEndsAt ? Math.max(0, Math.min(100, (1 - (game.clipEndsAt - now) / (game.settings.duration * 1000)) * 100)) : 0;
-  const blockedAnswer = busy || audible || !!(game.deadline && now >= game.deadline);
+  const clipProgress = audible && clipWindow.current
+    ? Math.max(0, Math.min(100, ((now - clipWindow.current.start) / clipWindow.current.duration) * 100))
+    : game.phase === 'paused' && game.pauseRemaining !== undefined
+      ? Math.max(0, Math.min(100, (1 - game.pauseRemaining / (game.settings.duration * 1000)) * 100))
+      : game.clipEndsAt
+        ? Math.max(0, Math.min(100, (1 - (game.clipEndsAt - effectiveNow) / (game.settings.duration * 1000)) * 100))
+        : 0;
+  const blockedAnswer = busy || audible || !!(game.deadline && effectiveNow >= game.deadline);
 
   const cancelGame=async()=>{
     if(locked.current)return;locked.current=true;setBusy(true);stopMedia();stopVoice();setError('');setRetryAction('cancel');
@@ -289,18 +366,18 @@ export default function GamePanel({ initialGame, onExit, onFinished, onGameChang
   const pending=game.pendingSettings;
   const cancelAmount=Math.round((game.score>0?game.score*.5:game.score)*10)/10;
   const revealProgress=encore&&revealStarted?Math.max(0,Math.min(100,(now-revealStarted)/100)):revealDone?100:0;
+  const stageKey = game.phase === 'ready' || game.phase === 'playing' || game.phase === 'paused' ? 'listen' : game.phase;
   const retry=()=>{
     if(retryAction==='cancel')void cancelGame();else if(retryAction==='hint')void playHint();
     else if(retryAction==='sync')void synchronize();else if(retryAction==='play')void playRound();else void act(retryAction);
   };
   return <section className={`quiz-window quiz-v5 phase-${game.phase} ${game.practice?'practice-game':''}`} aria-label={t('Музыкальная игра')}>
     {game.phase==='reveal'&&game.reveal?.artworkUrl&&typeof document!=='undefined'&&createPortal(<div className={`quiz-fullscreen-art ${encore?'playing':''}`} aria-hidden="true"><Image src={game.reveal.artworkUrl} alt="" fill unoptimized/><i/></div>,document.body)}
-    {!closed&&game.phase!=='reveal'&&typeof document!=='undefined'&&createPortal(<div className="quiz-ambient" aria-hidden="true">{Array.from({length:16},(_,i)=><i key={i} style={{left:`${(i*37)%100}%`,animationDelay:`${-i*1.8}s`,animationDuration:`${16+i%7}s`}}>{i%2?'♫':'♪'}</i>)}</div>,document.body)}
     <header className="quiz-window-header"><div><span className="eyebrow">{t(closed?'РЕЗУЛЬТАТ':'МУЗЫКАЛЬНЫЙ КВИЗ')}</span><h2>{t(game.collectionTitle)}</h2></div>{!game.practice&&<div className="game-wallet"><ZapIcon/><span><AnimatedNumber value={balanceXp}/> XP</span></div>}<button className="icon-button" aria-label={t('Свернуть игру')} onClick={exit}><X size={21}/></button></header>
     <div className="quiz-mini-stats"><span><Headphones size={15}/>{closed?`${game.summary?.correct??0} / ${game.total}`:`${game.index+1} / ${game.total}`}</span>{!game.practice&&<><span><Trophy size={15}/><AnimatedNumber value={game.score}/> {t('очков')}</span><span>×{factor.toLocaleString(locale,{maximumFractionDigits:4})}</span></>}<span className={remaining!==undefined&&remaining<=3?'urgent':''}><Clock3 size={15}/>{game.settings.timer?`${remaining??10} ${t('сек')}`:t('Без таймера')}</span></div>
     <Progress className="quiz-round-progress" aria-label={t('Прогресс игры')} value={closed?100:game.index/game.total*100}/>
     {error&&<div className="quiz-error" role="alert"><span>{t(error)}</span><button disabled={busy} onClick={retry}><RotateCcw size={15}/>{t('Повторить')}</button></div>}
-    <div className="quiz-body" key={`${game.index}:${game.phase}`}>
+    <div className="quiz-body" key={`${game.index}:${stageKey}`}>
       {(game.phase==='ready'||game.phase==='playing'||game.phase==='paused')&&<div className="listen-surface"><div className={`vinyl-disc ${audible?'spinning':''}`} aria-hidden="true"><Disc3/><span>echo.</span></div><h1>{t('Слушай внимательно')}</h1><p>{t(audible?'Фрагмент играет…':'Название откроется после ответа')}</p><div className="listen-deck"><Wave active={audible}/><button className="listen-button" disabled={busy||game.mediaError?.retryAvailable===false} onClick={()=>audible?void pauseRound():void playRound()} aria-label={t('Слушать фрагмент')}>{busy?<Loader2 className="spin"/>:audible?<Headphones/>:<Play fill="currentColor"/>}<span>{busy?t('Готовим звук…'):audible?t('game.pause'):game.phase==='paused'?t('game.resume'):t('Слушать {count} сек',{count:game.settings.duration})}</span></button></div><div className="clip-timeline"><span>00:0{Math.min(game.settings.duration,Math.floor(game.settings.duration*clipProgress/100))}</span><Progress value={clipProgress} aria-label={t('Длительность фрагмента')}/><span>00:0{game.settings.duration}</span></div>{pending&&<span className="queued-settings-note">{t('Новые настройки — со следующего трека')}</span>}{game.mediaError?.retryAvailable===false&&<p role="status">{t('Запись недоступна. Можно отменить игру.')}</p>}<button className="guess-utility listen-report" disabled={busy} onClick={()=>setReportOpen(!reportOpen)}><Volume2 size={18}/>{t('game.incorrectMedia')}</button></div>}
       {game.phase==='answer'&&<div className={`answer-surface answer-v5 ${game.songOnly?'song-only':''}`}>
         <button className={`voice-tile ${voiceField?'recording':''}`} type="button" disabled={blockedAnswer||!voiceAvailable} aria-label={t(voiceField?'Остановить голосовой ввод':'Продиктовать ответ')} aria-pressed={!!voiceField} onClick={()=>voiceField?stopVoice():startVoice(game.songOnly?'song':'artist')}><span className="voice-orb"><Mic size={32}/><i/><i/></span><span className="voice-copy"><strong>{t(voiceField?'Слушаю тебя…':spoken?'Ответ распознан':'Скажи свой ответ')}</strong><span>{interim||spoken||t(voiceAvailable?(game.songOnly?'Назови песню':'Назови исполнителя и песню одной фразой'):'В этом браузере используй ручной ввод')}</span></span>{voiceField&&<Wave active/>}</button>

@@ -5,7 +5,7 @@ export type GameView = {
   practice?:boolean;pauseRemaining?:number;settings: Settings; pendingSettings?: Settings; songOnly?: boolean; dynamicMode?: boolean;
   score: number; maxScore: number; xpPenalty?:number; cancelled?:boolean; phase: 'ready' | 'paused' | 'playing' | 'answer' | 'reveal' | 'finished' | 'cancelled';
   track?: { id: string; audioUrl?: string; verseStart?: number; demoNotes?: number[]; duration?: number };
-  clipEndsAt?: number; deadline?: number;
+  clipEndsAt?: number; deadline?: number; serverTime?: number;
   hintUsed?: boolean; hintStart?: number;
   hint?: { used: boolean; failed?: boolean; start?: number; duration: number; audioUrl?: string; available: boolean };
   mediaError?: { attempts: number; retryAvailable: boolean };

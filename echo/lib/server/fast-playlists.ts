@@ -18,7 +18,7 @@ type ModelList={plan:PlaylistPlan;songs:ProposedSong[];diversityExhausted:boolea
 export type PlaylistProgress={type:'progress';stage:'planning'|'splitting'|'assembling';progress:number;resolved:number;requested:number;processed:number;total:number;elapsedMs:number};
 type Progress=(event:PlaylistProgress)=>void;
 const norm=(value:string)=>value.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
-const baseTitle=(value:string)=>value.replace(/\s*\((?:[^)]*(?:remaster|version|edit|mono|stereo)[^)]*)\)\s*$/i,'').trim();
+const baseTitle=(value:string)=>value.replace(/\s*\((?:[^)]*(?:remaster|version|edit|mono|stereo|feat|ft|from|ost|soundtrack|radio|single|album|mix|deluxe)[^)]*)\)\s*$/i,'').replace(/\s*\[(?:[^\]]*(?:remaster|version|edit|mono|stereo|feat|ft|deluxe)[^\]]*)\]\s*$/i,'').replace(/\s+-\s+(?:(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|radio\s+edit|single\s+version|album\s+version|mono|stereo).*$/i,'').trim();
 const transliteration:Record<string,string>={а:'a',б:'b',в:'v',г:'h',ґ:'g',д:'d',е:'e',є:'ie',ж:'zh',з:'z',и:'y',і:'i',ї:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ь:'',ы:'y',э:'e',ю:'iu',я:'ia',ё:'io',ъ:''};
 const artistIdentity=(value:string)=>norm(value).replace(/[а-яіїєґ]/g,char=>transliteration[char]??char).replace(/iu|yu/g,'u').replace(/ia|ya/g,'a').replace(/ie|ye/g,'e').replace(/[iy]/g,'i').replace(/h/g,'g');
 const catalogArtistIdentity=(value:string)=>artistIdentity(catalogArtistNames(value)[0]??value);
